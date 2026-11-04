@@ -7,7 +7,7 @@ export interface Dot {
   aff: Map<number, number>; belief: Int32Array; carry: number; invite: any; starvedDay: number; rich: boolean; meals: number;
   traits: string[]; done: Set<string>; isThief: boolean; age: number; life: number; partner: number; married: boolean; since: number; thieves: Set<number>; dead: boolean;
   grief: number; starveT: number; theftCd: number; dream: string | null; dreams: number; adult: boolean; kids: number; rejectCd: number;
-  shortAt?: number;
+  shortAt?: number; unpaid?: number;
 }
 export interface Building {
   id: number; type: number; x: number; y: number; door: number[]; open: boolean; occ: number; stock: number; inside: Dot[]; name: string; flag: boolean; sid: number;

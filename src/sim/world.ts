@@ -21,7 +21,7 @@ export class World {
   constructor(o: WorldOptions = {}) {
     this.rnd = o.deterministic ? mk((o.seed || 1337) ^ 0x9e3779b9) : Math.random;
     this.seed = o.seed || 1337; this.R = mk(this.seed); this.pop = o.pop || DEFAULT_POP; this.maxPop = o.maxPop || Math.round(this.pop * 1.7);
-    this.sites = []; this.fq = []; this.fgen = 0; this.biz = { opened: 0, closed: 0, built: 0, sold: 0, fires: 0, arrived: 0 }; this.blightAt = -1e9; this.lastTheftTick = -1e9; this.sPop = []; this.sbl = [];
+    this.sites = []; this.fq = []; this.fgen = 0; this.biz = { opened: 0, closed: 0, built: 0, sold: 0, fires: 0, arrived: 0, unpaid: 0, quit: 0, benefits: 0 }; this.blightAt = -1e9; this.lastTheftTick = -1e9; this.sPop = []; this.sbl = [];
     this.tick = Math.floor(0.3 * DAY_TICKS); this.out = []; this.pending = [];
     this.stats = { meals: 0, chats: 0, friends: 0, deliveries: 0, wasted: 0, thefts: 0, fights: 0, births: 0, deaths: 0 };
     this.pairs = new Set(); this.festival = 0; this.blight = 0;

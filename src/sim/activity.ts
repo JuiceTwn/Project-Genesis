@@ -72,7 +72,7 @@ function doing(this: World, d) {
     case 'work':
       if (--d.timer <= 0) {
         if (d.job === 0) { d.carry = tkLess(this.tick, this.blight) ? 0 : Math.max(1, Math.round(4 * YIELD[this.season()])); if (!d.carry) this.out.push({ t: 'say', d: d.id, k: [C.FARM, C.BAD] }); }
-        else { const w = d.job === 1 ? 9 : d.job === 2 ? 10 : 8; d.coin += w; const wb = this.buildings[g.b]; wb.visits++; if (wb.owner >= 0 && wb.state === 'ok') { wb.wage += w; wb.rev += wb.type === BT.DOCK ? 13 : wb.type === BT.WORKSHOP ? 11 : 0; } }
+        else { const w = d.job === 1 ? 9 : d.job === 2 ? 10 : 8, wb = this.buildings[g.b]; wb.visits++; if (wb.owner >= 0 && wb.state === 'ok') wb.rev += wb.type === BT.DOCK ? 13 : wb.type === BT.WORKSHOP ? 11 : 0; d.coin += this.payWage(wb, d, w); }
         this.finish(d);
       }
       break;

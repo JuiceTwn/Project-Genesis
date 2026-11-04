@@ -8,6 +8,7 @@ const { BT, MAXM, STOCK_CAP, TILE, C } = K;
 export interface Gov { mayor: number; treasury: number; tax: number; next: number; festival: number }
 export const NATION_CUT = 0.15;          // share of local taxes remitted to the national treasury
 export const ELECTION_DAYS = 6;
+export const BENEFIT = 4;                // daily unemployment benefit for jobless adults who are short of cash
 
 /** Rough yearly-budget scale for a town: spending thresholds are multiples of this, so a hamlet and the capital behave alike. */
 export function reserve(P: number): number { return Math.max(60, P * 12); }
@@ -45,6 +46,7 @@ function collectTaxes(this: World) {
     if (d.dead || !d.adult) continue;
     const g = this.gov(this.S[this.buildings[d.home].sid]), pay = Math.min(d.coin, g.tax);
     d.coin -= pay; g.treasury += pay * (1 - NATION_CUT); this.nation.treasury += pay * NATION_CUT;
+    if (d.job === 3 && d.work < 0 && d.coin < 40 && g.treasury >= BENEFIT) { d.coin += BENEFIT; g.treasury -= BENEFIT; this.biz.benefits++; }   // unemployment benefit
   }
 }
 

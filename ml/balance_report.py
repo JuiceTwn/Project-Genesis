@@ -35,6 +35,8 @@ def main():
         print(f"  biz.{k:8s} {last['biz'][k]}")
     print(f"  crime/capita/day: {(last['thefts'] + last['fights']) / max(1, last['pop']) / days:.3f}")
     print(f"  births/deaths: {last['born']}/{last['died']}")
+    if "jobless" in last:
+        print(f"  jobless (end): {last['jobless']} ({100 * last['jobless'] / max(1, last['pop']):.1f}% of pop); missed payrolls {last['biz'].get('unpaid', 0)}, quits {last['biz'].get('quit', 0)}")
     tre = [r["treasury"] for r in rows]
     print(f"  treasury min/median/max: {min(tre)}/{int(st.median(tre))}/{max(tre)}")
     bad = 0

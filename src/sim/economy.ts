@@ -10,6 +10,23 @@ function economyDawn(this: World) {
   this.settle(); this.hire(); this.disasters(); this.housing(); this.entrepreneurs(); this.sales(); this.immigration(); this.vacancies();
 }
 
+/** Pay a shift's wage out of the employer's pocket. Returns what the worker actually received.
+    A private firm that cannot cover payroll misses it; after three missed shifts in a row the worker quits.
+    Publicly run buildings are paid for by the town treasury (and, when that is dry, the wage is still honoured). */
+function payWage(this: World, b, d, w: number): number {
+  if (b.state !== 'ok' || !this.isBiz(b)) return w;
+  if (b.owner < 0) { const g = this.gov(this.S[b.sid]); if (g.treasury >= w) g.treasury -= w; return w; }
+  const avail = b.cash + (b.type === BT.MARKET ? 0.3 : 1) * b.rev;
+  if (avail >= w) { b.cash -= w; b.wage += w; d.unpaid = 0; return w; }
+  d.unpaid = (d.unpaid || 0) + 1; this.biz.unpaid++;
+  this.ev('unpaid' + b.id, `💸 ${b.name} ${BT_NAME[b.type]} in ${this.S[b.sid].name} missed payroll — ${d.name} went home unpaid.`, [d.id, b.owner], 2 * DAY_TICKS, 2);
+  if (d.unpaid >= 3 && d.job !== 3 && d.work === b.id) {
+    d.job = 3; d.work = -1; d.unpaid = 0; b.staff = Math.max(0, (b.staff || 1) - 1); this.biz.quit++;
+    this.ev('quit', `🚪 ${d.name} quit ${b.name} ${BT_NAME[b.type]} after weeks of missed pay.`, [d.id], 3 * DAY_TICKS, 3); this.say(d, [C.ME, C.ANGRY]);
+  }
+  return 0;
+}
+
 function settle(this: World) {
   const day = this.day();
   for (const b of this.buildings) {
@@ -22,7 +39,7 @@ function settle(this: World) {
     const o = this.dots[b.owner]; if (!o || o.dead) { b.owner = -1; continue; }
     const up = UPKEEP[b.type], inc = b.type === BT.MARKET ? b.rev * 0.3 : b.rev, profit = inc - up - b.wage;
     b.hist.push(Math.round(profit)); if (b.hist.length > 6) b.hist.shift();
-    b.cash += profit;
+    b.cash += inc - up;   // wages were already paid out of the till during the day (see payWage)
     if (b.cash > 70) { const dv = Math.round((b.cash - 40) * 0.6); b.cash -= dv; o.coin += dv; }
     if (b.cash < -25 && o.coin > 45) { const inj = Math.min(40, o.coin - 20); o.coin -= inj; b.cash += inj; }
     const young = this.tick - b.born < 3 * DAY_TICKS, v = b.visits; b.rev = 0; b.wage = 0; b.visits = 0;
@@ -134,8 +151,9 @@ function mprice(this: World, b) { return b.stock < 25 ? 8 : b.stock < 60 ? 6 : b
 
 function price(this: World, d) { return d.adult ? 2 : 0; }
 
-Object.assign(World.prototype, { economyDawn, settle, fail, hire, entrepreneurs, tryFound, housing, immigration, sales, disasters, mprice, price });
+Object.assign(World.prototype, { payWage, economyDawn, settle, fail, hire, entrepreneurs, tryFound, housing, immigration, sales, disasters, mprice, price });
 declare module './world' { interface World {
+  payWage: (...args: any[]) => any;
   economyDawn: (...args: any[]) => any;
   settle: (...args: any[]) => any;
   fail: (...args: any[]) => any;
