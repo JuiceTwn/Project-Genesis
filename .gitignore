@@ -1,3 +1,8 @@
 node_modules/
 data/
 *.zip
+dist/
+public/
+__pycache__/
+.venv/
+ml/out/

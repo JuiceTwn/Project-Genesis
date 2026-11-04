@@ -3,7 +3,26 @@
   "version": "0.1.0",
   "private": true,
   "description": "A tiny shared world of dots living their lives, with their own language.",
-  "main": "server.js",
-  "scripts": { "start": "node server.js", "bench": "node bench.js 8", "demo": "node build-demo.js" },
-  "dependencies": { "ws": "^8.18.0" }
+  "main": "dist/server.js",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "start": "npm run build --silent && node dist/server.js",
+    "dev": "tsx watch src/server/main.ts",
+    "bench": "tsx src/tools/bench.ts",
+    "typecheck": "tsc -p .",
+    "test": "tsx --test tests/*.test.ts",
+    "map": "tsx src/tools/map.ts",
+    "report": "python3 ml/balance_report.py"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "@types/ws": "^8.18.2",
+    "esbuild": "^0.28.2",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3"
+  },
+  "type": "commonjs"
 }

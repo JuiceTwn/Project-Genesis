@@ -33,6 +33,7 @@ is happening now. It's a window, not a game: slow, ambient and calming, closer t
 ## Try it
 - **No server:** open `demo.html` in any browser (runs the sim locally; ⏩ speeds it up).
 - **Server:** `npm install && npm start` → http://localhost:3000 (everyone watches the same world).
+  `npm start` builds first; `demo.html` is rebuilt by `npm run build`.
 
 ## What exists today
 - **Generated country:** simplex-noise island, rivers and lakes, a capital sited for trade (harbor, river mouth or
@@ -58,18 +59,25 @@ is happening now. It's a window, not a game: slow, ambient and calming, closer t
 8. **Chronicle and replay:** persistent history, era summaries, highlight clips.
 
 ## Cheap VPS deploy (1 vCPU / 512 MB is plenty)
-    git clone … && cd project-genesis && npm install
-    # systemd or pm2:  pm2 start server.js --name dotville
+    git clone … && cd project-genesis && npm install && npm run build
+    # systemd or pm2:  pm2 start dist/server.js --name dotville
     # TLS + websockets: Caddy →   yourdomain.com { reverse_proxy localhost:3000 }
 State auto-saves to `data/state.json` every 60 s and on shutdown. Bandwidth is about 8 KB/s per viewer
 (binary positions at 5 Hz), so 100 viewers is roughly 1 MB/s.
 
 ## How it's built
-- `public/worldgen.js`: terrain, hydrology, site scoring, settlement hierarchy, roads and town layout.
-  `Gen.expand()` is reused at runtime so towns keep growing.
-- `public/sim.js`: world, needs, economy, language, chat. Runs in Node and the browser.
-  `World.decide()` is the brain: a utility AI today, the swap point for the trained policy.
-- `server.js`: websocket server. Binary frames for positions (15-byte header), JSON deltas for events,
-  buildings (`bld`) and tiles (`tiles`).
-- `public/index.html`: canvas client (terrain, buildings, dots, bubbles, camera).
-- `bench.js`: headless run for tuning (`node bench.js 40` for 40 days). `node build-demo.js` rebuilds `demo.html`.
+TypeScript for the sim, worldgen, server and client; Python for offline tuning and (later) model training.
+
+    src/shared/    constants, types, seeded RNG, small utils
+    src/worldgen/  terrain, hydrology, settlements, roads, town layout (seeded, deterministic)
+    src/sim/       World + one module per system: people, buildings, economy, government, brain (decide),
+                   activity, social, crime, lexicon, viewer actions, output/protocol, persistence, tick
+    src/server/    websocket server (binary position frames + JSON events), static files, autosave
+    src/client/    canvas client; demo.ts bundles the sim in for the no-server demo
+    src/tools/     bench (headless run, JSONL log), map (worldgen PNG preview)
+    ml/            Python: balance_report.py now; imitation/PPO training and ONNX export later
+    tests/         node:test regression tests (determinism, invariants, save/load)
+
+Commands: `npm run build` (client + demo.html + server bundle), `npm start`, `npm run dev`, `npm test`,
+`npm run typecheck`, `npm run bench -- 40 --seed 7 --json ml/out/run.jsonl`, `npm run report ml/out/run.jsonl`,
+`npm run map -- 1337 map.png`.

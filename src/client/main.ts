@@ -1,74 +1,5 @@
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Dotville — a tiny world of dots</title>
-<style>
-*{box-sizing:border-box;margin:0}
-html,body{height:100%;background:#12151c;color:#dfe5ee;font:14px/1.35 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
-#app{display:flex;flex-direction:column;height:100%}
-header{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;padding:8px 12px;background:#1a1f2a;border-bottom:1px solid #262d3b}
-header b{font-size:16px;letter-spacing:.3px}
-.pill{color:#9fb0c8;white-space:nowrap}.pill i{font-style:normal;color:#e8eef8}
-.sp{flex:1}
-button{background:#273044;color:#e8eef8;border:0;border-radius:8px;padding:6px 10px;font:inherit;cursor:pointer}
-button:active{background:#34415c}button:disabled{opacity:.4}button.on{background:#3b6ea8}
-main{flex:1;display:flex;min-height:0}
-#stage{position:relative;flex:1;min-width:0;background:#0d1016;display:flex;align-items:center;justify-content:center}
-canvas{display:block;width:100%;touch-action:none;max-height:100%}
-#zoom{position:absolute;right:8px;bottom:8px;display:flex;flex-direction:column;gap:6px}
-#zoom button{width:34px;height:34px;padding:0;font-size:18px}
-#live{position:absolute;left:10px;top:8px;color:#9fb0c8;font-size:12px;pointer-events:none;text-shadow:0 1px 2px #000}
-aside{width:340px;display:flex;flex-direction:column;border-left:1px solid #262d3b;background:#161a23;min-height:0}
-#card{padding:10px 12px;border-bottom:1px solid #262d3b;min-height:92px}
-#card .hint{color:#7d8ba1}
-#card h3{font-size:16px;display:flex;gap:8px;align-items:baseline}
-#card h3 small{color:#8a9ab2;font-weight:400}
-.bar{display:flex;align-items:center;gap:6px;margin-top:3px;font-size:12px;color:#9fb0c8}.bar span{width:52px}
-.bar div{flex:1;height:6px;background:#262d3b;border-radius:3px;overflow:hidden}.bar div i{display:block;height:100%}
-.trs{margin-top:4px}.tr{display:inline-block;background:#2a3350;border-radius:8px;padding:1px 7px;font-size:12px;margin-right:4px;color:#c9d4e6}
-.act{display:flex;gap:6px;margin-top:8px}.act button{flex:1;padding:6px 4px;font-size:13px}
-#tabs{display:flex;gap:6px;padding:6px 10px;border-bottom:1px solid #262d3b}#tabs button{flex:1;background:#1f2634;padding:5px}#tabs button.on{background:#3b6ea8}
-#town{display:none;flex:1;overflow:auto;padding:8px 12px}#town h4{margin:10px 0 4px;color:#9fb0c8;font-size:13px}#town .row{display:flex;justify-content:space-between;padding:5px 8px;background:#1d2330;border-radius:8px;margin-bottom:4px;cursor:pointer}#town .row i{font-style:normal;color:#9fb0c8}.tstats{color:#c9d4e6;line-height:1.7}
-#ticker div.hot{border-left:3px solid #e0775a}#ticker div.big{border-left:3px solid #ffd45a;background:#222a3b}
-.th{margin-top:6px;font-style:italic;color:#c9d4e6}.do{color:#9fb0c8;margin-top:2px}
-.fr{margin-top:6px;display:flex;flex-wrap:wrap;gap:4px}.fr a{background:#252d3f;border-radius:10px;padding:1px 8px;cursor:pointer;font-size:12px}
-#ticker{flex:1;overflow:auto;padding:4px 0}
-#ticker div{padding:6px 12px;border-bottom:1px solid #1f2532;cursor:pointer;animation:in .5s}
-#ticker div:active{background:#202738}
-#ticker small{display:block;color:#6f7e95;font-size:11px}
-@keyframes in{from{background:#2c3a57}to{background:transparent}}
-@media (max-width:820px){main{flex-direction:column}aside{width:100%;flex:1;border-left:0;border-top:1px solid #262d3b}#stage{flex:none}header{padding:6px 10px}.hide-m{display:none}}
-</style>
-</head>
-<body>
-<div id="app">
-  <header>
-    <b>● Dotville</b>
-    <span class="pill" id="clock">Day –</span>
-    <span class="pill">pop <i id="pop">–</i></span>
-    <span class="pill">mood <i id="mood">–</i></span>
-    <span class="pill hide-m">food <i id="food">–</i></span>
-    <span class="pill hide-m">couples <i id="fr">–</i></span>
-    <span class="pill">👀 <i id="viewers">1</i></span>
-    <span class="sp"></span>
-    <button id="bFest" title="Everyone goes to the park">🎉 Festival</button>
-    <button id="bBlight" title="Crops fail for 40s">🥀 Blight</button>
-    <button id="bTr" class="on" title="Show translations">🌐</button>
-    <button id="bCam" class="on" title="Auto-camera follows the drama">🎥</button>
-    <button id="bSpd" style="display:none">⏩ ×1</button>
-  </header>
-  <main>
-    <div id="stage"><canvas id="c"></canvas><div id="live"></div>
-      <div id="zoom"><button id="zi">+</button><button id="zo">−</button></div></div>
-    <aside><div id="card"><div class="hint">Tap a dot to follow it.<br>Watch for speech bubbles — dots speak their own language; 🌐 shows the translation.</div></div>
-      <div id="tabs"><button class="on" data-t="feed">Feed</button><button data-t="town">Town</button></div><div id="ticker"></div><div id="town"></div></aside>
-  </main>
-</div>
-<script src="worldgen.js"></script>
-<script src="sim.js"></script>
-<script>
+// @ts-nocheck -- TODO: type the client incrementally (state shapes are in src/shared/protocol.ts once written)
+declare const Sim: any;   // provided by demo.ts when running without a server
 (() => {
 'use strict';
 const $ = s => document.querySelector(s);
@@ -455,6 +386,3 @@ requestAnimationFrame(draw);
 if (LOCAL) startLocal(); else connect();
 window.__dv = { handle, select, get cam() { return cam; } };
 })();
-</script>
-</body>
-</html>
