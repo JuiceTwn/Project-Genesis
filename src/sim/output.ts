@@ -18,18 +18,63 @@ function actCode(this: World, d) {
   switch (d.goal.k) { case 'sleep': return 2; case 'work': case 'deliver': case 'build': return 3; case 'eat': return 4; case 'social': return 5; case 'drink': return 6; default: return 0; }
 }
 
-function frame(this: World) {
-  const n = this.dots.length, nb = this.buildings.length, buf = new ArrayBuffer(15 + n * 5 + nb * 2), v = new DataView(buf);
-  v.setUint8(0, 1); v.setUint32(1, this.tick, true); v.setFloat32(5, this.tod(), true); v.setUint16(9, this.day(), true); v.setUint16(11, n, true); v.setUint16(13, nb, true);
-  let o = 15;
+/** Bucket size (tiles) for the per-tick spatial index, and density-grid cell size for the zoomed-out overview. */
+const BUCKET = 16, DENS = 8;
+/** Views wider than this many tiles get a density overview instead of individual dots. */
+export const OVERVIEW_SPAN = 130;
+export interface View { x0: number; y0: number; x1: number; y1: number }
+
+function dotFlags(this: World, d) { return (d.inside ? 1 : 0) | (this.actCode(d) << 1) | (d.carry > 0 ? 16 : 0) | (d.fight ? 32 : 0) | (d.adult ? 0 : 128); }
+
+/** Spatial index + density grid, rebuilt once per tick no matter how many viewers there are. */
+function indexDots(this: World) {
+  if (this.idxTick === this.tick) return; this.idxTick = this.tick;
+  const bw = Math.ceil(W / BUCKET), bh = Math.ceil(H / BUCKET), gw = Math.ceil(W / DENS), gh = Math.ceil(H / DENS);
+  const buckets: number[][] = this.buckets && this.buckets.length === bw * bh ? this.buckets : Array.from({ length: bw * bh }, () => []);
+  for (const b of buckets) b.length = 0;
+  const dens = new Uint8Array(gw * gh);
   for (const d of this.dots) {
-    const px = d.x + (d.nx >= 0 ? (d.nx - d.x) * d.prog : 0), py = d.y + (d.ny >= 0 ? (d.ny - d.y) * d.prog : 0);
-    v.setUint16(o, Math.round((px + 0.5) * 16), true); v.setUint16(o + 2, Math.round((py + 0.5) * 16), true);
-    v.setUint8(o + 4, (d.inside ? 1 : 0) | (this.actCode(d) << 1) | (d.carry > 0 ? 16 : 0) | (d.fight ? 32 : 0) | (d.dead ? 64 : 0) | (d.adult ? 0 : 128)); o += 5;
+    if (d.dead) continue;
+    const gi = (d.y / DENS | 0) * gw + (d.x / DENS | 0); if (dens[gi] < 255) dens[gi]++;
+    if (!d.inside) buckets[(d.y / BUCKET | 0) * bw + (d.x / BUCKET | 0)].push(d.id);
   }
-  for (const b of this.buildings) { v.setUint16(o, b.occ, true); o += 2; }
+  this.buckets = buckets; this.dens = dens; this.denseW = gw; this.denseH = gh;
+}
+/** Dots a viewer following `id` also needs: the dot itself, its friends and its partner (for the relationship lines). */
+function relatedIds(this: World, id: number): number[] {
+  const d = this.dots[id]; if (!d) return [];
+  const r = [id]; for (const [k] of this.friends(d).slice(0, 6)) r.push(k); if (d.partner >= 0) r.push(d.partner); return r;
+}
+/** Binary frame for one viewer. Layout: [u8 1][u32 tick][f32 tod][u16 day] [u16 gw][u16 gh][gw*gh u8 density] [u16 n]{u16 id,u16 x*16,u16 y*16,u8 flags}*n [u16 nb]{u16 id,u16 occ}*nb.
+    view = visible tile rectangle (client adds its own margin); null or very wide => density overview, no individual dots. mode 'full' sends every dot (bench). */
+function frameFor(this: World, view: View | null, extras: number[] = [], mode: 'auto' | 'full' = 'auto') {
+  this.indexDots();
+  const wide = !view || view.x1 - view.x0 > OVERVIEW_SPAN, full = mode === 'full';
+  const ids = new Set<number>(extras.filter(i => this.dots[i] && !this.dots[i].dead));
+  const occIds: number[] = [];
+  if (full) { for (const d of this.dots) if (!d.dead) ids.add(d.id); for (const b of this.buildings) if (b.occ > 0) occIds.push(b.id); }
+  else if (!wide) {
+    const bw = Math.ceil(W / BUCKET), bh = Math.ceil(H / BUCKET);
+    const bx0 = Math.max(0, view.x0 / BUCKET | 0), bx1 = Math.min(bw - 1, view.x1 / BUCKET | 0), by0 = Math.max(0, view.y0 / BUCKET | 0), by1 = Math.min(bh - 1, view.y1 / BUCKET | 0);
+    for (let by = by0; by <= by1; by++) for (let bx = bx0; bx <= bx1; bx++) for (const id of this.buckets[by * bw + bx]) ids.add(id);
+    for (const b of this.buildings) if (b.occ > 0 && b.x >= view.x0 - 3 && b.x <= view.x1 && b.y >= view.y0 - 3 && b.y <= view.y1) occIds.push(b.id);
+  }
+  const gw = wide && !full ? this.denseW : 0, gh = wide && !full ? this.denseH : 0;
+  const buf = new ArrayBuffer(11 + 4 + gw * gh + 2 + ids.size * 7 + 2 + occIds.length * 4), v = new DataView(buf);
+  v.setUint8(0, 1); v.setUint32(1, this.tick, true); v.setFloat32(5, this.tod(), true); v.setUint16(9, this.day(), true);
+  let o = 11; v.setUint16(o, gw, true); v.setUint16(o + 2, gh, true); o += 4;
+  if (gw) { new Uint8Array(buf, o, gw * gh).set(this.dens); o += gw * gh; }
+  v.setUint16(o, ids.size, true); o += 2;
+  for (const id of ids) {
+    const d = this.dots[id], px = d.x + (d.nx >= 0 ? (d.nx - d.x) * d.prog : 0), py = d.y + (d.ny >= 0 ? (d.ny - d.y) * d.prog : 0);
+    v.setUint16(o, id, true); v.setUint16(o + 2, Math.round((px + 0.5) * 16), true); v.setUint16(o + 4, Math.round((py + 0.5) * 16), true); v.setUint8(o + 6, this.dotFlags(d)); o += 7;
+  }
+  v.setUint16(o, occIds.length, true); o += 2;
+  for (const id of occIds) { v.setUint16(o, id, true); v.setUint16(o + 2, this.buildings[id].occ, true); o += 4; }
   return buf;
 }
+/** Full-population frame (what the old protocol sent to everyone): used by the bench to measure the worst case. */
+function frame(this: World) { return this.frameFor(null, [], 'full'); }
 
 function drain(this: World) { const o = this.out; this.out = []; return o; }
 
@@ -98,11 +143,12 @@ function detail(this: World, id) {
     friends: this.friends(d).slice(0, 6).map(([k, v]) => [k, Math.round(v)]) };
 }
 
-Object.assign(World.prototype, { initMsg, actCode, frame, drain, computeRep, statsMsg, doingText, thought, detail });
+Object.assign(World.prototype, { dotFlags, indexDots, relatedIds, frameFor, initMsg, actCode, frame, drain, computeRep, statsMsg, doingText, thought, detail });
 declare module './world' { interface World {
   initMsg: (...args: any[]) => any;
   actCode: (...args: any[]) => any;
   frame: (...args: any[]) => any;
+  dotFlags: (...args: any[]) => any; indexDots: (...args: any[]) => any; relatedIds: (...args: any[]) => any; frameFor: (...args: any[]) => any;
   drain: (...args: any[]) => any;
   computeRep: (...args: any[]) => any;
   statsMsg: (...args: any[]) => any;

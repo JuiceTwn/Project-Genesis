@@ -45,3 +45,17 @@ test('every populated settlement has its own mayor, and taxes fill local treasur
   assert.ok(w.townTreasury() > 0, 'local treasuries collect tax');
   assert.ok(w.nation.treasury > 0, 'the nation takes its cut');
 });
+
+test('interest-based frames: overview and zoomed views are far smaller than the full population frame', () => {
+  const w = new World({ seed: 9, deterministic: true, pop: 300 });
+  run(w, 200);
+  const full = w.frameFor(null, [], 'full').byteLength, overview = w.frameFor(null).byteLength;
+  const cap = w.dots.find((d: any) => !d.dead && !d.inside)!, v = { x0: cap.x - 10, y0: cap.y - 10, x1: cap.x + 10, y1: cap.y + 10 };
+  const zoomed = new DataView(w.frameFor(v));
+  const gw = zoomed.getUint16(11, true);
+  assert.equal(gw, 0, 'no density grid when zoomed in');
+  const n = zoomed.getUint16(15, true);
+  assert.ok(n >= 1 && n < w.dots.length, `zoomed frame lists only nearby dots (${n})`);
+  assert.ok(overview < full, 'overview is smaller than the full frame');
+  assert.ok(w.frameFor(v).byteLength < overview, 'a zoomed frame is smaller than the overview');
+});

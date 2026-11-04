@@ -32,13 +32,13 @@ function startLocal() {
   $('#bSpd').style.display = ''; $('#live').textContent = 'local sim (just you)';
   setInterval(() => {
     for (let i = 0; i < localSpeed; i++) { localWorld.step(); if (localWorld.tick % 5 === 0 && i < localSpeed - 1) { const q = localWorld.drain(); if (q.length) handle({ t: 'batch', m: q }); } }
-    frame(localWorld.frame());
+    frame(localWorld.frameFor(curView, localWorld.relatedIds(sel)));
     let ms = localWorld.drain(); if (ms.length > 400) ms = ms.slice(-400);
     if (ms.length) handle({ t: 'batch', m: ms });
     if (localWorld.tick % 5 === 0) { const s = localWorld.statsMsg(); s.viewers = 1; handle(s); if (sel >= 0) handle(localWorld.detail(sel)); }
   }, 200);
 }
-function localSend(m) { if (m.t === 'act') localWorld.act(m.n, m.id); }
+function localSend(m) { if (m.t === 'act') localWorld.act(m.n, m.id); else if (m.t === 'view') curView = m; }
 
 /* ---------- messages ---------- */
 function handle(m) {
@@ -68,17 +68,33 @@ function bldUpd(m) {
   const b = m.b; if (m.op === 'del') b.st = 3;
   blds[b.i] = b; bnames[b.i] = bname(b);
 }
+let dens = null, denseW = 0, denseH = 0;   // zoomed-out overview: dots per 8x8-tile cell (the server sends no individual dots then)
 function frame(buf) {
   if (!ready) return;
   const v = new DataView(buf);
-  tod = v.getFloat32(5, true); day = v.getUint16(9, true); const n = v.getUint16(11, true), nb = v.getUint16(13, true);
-  const now = performance.now(); let o = 15;
-  for (let i = 0; i < n; i++, o += 5) {
+  tod = v.getFloat32(5, true); day = v.getUint16(9, true);
+  let o = 11; const gw = v.getUint16(o, true), gh = v.getUint16(o + 2, true); o += 4;
+  if (gw) { dens = new Uint8Array(buf, o, gw * gh); denseW = gw; denseH = gh; o += gw * gh; } else dens = null;
+  // anything the server did not list is out of view: hide it and snap it into place when it returns
+  for (const d of dots) if (d) { d.fl |= 1; d.seen = false; }
+  const n = v.getUint16(o, true); o += 2; const now = performance.now();
+  for (let k = 0; k < n; k++, o += 7) {
+    const i = v.getUint16(o, true);
     const d = dots[i] || (dots[i] = { id: i, name: 'newcomer', job: 0, home: 0, traits: [], col: '#ccc', x: 0, y: 0, tx: 0, ty: 0, fx: 0, fy: 0, t0: 0, fl: 0, seen: false }); if (!names[i]) names[i] = d.name;
-    const x = v.getUint16(o, true) / 16, y = v.getUint16(o + 2, true) / 16;
-    d.fx = d.seen ? d.x : x; d.fy = d.seen ? d.y : y; d.tx = x; d.ty = y; d.t0 = now; d.fl = v.getUint8(o + 4); d.seen = true;
+    const x = v.getUint16(o + 2, true) / 16, y = v.getUint16(o + 4, true) / 16, wasSeen = d.wasSeen;
+    d.fx = wasSeen ? d.x : x; d.fy = wasSeen ? d.y : y; d.tx = x; d.ty = y; d.t0 = now; d.fl = v.getUint8(o + 6); d.seen = true;
   }
-  occ = []; for (let i = 0; i < nb; i++, o += 2) occ.push(v.getUint16(o, true));
+  for (const d of dots) if (d) d.wasSeen = d.seen;
+  const nb = v.getUint16(o, true); o += 2; occ = [];
+  for (let k = 0; k < nb; k++, o += 4) occ[v.getUint16(o, true)] = v.getUint16(o + 2, true);
+}
+/** Tell the server which tiles are on screen (plus a margin) so it only sends what we can see. */
+let sentView = '', lastViewAt = 0, curView = null;
+function reportView(now) {
+  if (now - lastViewAt < 250) return; lastViewAt = now;
+  const s = sc(), vw = cssW / s, vh = cssH / s, mx = vw * 0.15, my = vh * 0.15;
+  const m = { t: 'view', x0: Math.floor(cam.x - vw / 2 - mx), y0: Math.floor(cam.y - vh / 2 - my), x1: Math.ceil(cam.x + vw / 2 + mx), y1: Math.ceil(cam.y + vh / 2 + my) };
+  const key = m.x0 + ',' + m.y0 + ',' + m.x1 + ',' + m.y1; if (key === sentView) return; sentView = key; curView = m; send(m);
 }
 const clk = () => { const h = tod * 24, hh = Math.floor(h), mm = Math.floor((h - hh) * 60); return (hh < 10 ? '0' : '') + hh + ':' + (mm < 10 ? '0' : '') + mm + (h < 6 || h >= 20 ? ' 🌙' : h < 8 ? ' 🌅' : h >= 18 ? ' 🌇' : ' ☀️'); };
 function hud() {
@@ -280,6 +296,7 @@ const clamp01 = v => v < 0 ? 0 : v > 1 ? 1 : v;
 function draw(now) {
   requestAnimationFrame(draw);
   if (!ready) return;
+  reportView(now);
   // camera easing
   if (camTarget !== null) { cam.z += (camTarget - cam.z) * 0.12; if (Math.abs(camTarget - cam.z) < 0.01) { cam.z = camTarget; camTarget = null; } }
   for (const d of dots) { const a = clamp01((now - d.t0) / 200); d.x = d.fx + (d.tx - d.fx) * a; d.y = d.fy + (d.ty - d.fy) * a; }
@@ -313,6 +330,15 @@ function draw(now) {
     for (const [fid] of detail.friends) { const f = dots[fid]; if (f.fl & 1) continue; const [fx, fy] = toS(f.x, f.y); ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(fx, fy); ctx.stroke(); }
     ctx.setLineDash([]);
     if (detail.pid >= 0) { const f = dots[detail.pid]; if (!(f.fl & 1)) { const [fx, fy] = toS(f.x, f.y); ctx.strokeStyle = 'rgba(255,70,110,.9)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(fx, fy); ctx.stroke(); } }
+  }
+  // zoomed-out overview: a warm glow where people are
+  if (dens) {
+    ctx.fillStyle = 'rgba(255,214,120,0.5)';
+    for (let cy = 0; cy < denseH; cy++) for (let cx = 0; cx < denseW; cx++) {
+      const c = dens[cy * denseW + cx]; if (!c) continue;
+      const [x, y] = toS((cx + 0.5) * 8, (cy + 0.5) * 8); if (x < -20 || y < -20 || x > cssW + 20 || y > cssH + 20) continue;
+      ctx.beginPath(); ctx.arc(x, y, Math.min(s * 4.5, 2 + Math.sqrt(c) * s * 0.3), 0, 6.283); ctx.fill();
+    }
   }
   // dots
   const R0 = Math.max(1.9, s * 0.34);

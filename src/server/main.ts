@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { WebSocketServer, WebSocket } from 'ws';
 import { World, TICK_HZ } from '../sim';
+import type { View } from '../sim/output';
 
 const PORT = +(process.env.PORT || 3000);
 const MAX_CLIENTS = +(process.env.MAX_CLIENTS || 400);
@@ -30,18 +31,19 @@ const server = http.createServer((req, res) => {
   });
 });
 
-type Client = WebSocket & { sel: number; budget: number };
+type Client = WebSocket & { sel: number; budget: number; view: View | null };
 const wss = new WebSocketServer({ server, perMessageDeflate: false, maxPayload: 512 });
 const initJson = JSON.stringify(world.initMsg());
 wss.on('connection', (raw: WebSocket) => {
   const ws = raw as Client;
   if (wss.clients.size > MAX_CLIENTS) { ws.close(1013); return; }
-  ws.sel = -1; ws.budget = 20;
+  ws.sel = -1; ws.budget = 20; ws.view = null;   // null = zoomed-out overview until the client reports its viewport
   ws.send(initJson);
   ws.on('message', data => {
     if (ws.budget-- <= 0) return;             // flood guard
     let m: any; try { m = JSON.parse(data.toString()); } catch { return; }
     if (m.t === 'sel') ws.sel = Number.isInteger(m.id) && m.id >= 0 && m.id < world.dots.length ? m.id : -1;
+    else if (m.t === 'view') { const n = [m.x0, m.y0, m.x1, m.y1]; ws.view = n.every(Number.isFinite) ? { x0: n[0], y0: n[1], x1: n[2], y1: n[3] } : null; }
     else if (m.t === 'act' && typeof m.n === 'string') world.act(m.n, Number.isInteger(m.id) ? m.id : -1);
   });
   ws.on('error', () => {});
@@ -54,7 +56,7 @@ let next = Date.now();
 function loop() {
   world.step();
   if (wss.clients.size) {
-    broadcast(Buffer.from(world.frame()), true);
+    for (const c of wss.clients) if (c.readyState === 1) { const ws = c as Client; c.send(Buffer.from(world.frameFor(ws.view, world.relatedIds(ws.sel))), { binary: true }); }
     const msgs = world.drain();
     if (msgs.length) broadcast(JSON.stringify({ t: 'batch', m: msgs }), false);
     if (world.tick % TICK_HZ === 0) {

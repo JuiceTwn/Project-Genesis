@@ -65,8 +65,8 @@ is happening now. It's a window, not a game: slow, ambient and calming, closer t
     git clone … && cd project-genesis && npm install && npm run build
     # systemd or pm2:  pm2 start dist/server.js --name dotville
     # TLS + websockets: Caddy →   yourdomain.com { reverse_proxy localhost:3000 }
-State auto-saves to `data/state.json` every 60 s and on shutdown. Bandwidth is about 8 KB/s per viewer
-(binary positions at 5 Hz), so 100 viewers is roughly 1 MB/s.
+State auto-saves to `data/state.json` every 60 s and on shutdown. Frames are interest-based: each viewer reports its viewport and gets only the dots on screen (about 1.3 KB/s zoomed in)
+or a coarse density grid when zoomed out (about 6 KB/s), instead of every dot (about 50 KB/s). 100 viewers is well under 1 MB/s.
 
 ## How it's built
 TypeScript for the sim, worldgen, server and client; Python for offline tuning and (later) model training.

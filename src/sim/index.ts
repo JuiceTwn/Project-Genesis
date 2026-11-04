@@ -4,4 +4,5 @@ export type { WorldOptions } from './world';
 import './lexicon'; import './people'; import './buildings'; import './economy'; import './government'; import './brain';
 import './activity'; import './social'; import './crime'; import './viewer'; import './output'; import './persist'; import './tick'; import './helpers';
 export { W, H } from '../shared/dims';
+export type { View } from './output';
 export * from '../shared/constants';
