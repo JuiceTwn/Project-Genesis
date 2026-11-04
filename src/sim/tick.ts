@@ -83,6 +83,7 @@ function step(this: World) {
 }
 
 function dawn(this: World) {
+  this.gazetteDawn();   // the paper goes to press with yesterday's news before today's begins
   const day = this.day();
   const alive = this.dots.filter(d => !d.dead);
   this.sPop = []; for (const d of alive) { const sid = this.buildings[d.home].sid; this.sPop[sid] = (this.sPop[sid] || 0) + 1; }

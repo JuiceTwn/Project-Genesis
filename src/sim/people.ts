@@ -97,7 +97,7 @@ function die(this: World, d, cause) {
   const mourners = fr.slice(0, 6), park = this.nearest(this.parks, mourners[0] || d, 0);
   for (const m of mourners) { m.grief = this.tick + 400; m.social = Math.max(0, m.social - 15); m.invite = { k: 'social', b: park.id, until: this.tick + 300 }; this.later(2 + ((this.rnd() * 10) | 0), { t: 'say', d: m.id, k: [1000 + d.id, C.DIE] }); }
   this.stats.deaths++;
-  this.ev('death', `🕯️ ${d.name} ${cause === 'hunger' ? 'starved' : 'died of old age'} at ${Math.round(d.age)}.${mourners.length ? ` ${mourners.length} friend${mourners.length > 1 ? 's' : ''} mourn.` : ''}${heir && est > 0 ? ` ${heir.name} inherits ${Math.round(est)} coins.` : ''}`, [d.id].concat(mourners.slice(0, 1).map(m => m.id)), 0, 4);
+  this.ev('death', `🕯️ ${d.name} ${cause === 'hunger' ? 'starved' : 'died of old age'} at ${Math.round(d.age)}.${mourners.length ? ` ${mourners.length} friend${mourners.length > 1 ? 's' : ''} mourn.` : ''}${heir && est > 0 ? ` ${heir.name} inherits ${Math.round(est)} coin${Math.round(est) === 1 ? '' : 's'}.` : ''}`, [d.id].concat(mourners.slice(0, 1).map(m => m.id)), 0, 4);
 }
 
 function spawn(this: World, a, b) {

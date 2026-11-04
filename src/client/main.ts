@@ -1,5 +1,6 @@
 // @ts-nocheck -- TODO: type the client incrementally (state shapes are in src/shared/protocol.ts once written)
 import { CATALOG, TRAIT } from '../sim/personality';
+import { renderIssue, GAZETTE_CSS } from '../shared/gazette';
 declare const Sim: any;   // provided by demo.ts when running without a server
 (() => {
 'use strict';
@@ -53,6 +54,7 @@ function handle(m) {
     case 'tiles': { const a = tiles.split(''); for (const [i, v] of m.c) a[i] = v; tiles = a.join(''); terrDirty = true; break; }
     case 'stats': stat = m; arcs = m.arcs || arcs; hud(); break;
     case 'chron': addChron(m.e, true); break;
+    case 'issue': issue = m.issue; if (tab === 'gazette') gazetteTab(); break;
     case 'detail': detail = m; card(); break;
   }
 }
@@ -64,7 +66,7 @@ function init(m) {
   bnames = blds.map(bname);
   buildStatic(); resize(); cam.x = W / 2; cam.y = H / 2; cam.z = 1; occ = []; ready = true;
   $('#ticker').innerHTML = ''; (m.hist || []).forEach(e => ticker(e, false));
-  chron = []; (m.chron || []).forEach(e => addChron(e, false)); arcs = m.arcs || [];
+  chron = []; (m.chron || []).forEach(e => addChron(e, false)); arcs = m.arcs || []; issue = m.issue || null;
 }
 const bname = b => b.n ? b.n + ' ' + BTN[b.ty] : 'House';
 function bldUpd(m) {
@@ -157,12 +159,22 @@ function town() {
   $('#town').querySelectorAll('.row').forEach(r => r.onclick = () => select(+r.dataset.i));
 }
 /* ---------- stories: active arcs + the chronicle ---------- */
-let chron = [], arcs = [];
+let chron = [], arcs = [], issue = null;
+{ const st = document.createElement('style'); st.textContent = GAZETTE_CSS + '#gazette .gz .mast h1{font-size:26px}#gazette .gz h2.hl{font-size:22px}#gazette .gz .cols{column-count:1}'; document.head.appendChild(st); }
+function gazetteTab() {
+  const g = $('#gazette');
+  if (!issue) { g.innerHTML = '<div class="gz"><div class="mast"><h1>The Dotville Gazette</h1></div><p>The first issue goes to press at dawn of day 2.</p></div>'; return; }
+  let h = renderIssue(issue, '');
+  if (LOCAL) h = h.replace(/ <a href="[^"]*"[^>]*>full story →<\/a>/g, '');
+  const links = LOCAL ? '' : `<div class="gz"><div class="share"><a href="/issue/${issue.n}" target="_blank">Open permalink ↗</a><button data-share="/issue/${issue.n}">Share</button><a href="/archive" target="_blank">Archive</a></div></div>`;
+  g.innerHTML = h + links;
+  g.querySelectorAll('[data-share]').forEach(b => b.onclick = () => { const u = location.origin + b.dataset.share; (navigator.share ? navigator.share({ title: document.title, url: u }) : navigator.clipboard.writeText(u).then(() => { b.textContent = 'Link copied!'; })); });
+}
 const ARC_ICON = { rivalry: '⚔️', triangle: '💞', feud: '🏚️', protege: '🌱', drought: '☀️', investor: '💼' };
 function addChron(e, live) { chron.push(e); if (chron.length > 300) chron.shift(); if (live && tab === 'story') storyTab(); }
 function storyTab() {
   const esc = t => String(t).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
-  const active = arcs.map(a => `<div class="row arc" data-i="${a.ids[0] ?? -1}"><span>${ARC_ICON[a.k] || '📖'} <b>${esc(a.t)}</b><small style="display:block;opacity:.7;white-space:normal">${esc(a.b)}</small></span><i>day ${a.d}</i></div>`).join('') || '<div class="tstats">No story is unfolding right now — the storyteller is waiting for tension to drop.</div>';
+  const active = arcs.map(a => `<div class="row arc" data-i="${a.ids[0] ?? -1}"><span>${ARC_ICON[a.k] || '📖'} <b>${esc(a.t)}</b><small style="display:block;opacity:.7;white-space:normal">${esc(a.b)}</small></span><i>day ${a.d}${LOCAL ? '' : ` · <a href="/story/${a.i}" target="_blank" onclick="event.stopPropagation()" title="Permalink">↗</a>`}</i></div>`).join('') || '<div class="tstats">No story is unfolding right now — the storyteller is waiting for tension to drop.</div>';
   const log = chron.slice().reverse().slice(0, 80).map(e => `<div class="chron ${e.big ? 'big' : ''}" ${e.ids && e.ids.length ? `data-i="${e.ids[0]}"` : ''}><small>Year ${e.year} · day ${e.day}</small><b>${esc(e.title)}</b><div>${esc(e.text)}</div></div>`).join('');
   $('#story').innerHTML = `<div class="tstats" style="margin-bottom:6px">🎭 tension ${stat ? stat.tension : '–'} · ${arcs.length} active stories</div><h4>Unfolding now</h4>${active}<h4>Chronicle</h4>${log || '<div class="tstats">Nothing recorded yet.</div>'}`;
   $('#story').querySelectorAll('[data-i]').forEach(r => r.onclick = () => { const i = +r.dataset.i; if (i >= 0) select(i); });
@@ -422,7 +434,7 @@ $('#zo').onclick = () => { camTarget = Math.max(1, cam.z / 1.6); };
 $('#bFest').onclick = () => send({ t: 'act', n: 'festival' });
 $('#bBlight').onclick = () => send({ t: 'act', n: 'blight' });
 $('#bCam').onclick = e => { auto = !auto; e.currentTarget.classList.toggle('on', auto); if (!auto && dirIds) { dirIds = null; pick_(-1, false); } };
-document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => { tab = b.dataset.t; document.querySelectorAll('#tabs button').forEach(x => x.classList.toggle('on', x === b)); $('#ticker').style.display = tab === 'feed' ? '' : 'none'; $('#town').style.display = tab === 'town' ? 'block' : 'none'; $('#story').style.display = tab === 'story' ? 'block' : 'none'; if (tab === 'town') town(); if (tab === 'story') storyTab(); });
+document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => { tab = b.dataset.t; document.querySelectorAll('#tabs button').forEach(x => x.classList.toggle('on', x === b)); $('#ticker').style.display = tab === 'feed' ? '' : 'none'; $('#town').style.display = tab === 'town' ? 'block' : 'none'; $('#story').style.display = tab === 'story' ? 'block' : 'none'; $('#gazette').style.display = tab === 'gazette' ? 'block' : 'none'; if (tab === 'town') town(); if (tab === 'story') storyTab(); if (tab === 'gazette') gazetteTab(); });
 cv.addEventListener('pointerdown', () => { userAt = performance.now(); });
 $('#bTr').onclick = e => { translate = !translate; e.currentTarget.classList.toggle('on', translate); };
 $('#bSpd').onclick = e => { localSpeed = localSpeed === 1 ? 4 : localSpeed === 4 ? 12 : 1; e.currentTarget.textContent = '⏩ ×' + localSpeed; };

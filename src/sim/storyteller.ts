@@ -15,7 +15,7 @@ export { newStory };
 export type { Arc, ChronEntry };
 const MAX_CHRON = 400;
 /** The tension the storyteller aims for on a given day: a slow wave between calm and busy. */
-export const targetTension = (day: number) => 5 + 3 * Math.sin((day / 9) * Math.PI * 2);
+export const targetTension = (day: number) => 4.5 + 2.5 * Math.sin((day / 9) * Math.PI * 2);
 
 function chronicle(this: World, title: string, text: string, ids: number[] = [], big = true, arc = -1) {
   const e: ChronEntry = { day: this.day(), year: this.year(), title, text, ids, arc, big };
@@ -26,9 +26,9 @@ const nm = (w: World, id: number) => w.dots[id]?.name ?? '?';
 /** Record a beat of an arc: feed (weight 4 so the camera cuts to it) + chronicle. */
 function beat(w: World, a: Arc, text: string, big = false) {
   a.beats.push({ day: w.day(), text }); w.ev('arc' + a.id + '.' + a.beats.length, text, a.ids.filter(i => w.dots[i] && !w.dots[i].dead).slice(0, 2), 0, 4);
-  w.chronicle(a.title, text, a.ids, big, a.id);
+  w.chronicle(a.title, text, a.ids, big, a.id); w.archiveStory(a);
 }
-function close(w: World, a: Arc, outcome: string) { a.done = true; a.outcome = outcome; w.story.closed++; w.story.cool[a.kind] = w.day(); }
+function close(w: World, a: Arc, outcome: string) { a.done = true; a.outcome = outcome; w.story.closed++; w.story.cool[a.kind] = w.day(); w.archiveStory(a); }
 const live = (w: World, ...ids: number[]) => ids.every(i => w.dots[i] && !w.dots[i].dead);
 const hostile = (a: Dot, b: Dot, v: number) => { a.aff.set(b.id, Math.min(a.aff.get(b.id) || 0, 0) - v); b.aff.set(a.id, Math.min(b.aff.get(a.id) || 0, 0) - v); };
 const warm = (a: Dot, b: Dot, v: number) => { a.aff.set(b.id, Math.max(a.aff.get(b.id) || 0, 0) + v); b.aff.set(a.id, Math.max(b.aff.get(a.id) || 0, 0) + v); };
@@ -192,14 +192,25 @@ const KINDS: Kind[] = [rivalry, triangle, feud, protege, drought, investor];
 /** Called once per dawn. */
 function storyDawn(this: World) {
   const st = this.story, day = this.day();
-  st.tension *= 0.85;
+  const pop = Math.max(1, this.sPop.reduce((s, v) => s + (v || 0), 0));
+  st.tension = 0.6 * st.tension + 0.4 * (st.heat * 150 / pop); st.heat = 0;   // normalised: a bigger country is not automatically 'more dramatic'
   for (const a of st.arcs) if (!a.done) { try { KINDS.find(k => k.kind === a.kind)!.step(this, a, day - a.day0); } catch (e) { a.done = true; a.outcome = 'error'; } }
   st.arcs = st.arcs.filter(a => !a.done || day - a.day0 < 30);
   const active = st.arcs.filter(a => !a.done).length, cap = Math.max(2, Math.round((this.sPop.reduce((s, v) => s + (v || 0), 0)) / 150));
-  if (active < cap && st.tension < targetTension(day) && this.rnd() < 0.6 && this.tick - st.lastLaunch > DAY_TICKS * 0.5) {
-    const opts = KINDS.map(k => ({ k, w: k.weight(this) * (day - (st.cool[k.kind] || -99) > 4 ? 1 : 0.1) * (st.arcs.filter(a => !a.done && a.kind === k.kind).length >= 3 ? 0.1 : 1) }));
-    let r = this.rnd() * opts.reduce((s, o) => s + o.w, 0);
-    for (const o of opts) { r -= o.w; if (r <= 0) { if (o.k.launch(this)) { st.lastLaunch = this.tick; st.tension += 3; } else st.cool[o.k.kind] = day - 3; break; } }
+  // how many stories to start today: more when the country is calmer than the wave asks for, and more for a bigger country
+  const regions = Math.max(1, Math.round(pop / 700)), want = Math.ceil((targetTension(day) - st.tension) / 1.5);
+  const slots = Math.min(cap - active, regions * Math.max(0, want));
+  for (let n = 0; n < slots && this.rnd() < 0.85; n++) {
+    const opts = KINDS.map(k => ({ k, w: k.weight(this) * (day - (st.cool[k.kind] || -99) > 3 ? 1 : 0.15) * (st.arcs.filter(a => !a.done && a.kind === k.kind).length >= 3 * regions ? 0.1 : 1) }));
+    // try kinds in weighted random order until one finds a setting it can use (many need specific people to exist)
+    let launched = false;
+    for (let attempt = 0; attempt < KINDS.length && opts.length && !launched; attempt++) {
+      let r = this.rnd() * opts.reduce((s, o) => s + o.w, 0), pick = opts.length - 1;
+      for (let i = 0; i < opts.length; i++) { r -= opts[i].w; if (r <= 0) { pick = i; break; } }
+      launched = !!opts.splice(pick, 1)[0].k.launch(this);
+    }
+    if (!launched) break;
+    st.lastLaunch = this.tick; st.tension += 2.5 / regions;
   }
   if (this.year() !== st.lastYear) this.yearReview();
 }

@@ -12,9 +12,11 @@
     "typecheck": "tsc -p .",
     "test": "tsx --test tests/*.test.ts",
     "map": "tsx src/tools/map.ts",
-    "report": "python3 ml/balance_report.py"
+    "report": "python3 ml/balance_report.py",
+    "gazette": "tsx src/tools/gazette.ts"
   },
   "dependencies": {
+    "@resvg/resvg-js": "^2.6.2",
     "ws": "^8.18.0"
   },
   "devDependencies": {

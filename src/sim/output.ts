@@ -10,7 +10,7 @@ function initMsg(this: World) {
   return { t: 'init', W, H, hz: TICK_HZ, tiles: Array.from(this.tiles).join(''), wk: Array.from(m.wk).join(''), el: b64(el), tick: this.tick,
     setts: this.S.map(s => ({ i: s.id, n: s.name, t: s.tier, x: s.x, y: s.y })),
     blds: this.buildings.map(b => this.bldMsg(b)),
-    hist: this.hist.slice(-25), chron: this.story.chron.slice(-60), arcs: this.arcsMsg(), dots: this.dots.map(d => ({ n: d.name, f: d.fam, j: d.job, h: d.home, tr: d.traits })), lex: this.lex, jobs: JOBS, bt: BT_NAME };
+    hist: this.hist.slice(-25), chron: this.story.chron.slice(-60), issue: this.issues[this.issues.length - 1] || null, arcs: this.arcsMsg(), dots: this.dots.map(d => ({ n: d.name, f: d.fam, j: d.job, h: d.home, tr: d.traits })), lex: this.lex, jobs: JOBS, bt: BT_NAME };
 }
 
 function actCode(this: World, d) {

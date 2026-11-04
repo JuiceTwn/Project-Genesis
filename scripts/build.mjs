@@ -17,7 +17,7 @@ const js = demo.outputFiles[0].text.replace(/<\/script>/g, '<\\/script>');
 fs.writeFileSync('demo.html', html.replace('<script src="client.js"></script>', () => `<script>\n${js}\n</script>`));
 
 // 3. server
-await build({ ...common, entryPoints: ['src/server/main.ts'], outfile: 'dist/server.js', format: 'cjs', platform: 'node', external: ['ws'] });
+await build({ ...common, entryPoints: ['src/server/main.ts'], outfile: 'dist/server.js', format: 'cjs', platform: 'node', external: ['ws', '@resvg/resvg-js'] });
 
 const kb = f => (fs.statSync(f).size / 1024).toFixed(0) + ' KB';
 console.log(`built: public/client.js ${kb('public/client.js')}, demo.html ${kb('demo.html')}, dist/server.js ${kb('dist/server.js')}`);

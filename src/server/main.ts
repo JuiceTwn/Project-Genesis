@@ -5,6 +5,8 @@ import path from 'node:path';
 import { WebSocketServer, WebSocket } from 'ws';
 import { World, TICK_HZ } from '../sim';
 import type { View } from '../sim/output';
+import { Archive } from './archive';
+import { route } from './pages';
 
 const PORT = +(process.env.PORT || 3000);
 const MAX_CLIENTS = +(process.env.MAX_CLIENTS || 400);
@@ -14,13 +16,19 @@ const STATE = path.join(ROOT, 'data', 'state.json');
 
 let state: any = null;
 try { state = JSON.parse(fs.readFileSync(STATE, 'utf8')); } catch { /* fresh world */ }
+const archive = new Archive(path.join(ROOT, 'data', 'archive'));
 const world = new World({ seed: 1337, state });
 console.log(`world ready: day ${world.day()}, ${world.dots.length} dots, ${world.buildings.length} buildings`);
 
 const MIME: Record<string, string> = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8' };
-const server = http.createServer((req, res) => {
+const server = http.createServer(async (req, res) => {
   let u = (req.url || '/').split('?')[0];
   if (u === '/health') { res.end('ok'); return; }
+  if (u === '/robots.txt') { res.end('User-agent: *\nAllow: /\nSitemap: ' + origin(req) + '/sitemap.xml\n'); return; }
+  try {
+    const r = await route(u, { archive, origin: origin(req), root: ROOT });
+    if (r) { res.writeHead(r.status, { 'Content-Type': r.type, ...(r.headers || {}) }); res.end(r.body); return; }
+  } catch (e: any) { console.error('route error', e.message); res.writeHead(500).end('error'); return; }
   if (u === '/') u = '/index.html';
   const f = path.join(PUBLIC, path.normalize(u).replace(/^(\.\.[/\\])+/, ''));
   if (!f.startsWith(PUBLIC)) { res.writeHead(403).end(); return; }
@@ -30,6 +38,9 @@ const server = http.createServer((req, res) => {
     res.end(buf);
   });
 });
+
+/** Public origin for absolute links in share tags: PUBLIC_URL if set, else from the request (honouring a reverse proxy). */
+function origin(req: http.IncomingMessage): string { if (process.env.PUBLIC_URL) return process.env.PUBLIC_URL.replace(/\/$/, ''); const proto = (req.headers['x-forwarded-proto'] as string) || 'http'; return `${proto}://${req.headers.host || 'localhost'}`; }
 
 type Client = WebSocket & { sel: number; budget: number; view: View | null };
 const wss = new WebSocketServer({ server, perMessageDeflate: false, maxPayload: 512 });
@@ -55,6 +66,7 @@ function broadcast(data: Buffer | string, binary: boolean) { for (const ws of ws
 let next = Date.now();
 function loop() {
   world.step();
+  if (world.archive.length) for (const a of world.archive.splice(0)) archive.put(a.kind as 'issue' | 'story', a.id, a.data);
   if (wss.clients.size) {
     for (const c of wss.clients) if (c.readyState === 1) { const ws = c as Client; c.send(Buffer.from(world.frameFor(ws.view, world.relatedIds(ws.sel))), { binary: true }); }
     const msgs = world.drain();
@@ -70,7 +82,7 @@ function loop() {
 }
 loop();
 
-function save() { try { fs.mkdirSync(path.dirname(STATE), { recursive: true }); fs.writeFileSync(STATE + '.tmp', JSON.stringify(world.serialize())); fs.renameSync(STATE + '.tmp', STATE); } catch (e: any) { console.error('save failed', e.message); } }
+function save() { archive.flush(); try { fs.mkdirSync(path.dirname(STATE), { recursive: true }); fs.writeFileSync(STATE + '.tmp', JSON.stringify(world.serialize())); fs.renameSync(STATE + '.tmp', STATE); } catch (e: any) { console.error('save failed', e.message); } }
 setInterval(save, 60000);
 for (const sig of ['SIGINT', 'SIGTERM'] as const) process.on(sig, () => { save(); process.exit(0); });
 
