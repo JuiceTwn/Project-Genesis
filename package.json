@@ -1,0 +1,9 @@
+{
+  "name": "dotville",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A tiny shared world of dots living their lives, with their own language.",
+  "main": "server.js",
+  "scripts": { "start": "node server.js", "bench": "node bench.js 8", "demo": "node build-demo.js" },
+  "dependencies": { "ws": "^8.18.0" }
+}

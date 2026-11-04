@@ -1,0 +1,2003 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Dotville — a tiny world of dots</title>
+<style>
+*{box-sizing:border-box;margin:0}
+html,body{height:100%;background:#12151c;color:#dfe5ee;font:14px/1.35 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+#app{display:flex;flex-direction:column;height:100%}
+header{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;padding:8px 12px;background:#1a1f2a;border-bottom:1px solid #262d3b}
+header b{font-size:16px;letter-spacing:.3px}
+.pill{color:#9fb0c8;white-space:nowrap}.pill i{font-style:normal;color:#e8eef8}
+.sp{flex:1}
+button{background:#273044;color:#e8eef8;border:0;border-radius:8px;padding:6px 10px;font:inherit;cursor:pointer}
+button:active{background:#34415c}button:disabled{opacity:.4}button.on{background:#3b6ea8}
+main{flex:1;display:flex;min-height:0}
+#stage{position:relative;flex:1;min-width:0;background:#0d1016;display:flex;align-items:center;justify-content:center}
+canvas{display:block;width:100%;touch-action:none;max-height:100%}
+#zoom{position:absolute;right:8px;bottom:8px;display:flex;flex-direction:column;gap:6px}
+#zoom button{width:34px;height:34px;padding:0;font-size:18px}
+#live{position:absolute;left:10px;top:8px;color:#9fb0c8;font-size:12px;pointer-events:none;text-shadow:0 1px 2px #000}
+aside{width:340px;display:flex;flex-direction:column;border-left:1px solid #262d3b;background:#161a23;min-height:0}
+#card{padding:10px 12px;border-bottom:1px solid #262d3b;min-height:92px}
+#card .hint{color:#7d8ba1}
+#card h3{font-size:16px;display:flex;gap:8px;align-items:baseline}
+#card h3 small{color:#8a9ab2;font-weight:400}
+.bar{display:flex;align-items:center;gap:6px;margin-top:3px;font-size:12px;color:#9fb0c8}.bar span{width:52px}
+.bar div{flex:1;height:6px;background:#262d3b;border-radius:3px;overflow:hidden}.bar div i{display:block;height:100%}
+.trs{margin-top:4px}.tr{display:inline-block;background:#2a3350;border-radius:8px;padding:1px 7px;font-size:12px;margin-right:4px;color:#c9d4e6}
+.act{display:flex;gap:6px;margin-top:8px}.act button{flex:1;padding:6px 4px;font-size:13px}
+#tabs{display:flex;gap:6px;padding:6px 10px;border-bottom:1px solid #262d3b}#tabs button{flex:1;background:#1f2634;padding:5px}#tabs button.on{background:#3b6ea8}
+#town{display:none;flex:1;overflow:auto;padding:8px 12px}#town h4{margin:10px 0 4px;color:#9fb0c8;font-size:13px}#town .row{display:flex;justify-content:space-between;padding:5px 8px;background:#1d2330;border-radius:8px;margin-bottom:4px;cursor:pointer}#town .row i{font-style:normal;color:#9fb0c8}.tstats{color:#c9d4e6;line-height:1.7}
+#ticker div.hot{border-left:3px solid #e0775a}#ticker div.big{border-left:3px solid #ffd45a;background:#222a3b}
+.th{margin-top:6px;font-style:italic;color:#c9d4e6}.do{color:#9fb0c8;margin-top:2px}
+.fr{margin-top:6px;display:flex;flex-wrap:wrap;gap:4px}.fr a{background:#252d3f;border-radius:10px;padding:1px 8px;cursor:pointer;font-size:12px}
+#ticker{flex:1;overflow:auto;padding:4px 0}
+#ticker div{padding:6px 12px;border-bottom:1px solid #1f2532;cursor:pointer;animation:in .5s}
+#ticker div:active{background:#202738}
+#ticker small{display:block;color:#6f7e95;font-size:11px}
+@keyframes in{from{background:#2c3a57}to{background:transparent}}
+@media (max-width:820px){main{flex-direction:column}aside{width:100%;flex:1;border-left:0;border-top:1px solid #262d3b}#stage{flex:none}header{padding:6px 10px}.hide-m{display:none}}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <b>● Dotville</b>
+    <span class="pill" id="clock">Day –</span>
+    <span class="pill">pop <i id="pop">–</i></span>
+    <span class="pill">mood <i id="mood">–</i></span>
+    <span class="pill hide-m">food <i id="food">–</i></span>
+    <span class="pill hide-m">couples <i id="fr">–</i></span>
+    <span class="pill">👀 <i id="viewers">1</i></span>
+    <span class="sp"></span>
+    <button id="bFest" title="Everyone goes to the park">🎉 Festival</button>
+    <button id="bBlight" title="Crops fail for 40s">🥀 Blight</button>
+    <button id="bTr" class="on" title="Show translations">🌐</button>
+    <button id="bCam" class="on" title="Auto-camera follows the drama">🎥</button>
+    <button id="bSpd" style="display:none">⏩ ×1</button>
+  </header>
+  <main>
+    <div id="stage"><canvas id="c"></canvas><div id="live"></div>
+      <div id="zoom"><button id="zi">+</button><button id="zo">−</button></div></div>
+    <aside><div id="card"><div class="hint">Tap a dot to follow it.<br>Watch for speech bubbles — dots speak their own language; 🌐 shows the translation.</div></div>
+      <div id="tabs"><button class="on" data-t="feed">Feed</button><button data-t="town">Town</button></div><div id="ticker"></div><div id="town"></div></aside>
+  </main>
+</div>
+<script>window.__LOCAL__=true;</script>
+<script>
+/* Dotville worldgen: a whole little country from seeded noise.
+   Pipeline: simplex fBm terrain (domain-warped, island mask + a bay) -> sea level by quantile -> priority-flood
+   hydrology (flow direction + accumulation => rivers, lakes) -> moisture/forest -> site suitability
+   (flat, fertile, fresh water, harbor, river mouth, confluence, ford) -> capital on the best trade site
+   with a big hinterland -> towns/villages/hamlets by Christaller spacing (x sqrt3 per tier) -> least-cost
+   orthogonal roads with bridges and fords (roads reuse roads, so trunks emerge) -> per-settlement layout:
+   market square + ring road, quay on the shoreline, street branches that grow outward with distance decay,
+   burgage-style frontage plots, rural plots along trunk roads.
+   The same grow/frontage routines are reused at runtime so towns keep expanding. UMD; no dependencies. */
+(function (root) {
+'use strict';
+const T = { GRASS: 0, ROAD: 1, BLOCK: 2, WATER: 3, OPEN: 4, TREE: 5, BRIDGE: 6, FORD: 7, SAND: 8, ROCK: 9 };
+const TIERS = ['capital', 'town', 'village', 'hamlet'];
+const SQ = [[7, 5], [5, 3], [5, 3], [3, 3]];           // square size per tier (w,h)
+const URBAN_R = [26, 16, 10, 6];                          // urban radius per tier
+const BRANCH_L = [15, 11, 8, 4];                         // max street branch length per tier
+const SPACING = [0, 27, 15.6, 9.5];                      // Christaller: each tier ~sqrt(3) closer than the one above
+
+function mk(seed) { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ t >>> 15, t | 1); t ^= t + Math.imul(t ^ t >>> 7, t | 61); return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+
+function Noise(seed) {
+  const r = mk(seed), p = new Uint8Array(512), g = [[1, 1], [-1, 1], [1, -1], [-1, -1], [1, 0], [-1, 0], [0, 1], [0, -1]];
+  const b = []; for (let i = 0; i < 256; i++) b.push(i);
+  for (let i = 255; i > 0; i--) { const j = (r() * (i + 1)) | 0; const t = b[i]; b[i] = b[j]; b[j] = t; }
+  for (let i = 0; i < 512; i++) p[i] = b[i & 255];
+  const F2 = 0.5 * (Math.sqrt(3) - 1), G2 = (3 - Math.sqrt(3)) / 6;
+  return (xin, yin) => {
+    const s = (xin + yin) * F2, i = Math.floor(xin + s), j = Math.floor(yin + s), t = (i + j) * G2;
+    const x0 = xin - (i - t), y0 = yin - (j - t), i1 = x0 > y0 ? 1 : 0, j1 = x0 > y0 ? 0 : 1;
+    const x1 = x0 - i1 + G2, y1 = y0 - j1 + G2, x2 = x0 - 1 + 2 * G2, y2 = y0 - 1 + 2 * G2, ii = i & 255, jj = j & 255;
+    let n = 0, t0 = 0.5 - x0 * x0 - y0 * y0;
+    if (t0 > 0) { t0 *= t0; const q = g[p[ii + p[jj]] & 7]; n += t0 * t0 * (q[0] * x0 + q[1] * y0); }
+    let t1 = 0.5 - x1 * x1 - y1 * y1;
+    if (t1 > 0) { t1 *= t1; const q = g[p[ii + i1 + p[jj + j1]] & 7]; n += t1 * t1 * (q[0] * x1 + q[1] * y1); }
+    let t2 = 0.5 - x2 * x2 - y2 * y2;
+    if (t2 > 0) { t2 *= t2; const q = g[p[ii + 1 + p[jj + 1]] & 7]; n += t2 * t2 * (q[0] * x2 + q[1] * y2); }
+    return Math.max(-1, Math.min(1, 55 * n));
+  };
+}
+function fbm(n, x, y, oct, gain = 0.5) { let a = 1, f = 1, s = 0, nz = 0; for (let o = 0; o < oct; o++) { s += a * n(x * f, y * f); nz += a; a *= gain; f *= 2.03; } return s / nz; }
+
+class Heap {
+  constructor() { this.k = []; this.v = []; this.lk = 0; }
+  get size() { return this.k.length; }
+  push(key, val) { const K = this.k, V = this.v; let i = K.length; K.push(key); V.push(val); while (i > 0) { const p = (i - 1) >> 1; if (K[p] <= key) break; K[i] = K[p]; V[i] = V[p]; i = p; } K[i] = key; V[i] = val; }
+  pop() { const K = this.k, V = this.v, tk = K[0], tv = V[0], lk = K.pop(), lv = V.pop(), n = K.length; if (n) { let i = 0; for (;;) { let c = 2 * i + 1; if (c >= n) break; if (c + 1 < n && K[c + 1] < K[c]) c++; if (K[c] >= lk) break; K[i] = K[c]; V[i] = V[c]; i = c; } K[i] = lk; V[i] = lv; } this.lk = tk; return tv; }
+}
+const sm = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+const D4 = [[1, 0], [-1, 0], [0, 1], [0, -1]], D8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
+
+function generate(seed, opt = {}) {
+  const W = opt.W || 144, H = opt.H || 108, N = W * H, R = mk(seed * 977 + 13);
+  const nE = Noise(seed + 11), nW = Noise(seed + 23), nM = Noise(seed + 37), nF = Noise(seed + 51);
+  const idx = (x, y) => y * W + x;
+
+  /* ---- 1. terrain: warped fBm + island mask + a bay on a random side ---- */
+  const ang = R() * Math.PI * 2, ox = Math.cos(ang), oy = Math.sin(ang), h = new Float32Array(N);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const px = x / 34, py = y / 34;
+    const qx = px + 0.8 * nW(px * 0.6 + 5.2, py * 0.6), qy = py + 0.8 * nW(px * 0.6, py * 0.6 + 9.1);
+    const e = fbm(nE, qx, qy, 6) * 0.5 + 0.5;
+    const dx = (x / W - 0.5) * 2, dy = (y / H - 0.5) * 2;
+    const d = Math.hypot(dx * 0.92, dy) + 0.2 * fbm(nW, px * 1.4 + 20, py * 1.4, 3);
+    const mask = 1 - sm(0.5, 1.0, d), bay = sm(0.05, 0.95, dx * ox + dy * oy);
+    h[idx(x, y)] = e * 0.64 + mask * 0.36 - bay * 0.3;
+  }
+  const sorted = Float32Array.from(h).sort(), sea = sorted[Math.floor(N * (opt.sea || 0.31))], hmax = sorted[N - 1];
+  const isSea = new Uint8Array(N), eN = new Float32Array(N);
+  // only the ocean connected to the map edge counts as sea; inland lows become lakes below
+  {
+    const q = [], seen = new Uint8Array(N);
+    for (let i = 0; i < N; i++) { const x = i % W, y = (i / W) | 0; if ((x === 0 || y === 0 || x === W - 1 || y === H - 1) && h[i] <= sea) { seen[i] = 1; q.push(i); } }
+    for (let qi = 0; qi < q.length; qi++) { const i = q[qi], x = i % W, y = (i / W) | 0; isSea[i] = 1; for (const [a, b] of D4) { const nx = x + a, ny = y + b; if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue; const ni = idx(nx, ny); if (!seen[ni] && h[ni] <= sea) { seen[ni] = 1; q.push(ni); } } }
+    for (let i = 0; i < N; i++) eN[i] = h[i] <= sea ? 0 : (h[i] - sea) / (hmax - sea);
+  }
+
+  /* ---- 2. moisture (noise + proximity to the sea) ---- */
+  const dSea = bfs(isSea, W, H);
+  const moist = new Float32Array(N);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const i = idx(x, y); moist[i] = Math.min(1, Math.max(0, (fbm(nM, x / 30, y / 30, 4) * 0.5 + 0.5) * 0.8 + 0.25 * Math.exp(-dSea[i] / 14) - eN[i] * 0.12)); }
+
+  /* ---- 3. hydrology: priority flood from the sea => flow tree => accumulation => rivers & lakes ---- */
+  const fe = Float32Array.from(h), parent = new Int32Array(N).fill(-1), done = new Uint8Array(N), order = [], hp = new Heap();
+  for (let i = 0; i < N; i++) if (isSea[i]) { done[i] = 1; }
+  for (let i = 0; i < N; i++) if (isSea[i]) { const x = i % W, y = (i / W) | 0; for (const [a, b] of D4) { const nx = x + a, ny = y + b; if (nx >= 0 && ny >= 0 && nx < W && ny < H && !isSea[idx(nx, ny)]) { hp.push(h[i], i); break; } } }
+  for (let i = 0; i < N; i++) { const x = i % W, y = (i / W) | 0; if (!isSea[i] && (x === 0 || y === 0 || x === W - 1 || y === H - 1)) { done[i] = 1; hp.push(h[i], i); } }
+  while (hp.size) {
+    const c = hp.pop(), x = c % W, y = (c / W) | 0; order.push(c);
+    for (const [a, b] of D8) {
+      const nx = x + a, ny = y + b; if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+      const ni = idx(nx, ny); if (done[ni]) continue; done[ni] = 1;
+      fe[ni] = Math.max(h[ni], fe[c] + (a && b ? 2e-5 : 1.4e-5)); parent[ni] = c; hp.push(fe[ni], ni);
+    }
+  }
+  const acc = new Float32Array(N); for (let i = 0; i < N; i++) acc[i] = isSea[i] ? 0 : 0.55 + moist[i];
+  for (let k = order.length - 1; k >= 0; k--) { const c = order[k]; if (parent[c] >= 0 && !isSea[c]) acc[parent[c]] += acc[c]; }
+  // lakes: filled basins deeper than a threshold, in clumps of 5+
+  const lake = new Uint8Array(N);
+  { const cand = new Uint8Array(N), seen = new Uint8Array(N); for (let i = 0; i < N; i++) if (!isSea[i] && fe[i] - h[i] > 0.0045) cand[i] = 1;
+    for (let i = 0; i < N; i++) if (cand[i] && !seen[i]) { const comp = [i]; seen[i] = 1; for (let qi = 0; qi < comp.length; qi++) { const c = comp[qi], x = c % W, y = (c / W) | 0; for (const [a, b] of D4) { const nx = x + a, ny = y + b; if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue; const ni = idx(nx, ny); if (cand[ni] && !seen[ni]) { seen[ni] = 1; comp.push(ni); } } } if (comp.length >= 6) for (const c of comp) lake[c] = 1; } }
+  const landCells = []; for (let i = 0; i < N; i++) if (!isSea[i] && !lake[i]) landCells.push(i);
+  const accSorted = landCells.map(i => acc[i]).sort((a, b) => b - a);
+  const thr = Math.max(14, accSorted[Math.floor(landCells.length * (opt.rivers || 0.022))] || 30), big = thr * 7;
+  const wk = new Uint8Array(N);                    // 0 land, 1 sea, 2 lake, 3 river
+  for (let i = 0; i < N; i++) wk[i] = isSea[i] ? 1 : lake[i] ? 2 : 0;
+  for (const i of landCells) if (acc[i] >= thr && eN[i] < 0.9) wk[i] = 3;
+  for (const i of landCells) if (acc[i] >= big && wk[i] === 3) { const x = i % W, y = (i / W) | 0; for (const [a, b] of [[1, 0], [0, 1]]) { const nx = x + a, ny = y + b; if (nx < W && ny < H && wk[idx(nx, ny)] === 0) wk[idx(nx, ny)] = 3; } }
+  const water = new Uint8Array(N); for (let i = 0; i < N; i++) water[i] = wk[i] ? 1 : 0;
+  const dFresh = bfs(wk, W, H, v => v >= 2), dWater = bfs(water, W, H);
+
+  /* ---- 4. base tiles: water, beach, rock, forest ---- */
+  const t = new Uint8Array(N), rc = new Uint8Array(N), qm = new Uint8Array(N), pm = new Int32Array(N).fill(-1);
+  for (let i = 0; i < N; i++) {
+    if (wk[i]) { t[i] = T.WATER; continue; }
+    const f = fbm(nF, (i % W) / 14 + 40, ((i / W) | 0) / 14, 4) * 0.5 + 0.5;
+    if (eN[i] > 0.91) t[i] = T.ROCK;
+    else if (dSea[i] <= 1 && eN[i] < 0.07) t[i] = T.SAND;
+    else if (f > 0.6 - moist[i] * 0.14 && eN[i] < 0.8) t[i] = T.TREE;
+  }
+  // main landmass (largest 4-connected walkable-ish region) so every settlement can be linked by road
+  const comp = new Int32Array(N).fill(-1); let bestC = -1, bestN = 0, nc = 0;
+  for (let i = 0; i < N; i++) if (comp[i] < 0 && !water[i] && t[i] !== T.ROCK) { const q = [i]; comp[i] = nc; for (let qi = 0; qi < q.length; qi++) { const c = q[qi], x = c % W, y = (c / W) | 0; for (const [a, b] of D4) { const nx = x + a, ny = y + b; if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue; const ni = idx(nx, ny); if (comp[ni] < 0 && !water[ni] && t[ni] !== T.ROCK) { comp[ni] = nc; q.push(ni); } } } if (q.length > bestN) { bestN = q.length; bestC = nc; } nc++; }
+  // (rivers may split the land; treat comps across rivers as one for siting by dilating through river cells)
+  const main = new Uint8Array(N);
+  { const q = []; for (let i = 0; i < N; i++) if (comp[i] === bestC) { main[i] = 1; q.push(i); }
+    for (let qi = 0; qi < q.length; qi++) { const c = q[qi], x = c % W, y = (c / W) | 0; for (const [a, b] of D8) { const nx = x + a, ny = y + b; if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue; const ni = idx(nx, ny); if (!main[ni] && !isSea[ni] && !lake[ni] && t[ni] !== T.ROCK) { main[ni] = 1; q.push(ni); } } } }
+
+  /* ---- 5. site suitability ---- */
+  const flat = new Float32Array(N), fert = new Float32Array(N), harbor = new Float32Array(N), bonus = { mouth: new Float32Array(N), conf: new Float32Array(N), ford: new Float32Array(N) };
+  for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
+    const i = idx(x, y); let s = 0; for (const [a, b] of D4) s = Math.max(s, Math.abs(eN[idx(x + a, y + b)] - eN[i]));
+    flat[i] = Math.max(0, 1 - s / 0.045);
+    fert[i] = Math.max(0, Math.min(1, (0.25 + moist[i] * 0.75) * (1 - Math.min(1, eN[i] / 0.9)) + (dFresh[i] <= 3 ? 0.18 : 0)));
+  }
+  for (let y = 6; y < H - 6; y++) for (let x = 6; x < W - 6; x++) {
+    const i = idx(x, y); if (water[i] || dSea[i] > 2) continue;
+    let ws = 0, tot = 0; for (let b = -6; b <= 6; b++) for (let a = -6; a <= 6; a++) if (a * a + b * b <= 36) { tot++; if (isSea[idx(x + a, y + b)]) ws++; }
+    const r = ws / tot; harbor[i] = Math.max(0, 1 - Math.abs(r - 0.4) / 0.4);   // sheltered bay: partly enclosed by land
+  }
+  const stamp = (arr, c, rad, v) => { const x = c % W, y = (c / W) | 0; for (let b = -rad; b <= rad; b++) for (let a = -rad; a <= rad; a++) { const nx = x + a, ny = y + b; if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue; const k = idx(nx, ny), w = v * Math.exp(-Math.hypot(a, b) / (rad * 0.45)); if (w > arr[k]) arr[k] = w; } };
+  const upstream = new Uint8Array(N);
+  for (const i of landCells) if (wk[i] === 3 && parent[i] >= 0 && wk[parent[i]] === 3) upstream[parent[i]]++;
+  for (const i of landCells) if (wk[i] === 3) {
+    if (parent[i] >= 0 && wk[parent[i]] === 1) stamp(bonus.mouth, i, 6, 1);
+    if (upstream[i] >= 2) stamp(bonus.conf, i, 6, 1);
+    if (acc[i] < thr * 3.5) stamp(bonus.ford, i, 4, 0.8);
+  }
+  // room to grow: share of clear, flat land within radius 10 (towns need space, not just a good port)
+  const room = new Float32Array(N);
+  { const JJ = new Float64Array((W + 1) * (H + 1));
+    for (let y = 0; y < H; y++) { let row = 0; for (let x = 0; x < W; x++) { const i = idx(x, y); row += (!water[i] && t[i] !== T.ROCK && flat[i] > 0.3 && eN[i] < 0.85) ? 1 : 0; JJ[(y + 1) * (W + 1) + x + 1] = JJ[y * (W + 1) + x + 1] + row; } }
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const x0 = Math.max(0, x - 10), x1 = Math.min(W, x + 11), y0 = Math.max(0, y - 10), y1 = Math.min(H, y + 11); room[idx(x, y)] = (JJ[y1 * (W + 1) + x1] - JJ[y0 * (W + 1) + x1] - JJ[y1 * (W + 1) + x0] + JJ[y0 * (W + 1) + x0]) / ((x1 - x0) * (y1 - y0)); } }
+  const site = new Float32Array(N); let smax = 0;
+  for (let y = 7; y < H - 7; y++) for (let x = 7; x < W - 7; x++) {
+    const i = idx(x, y); if (!main[i] || water[i] || (t[i] !== T.GRASS && t[i] !== T.SAND && t[i] !== T.TREE) || flat[i] < 0.25 || eN[i] > 0.8) continue;
+    let fs = 0, c = 0; for (let b = -5; b <= 5; b += 2) for (let a = -5; a <= 5; a += 2) { fs += fert[idx(x + a, y + b)] * flat[idx(x + a, y + b)]; c++; }
+    const wd = Math.min(dFresh[i], dSea[i]), wa = wd <= 3 ? 1 : 0.4 + 0.6 * Math.exp(-(wd - 3) / 8);
+    let rel = 0; for (let b = -4; b <= 4; b += 4) for (let a = -4; a <= 4; a += 4) rel = Math.max(rel, Math.abs(eN[idx(x + a, y + b)] - eN[i]));
+    const s = 0.9 * flat[i] + 1.1 * (fs / c) + 0.8 * wa + 1.0 * harbor[i] + 0.9 * bonus.mouth[i] + 0.8 * bonus.conf[i] + 0.4 * bonus.ford[i] + 0.3 * Math.min(1, rel / 0.1);
+    site[i] = s * (0.25 + 0.75 * Math.pow(room[i], 2.2)); if (site[i] > smax) smax = site[i];
+  }
+  for (let i = 0; i < N; i++) site[i] /= smax || 1;
+  // hinterland = how much good farmland a town could serve (box sum of fert*flat, radius 11 via integral image)
+  const II = new Float64Array((W + 1) * (H + 1));
+  for (let y = 0; y < H; y++) { let row = 0; for (let x = 0; x < W; x++) { row += main[idx(x, y)] && !water[idx(x, y)] ? fert[idx(x, y)] * flat[idx(x, y)] : 0; II[(y + 1) * (W + 1) + x + 1] = II[y * (W + 1) + x + 1] + row; } }
+  const hint = new Float32Array(N); let hmx = 0;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const x0 = Math.max(0, x - 11), x1 = Math.min(W, x + 12), y0 = Math.max(0, y - 11), y1 = Math.min(H, y + 12); const v = II[y1 * (W + 1) + x1] - II[y0 * (W + 1) + x1] - II[y1 * (W + 1) + x0] + II[y0 * (W + 1) + x0]; hint[idx(x, y)] = v; if (v > hmx) hmx = v; }
+  for (let i = 0; i < N; i++) hint[i] /= hmx || 1;
+  let cx = 0, cy = 0, cn = 0; for (let i = 0; i < N; i++) if (main[i] && !water[i]) { cx += i % W; cy += (i / W) | 0; cn++; } cx /= cn; cy /= cn;
+  let maxDc = 1; for (let i = 0; i < N; i++) if (main[i]) maxDc = Math.max(maxDc, Math.hypot((i % W) - cx, ((i / W) | 0) - cy));
+
+  const map = { W, H, seed, t, wk, h: eN, m: moist, rc, qm, pm, sea: sea, acc, thr, fert, flat, site, hint, settlements: [], plots: [], rm: new Uint8Array(N), ring: new Uint8Array(N), sid: new Int16Array(N).fill(-1) };
+  map.idx = idx;
+
+  /* ---- 6. settlements: capital on the best trade site, then towns/villages/hamlets by CPT spacing ---- */
+  const fitsSquare = (x, y, tier) => {
+    const [sw, sh] = SQ[tier], hw = (sw >> 1) + 1, hh = (sh >> 1) + 1;
+    for (let b = -hh; b <= hh; b++) for (let a = -hw; a <= hw; a++) { const nx = x + a, ny = y + b; if (nx < 3 || ny < 3 || nx >= W - 3 || ny >= H - 3) return false; const k = idx(nx, ny); if (water[k] || t[k] === T.ROCK || pm[k] !== -1 || map.rm[k]) return false; }
+    return true;
+  };
+  const place = (x, y, tier) => {
+    const s = { id: map.settlements.length, tier, x, y, name: '', score: site[idx(x, y)], coastal: dSea[idx(x, y)] <= 8, river: dFresh[idx(x, y)] <= 7, trade: 0, R: URBAN_R[tier], need: 0, pop: 0 };
+    map.settlements.push(s);
+    const [sw, sh] = SQ[tier], hw = sw >> 1, hh = sh >> 1;
+    for (let b = -hh - 1; b <= hh + 1; b++) for (let a = -hw - 1; a <= hw + 1; a++) {
+      const k = idx(x + a, y + b), edge = Math.abs(a) === hw + 1 || Math.abs(b) === hh + 1;
+      if (edge) { t[k] = T.ROAD; rc[k] = 2; map.ring[k] = 1; } else { t[k] = T.OPEN; pm[k] = -2; }
+      map.sid[k] = s.id;
+    }
+    return s;
+  };
+  const trade = i => Math.max(harbor[i], bonus.mouth[i], bonus.conf[i], (dFresh[i] <= 2 && acc[nearRiver(i)] > thr * 2.5) ? 0.8 : 0);
+  const nearRiver = i => { const x = i % W, y = (i / W) | 0; let best = i, bv = -1; for (let b = -3; b <= 3; b++) for (let a = -3; a <= 3; a++) { const nx = x + a, ny = y + b; if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue; const k = idx(nx, ny); if (wk[k] === 3 && acc[k] > bv) { bv = acc[k]; best = k; } } return best; };
+  // trade potential felt within ~9 tiles of a harbor / river mouth / confluence / navigable river (a capital needs a port nearby, not on a spit)
+  const tn = new Float32Array(N);
+  for (let i = 0; i < N; i++) { if (!main[i] || water[i]) continue; const v = trade(i); if (v < 0.45) continue; const x = i % W, y = (i / W) | 0;
+    for (let b = -9; b <= 9; b++) for (let a = -9; a <= 9; a++) { const nx = x + a, ny = y + b; if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue; const w = v * (1 - Math.hypot(a, b) / 10); if (w > tn[idx(nx, ny)]) tn[idx(nx, ny)] = w; } }
+  { let bi = -1, bv = -1;
+    for (let y = 9; y < H - 9; y++) for (let x = 9; x < W - 9; x++) {
+      const i = idx(x, y); if (site[i] < 0.3 || tn[i] < 0.3 || room[i] < 0.62) continue;
+      const cen = 1 - Math.hypot(x - cx, y - cy) / maxDc, v = site[i] * (0.35 + 0.65 * hint[i]) * (0.4 + 0.6 * cen) * (0.5 + 0.5 * tn[i]);
+      if (v > bv && fitsSquare(x, y, 0)) { bv = v; bi = i; }
+    }
+    if (bi < 0) for (let y = 9; y < H - 9; y++) for (let x = 9; x < W - 9; x++) { const i = idx(x, y), v = site[i] * hint[i]; if (v > bv && fitsSquare(x, y, 0)) { bv = v; bi = i; } }
+    const c = place(bi % W, (bi / W) | 0, 0); c.trade = tn[bi];
+  }
+  const cand = []; for (let i = 0; i < N; i++) if (site[i] > 0.24) cand.push(i);
+  // fill the lattice: every pick maximizes site quality x how much uncovered market area it serves (farthest-point flavour of CPT)
+  for (const [tier, maxN, minScore] of [[1, opt.towns || 4, 0.34], [2, opt.villages || 7, 0.3], [3, opt.hamlets || 9, 0.26]]) {
+    for (let n = 0; n < maxN; n++) {
+      let bi = -1, bv = 0;
+      for (const i of cand) {
+        if (site[i] < minScore) continue; const x = i % W, y = (i / W) | 0; let dmin = 1e9, ok = true;
+        for (const s of map.settlements) { const d = Math.hypot(s.x - x, s.y - y); if (s.tier <= tier ? d < SPACING[tier] : d < SPACING[tier] * 0.75) { ok = false; break; } if (d < dmin) dmin = d; }
+        if (!ok) continue;
+        const v = site[i] * (0.3 + 0.7 * Math.min(1, dmin / (SPACING[tier] * 2.2))) * (0.5 + 0.5 * hint[i]);
+        if (v > bv && fitsSquare(x, y, tier)) { bv = v; bi = i; }
+      }
+      if (bi < 0) break; const s = place(bi % W, (bi / W) | 0, tier); s.trade = trade(bi);
+    }
+  }
+  // population shares: rank-size (1/rank) with a primate capital
+  { const ss = map.settlements.slice().sort((a, b) => a.tier - b.tier || b.score - a.score); let tot = 0;
+    ss.forEach((s, r) => { s.share = (s.tier === 0 ? 1.5 : 1) / (r + 1); tot += s.share; }); for (const s of map.settlements) s.share /= tot; }
+
+  /* ---- 7. roads: least-cost orthogonal paths, reusing existing roads; bridges + fords where rivers must be crossed ---- */
+  const gA = new Float32Array(N * 4), cA = new Int32Array(N * 4), clA = new Uint8Array(N * 4), TURN = 2.0;
+  const tcost = (i, j) => {
+    const tt = t[i]; let c;
+    if (tt === T.ROAD || tt === T.BRIDGE) c = 0.35; else if (tt === T.FORD) c = 0.5; else if (tt === T.OPEN) c = 0.9; else if (tt === T.GRASS) c = 1; else if (tt === T.SAND) c = 1.1; else if (tt === T.TREE) c = 3;
+    else if (tt === T.WATER) { if (wk[i] === 3) c = acc[i] < thr * 3.5 ? 5 : 16 + (acc[i] > big ? 14 : 0); else return 1e9; } else return 1e9;
+    return c + Math.abs(eN[i] - eN[j]) * 55;
+  };
+  const route = (ax, ay, bx, by) => {
+    gA.fill(1e9); cA.fill(-1); clA.fill(0);
+    const hq = new Heap(), tgt = idx(bx, by), hf = (x, y) => (Math.abs(x - bx) + Math.abs(y - by)) * 0.34;
+    for (let d = 0; d < 4; d++) { const s = idx(ax, ay) * 4 + d; gA[s] = 0; hq.push(hf(ax, ay), s); }
+    let end = -1;
+    while (hq.size) {
+      const st = hq.pop(), i = st >> 2, d = st & 3; if (clA[st]) continue; clA[st] = 1; if (i === tgt) { end = st; break; }
+      const x = i % W, y = (i / W) | 0, gc = gA[st];
+      for (let q = 0; q < 4; q++) { const nx = x + D4[q][0], ny = y + D4[q][1]; if (nx < 1 || ny < 1 || nx >= W - 1 || ny >= H - 1) continue; const ni = idx(nx, ny), c = tcost(ni, i); if (c >= 1e8) continue; const ng = gc + c + (q !== d ? TURN : 0), ns = ni * 4 + q; if (ng < gA[ns]) { gA[ns] = ng; cA[ns] = st; hq.push(ng + hf(nx, ny), ns); } }
+    }
+    if (end < 0) return false;
+    const path = []; for (let s = end; s >= 0; s = cA[s]) path.push(s >> 2);
+    for (const i of path) {
+      if (rc[i] < 255) rc[i]++;
+      if (t[i] === T.WATER) t[i] = acc[i] < thr * 3.5 ? T.FORD : T.BRIDGE; else if (t[i] === T.GRASS || t[i] === T.SAND || t[i] === T.TREE) t[i] = T.ROAD;
+    }
+    return true;
+  };
+  const S = map.settlements, linked = new Set([0]), edges = new Set();
+  const link = (a, b) => { if (route(a.x, a.y, b.x, b.y)) { edges.add(Math.min(a.id, b.id) * 100 + Math.max(a.id, b.id)); return true; } return false; };
+  const order2 = S.slice(1).sort((a, b) => a.tier - b.tier || Math.hypot(a.x - S[0].x, a.y - S[0].y) - Math.hypot(b.x - S[0].x, b.y - S[0].y));
+  for (const s of order2) {
+    let best = null, bd = 1e9; for (const o of S) if (linked.has(o.id) && o.tier <= s.tier) { const d = Math.hypot(o.x - s.x, o.y - s.y); if (d < bd) { bd = d; best = o; } }
+    if (!best) for (const o of S) if (linked.has(o.id)) { const d = Math.hypot(o.x - s.x, o.y - s.y); if (d < bd) { bd = d; best = o; } }
+    if (best && link(s, best)) linked.add(s.id);
+  }
+  // loops: second-nearest neighbour for towns, sometimes villages
+  for (const s of S) {
+    if (s.tier > 2) continue; if (s.tier === 2 && R() > 0.45) continue;
+    const near = S.filter(o => o !== s && o.tier <= Math.max(1, s.tier) && !edges.has(Math.min(s.id, o.id) * 100 + Math.max(s.id, o.id))).sort((a, b) => Math.hypot(a.x - s.x, a.y - s.y) - Math.hypot(b.x - s.x, b.y - s.y))[0];
+    if (near && Math.hypot(near.x - s.x, near.y - s.y) < (s.tier === 2 ? 30 : 52)) link(s, near);
+  }
+  map.linked = linked;
+
+  /* ---- 8. quays on shorelines, then streets + plots per settlement ---- */
+  const L = makeLayout(map);
+  for (const s of S) L.quay(s, R);
+  for (const s of S) {
+    s.needPlots = Math.round(Math.max(6, (map.pop || 480) * s.share / 4 * (s.tier === 3 ? 2.4 : s.tier === 2 ? 2.2 : 1.8)) + (s.tier <= 1 ? 12 : 4));
+    // street skeleton first (so cross streets exist before frontage fills the flanks), then plots
+    let guard = 0; while (L.roadTiles(s) < s.needPlots * 0.9 && guard++ < 500) L.branch(s, R, null, 0.12);
+    L.frontage(s, R); guard = 0;
+    while (L.freePlots(s) < s.needPlots && guard++ < 80) { if (L.branch(s, R, null, 0.5)) L.frontage(s, R); else break; }
+  }
+  for (const s of S) L.rural(s, R);
+  return map;
+}
+
+function bfs(src, W, H, test) {
+  const N = W * H, d = new Uint16Array(N).fill(65535), q = [];
+  for (let i = 0; i < N; i++) if (test ? test(src[i]) : src[i]) { d[i] = 0; q.push(i); }
+  for (let qi = 0; qi < q.length; qi++) { const c = q[qi], x = c % W, y = (c / W) | 0; for (const [a, b] of D4) { const nx = x + a, ny = y + b; if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue; const ni = ny * W + nx; if (d[ni] === 65535) { d[ni] = d[c] + 1; q.push(ni); } } }
+  return d;
+}
+
+/* ---------- layout: quay, street branches, frontage plots (reused at runtime for expansion) ---------- */
+function makeLayout(map) {
+  const { W, H, t, rc, pm, wk } = map, idx = (x, y) => y * W + x;
+  const roadAt = i => t[i] === T.ROAD || t[i] === T.BRIDGE || t[i] === T.FORD;
+  const okTile = i => (t[i] === T.GRASS || t[i] === T.SAND || t[i] === T.TREE) && pm[i] === -1;
+  const inb = (x, y, m = 3) => x >= m && y >= m && x < W - m && y < H - m;
+  const straight = (x, y) => { const u = roadAt(idx(x, y - 1)), d = roadAt(idx(x, y + 1)), l = roadAt(idx(x - 1, y)), r = roadAt(idx(x + 1, y)); if (l && r && !u && !d) return 0; if (u && d && !l && !r) return 1; return -1; };
+  const isWaterAdj = (x, y) => { for (const [a, b] of D4) { const k = idx(x + a, y + b); if (t[k] === T.WATER) return true; } return false; };
+
+  function fits(x0, y0) { for (let b = 0; b < 3; b++) for (let a = 0; a < 3; a++) { if (!inb(x0 + a, y0 + b, 2) || !okTile(idx(x0 + a, y0 + b))) return false; } return true; }
+  function addPlot(s, x0, y0, dx, dy, rural, rnd) {
+    const p = { id: map.plots.length, sid: s.id, x: x0, y: y0, dx, dy, rural: !!rural, used: false, dc: Math.hypot(x0 + 1 - s.x, y0 + 1 - s.y), sq: map.ring[idx(dx, dy)] === 1, quay: map.qm[idx(dx, dy)] === 1, fert: map.fert[idx(x0 + 1, y0 + 1)], bid: -1 };
+    for (let b = 0; b < 3; b++) for (let a = 0; a < 3; a++) pm[idx(x0 + a, y0 + b)] = p.id;
+    map.plots.push(p); (s.plots = s.plots || []).push(p.id); return p;
+  }
+  function frontage(s, R, rural, rIn, rOut) {
+    const cand = [], rr = rural ? rOut : s.R, ri = rural ? rIn : 0;
+    for (let y = Math.max(3, s.y - rr); y <= Math.min(H - 4, s.y + rr); y++) for (let x = Math.max(3, s.x - rr); x <= Math.min(W - 4, s.x + rr); x++) {
+      const i = idx(x, y); if (t[i] !== T.ROAD) continue; const d = Math.hypot(x - s.x, y - s.y); if (d > rr || d < ri) continue;
+      if (rural && map.sid[i] >= 0 && map.sid[i] !== s.id) continue;
+      const ax = straight(x, y); if (ax < 0) continue;
+      if (rural) { // only claim tiles for whichever settlement is closest
+        let near = s, nd = d; for (const o of map.settlements) { const dd = Math.hypot(x - o.x, y - o.y); if (dd < nd) { nd = dd; near = o; } } if (near !== s) continue; }
+      cand.push([d + R() * 2.5, x, y, ax]);
+    }
+    cand.sort((a, b) => a[0] - b[0]); let n = 0;
+    for (const [, x, y, ax] of cand) for (const side of [-1, 1]) {
+      let x0, y0; if (ax === 0) { x0 = x - 1; y0 = side < 0 ? y - 3 : y + 1; } else { x0 = side < 0 ? x - 3 : x + 1; y0 = y - 1; }
+      if (!fits(x0, y0)) continue;
+      if (rural && map.fert[idx(x0 + 1, y0 + 1)] < 0.3) continue;
+      if (rural && R() < 0.35) continue;
+      addPlot(s, x0, y0, x, y, rural, R); n++;
+      if (!rural && s.tier >= 2 && R() < 0.3) { /* leave a gap */ }
+    }
+    return n;
+  }
+  function freePlots(s) { let n = 0; for (const id of s.plots || []) { const p = map.plots[id]; if (!p.used && !p.rural) n++; } return n; }
+  // grow a street: either a perpendicular branch off a straight road tile (weighted by distance decay) or the
+  // extension of a dead end (extW = how much the frontier is preferred). Parish-Muller flavour on a tile grid.
+  function roadTilesIn(s) { let n = 0; for (let y = Math.max(1, s.y - s.R); y <= Math.min(H - 2, s.y + s.R); y++) for (let x = Math.max(1, s.x - s.R); x <= Math.min(W - 2, s.x + s.R); x++) if (t[idx(x, y)] === T.ROAD && Math.hypot(x - s.x, y - s.y) <= s.R) n++; return n; }
+  function branch(s, R, ptsOut, extW) {
+    const rr = s.R, lam = rr * 0.55, rm = map.rm, cands = [];
+    for (let y = Math.max(4, s.y - rr); y <= Math.min(H - 5, s.y + rr); y++) for (let x = Math.max(4, s.x - rr); x <= Math.min(W - 5, s.x + rr); x++) {
+      const i = idx(x, y); if (t[i] !== T.ROAD) continue; const d = Math.hypot(x - s.x, y - s.y); if (d > rr) continue;
+      const ax = straight(x, y);
+      if (ax >= 0 && !rm[i]) { cands.push({ w: Math.exp(-d / lam) * (0.35 + R()), x, y, ax, d, dirs: ax === 0 ? [[0, -1], [0, 1]] : [[-1, 0], [1, 0]], root: true }); continue; }
+      let n = 0, ex = 0, ey = 0; for (const [a, b] of D4) if (roadAt(idx(x + a, y + b))) { n++; ex = -a; ey = -b; }
+      if (n === 1 && !map.ring[i] && !map.qm[i] && t[idx(x + ex, y + ey)] !== T.BRIDGE) cands.push({ w: extW * (0.4 + R()) * (0.5 + d / rr), x, y, ax: -1, d, dirs: [[ex, ey]], root: false });
+    }
+    if (!cands.length) return false;
+    cands.sort((a, b) => b.w - a.w);
+    for (let ci = 0; ci < Math.min(10, cands.length); ci++) {
+      const c = cands[ci], dirs = R() < 0.5 ? c.dirs : c.dirs.slice().reverse(); let okAny = false;
+      for (const [dx, dy] of dirs) {
+        if (okAny && R() < 0.35) continue;
+        const lx = dy ? 1 : 0, ly = dx ? 1 : 0;
+        const Lmax = Math.max(3, Math.round(BRANCH_L[s.tier] * (0.6 + 0.8 * R()) * (1 - 0.5 * c.d / rr))); const tiles = []; let join = false;
+        for (let i = 1; i <= Lmax; i++) {
+          const bx = c.x + dx * i, by = c.y + dy * i; if (!inb(bx, by, 3)) break; const k = idx(bx, by);
+          if (roadAt(k)) { if (i >= 3) join = true; break; }
+          if (!okTile(k)) break;
+          if (i >= 2) { let bad = false; for (let k = 1; k <= 3 && !bad; k++) if (roadAt(idx(bx + lx * k, by + ly * k)) || roadAt(idx(bx - lx * k, by - ly * k))) bad = true; if (bad) break; }
+          tiles.push(k);
+        }
+        if (tiles.length < (join ? 2 : 3)) continue;
+        for (const k of tiles) { t[k] = T.ROAD; rc[k] = 1; map.sid[k] = s.id; if (ptsOut) ptsOut.push(k); }
+        if (c.root) for (let a = -5; a <= 5; a++) { const k = c.ax === 0 ? idx(c.x + a, c.y) : idx(c.x, c.y + a); rm[k] = 1; }
+        okAny = true;
+      }
+      if (okAny) return true;
+    }
+    return false;
+  }
+  // shoreline promenade for coastal/river settlements
+  function quay(s, R) {
+    let best = -1, bd = 1e9;
+    for (let y = Math.max(4, s.y - 12); y <= Math.min(H - 5, s.y + 12); y++) for (let x = Math.max(4, s.x - 12); x <= Math.min(W - 5, s.x + 12); x++) {
+      const i = idx(x, y); if (!okTile(i) || !isWaterAdj(x, y)) continue; if (wk[idx(x + 1, y)] === 3 || wk[idx(x - 1, y)] === 3 || wk[idx(x, y + 1)] === 3 || wk[idx(x, y - 1)] === 3) { if (s.tier > 1) continue; }
+      const d = Math.hypot(x - s.x, y - s.y); if (d < bd && d > 4) { bd = d; best = i; }
+    }
+    if (best < 0 || s.tier > 1 || (!s.coastal && !s.river)) return;
+    s.quayAt = best;
+    let cur = best, dir = null; const seen = new Set([cur]), tiles = [cur];
+    for (const sign of [1, -1]) {
+      cur = best; dir = null;
+      for (let step = 0; step < 7; step++) {
+        const x = cur % W, y = (cur / W) | 0; let nxt = -1, bs = -1;
+        for (const [a, b] of D4) { const nx = x + a, ny = y + b; if (!inb(nx, ny, 4)) continue; const k = idx(nx, ny); if (seen.has(k) || !okTile(k) || !isWaterAdj(nx, ny)) continue; const sc = (dir && dir[0] === a && dir[1] === b ? 2 : 0) + R() + (sign > 0 ? a + b : -(a + b)) * 0.3; if (sc > bs) { bs = sc; nxt = k; dir = [a, b]; } }
+        if (nxt < 0) break; seen.add(nxt); tiles.push(nxt); cur = nxt;
+      }
+    }
+    for (const k of tiles) { t[k] = T.ROAD; map.qm[k] = 1; rc[k] = 2; map.sid[k] = s.id; }
+    // connect the quay to the square with a short least-cost tail (reuse of the main router isn't exposed, so L-shaped)
+    let x = best % W, y = (best / W) | 0; const tx = s.x, ty = s.y; let guard = 0;
+    while ((x !== tx || y !== ty) && guard++ < 40) {
+      const stepX = x !== tx && (Math.abs(x - tx) > Math.abs(y - ty) || y === ty); const nx = x + (stepX ? Math.sign(tx - x) : 0), ny = y + (stepX ? 0 : Math.sign(ty - y)), k = idx(nx, ny);
+      if (map.ring[k] || t[k] === T.OPEN) break;
+      if (t[k] === T.WATER || t[k] === T.ROCK) break;
+      if (t[k] === T.GRASS || t[k] === T.SAND || t[k] === T.TREE) { t[k] = T.ROAD; rc[k] = 1; map.sid[k] = s.id; }
+      x = nx; y = ny;
+    }
+  }
+  function rural(s, R) { frontage(s, R, true, s.R * 0.7, s.R + (s.tier === 0 ? 12 : s.tier === 1 ? 11 : 9)); }
+  return { frontage: (s, R) => frontage(s, R || Math.random), branch: (s, R, out, w) => branch(s, R || Math.random, out, w === undefined ? 0.5 : w), roadTiles: roadTilesIn, freePlots, quay, rural: (s, R) => rural(s, R || Math.random), fits, addPlot };
+}
+
+/* runtime expansion: one more street + frontage; returns {tiles:[idx], plots:[plot]} */
+function expand(map, s, R) {
+  const L = map._L || (map._L = makeLayout(map)), before = map.plots.length, pts = [];
+  let ok = false; for (let k = 0; k < 6 && !ok; k++) ok = L.branch(s, R, pts, 1.2);
+  const n = L.frontage(s, R);
+  return { tiles: pts, plots: map.plots.slice(before), ok: ok || n > 0 };
+}
+function freeUrbanPlots(map, s) { return (map._L || (map._L = makeLayout(map))).freePlots(s); }
+
+const api = { T, TIERS, SQ, generate, expand, freeUrbanPlots, Noise, mk, makeLayout };
+if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Gen = api;
+})(typeof window !== 'undefined' ? window : globalThis);
+
+</script>
+<script>
+/* Dotville sim core. Runs in Node (server) and in the browser (local demo).
+   No dependencies. The "brain" lives in World.decide(); swap it for an ML policy later. */
+(function (root) {
+'use strict';
+
+const Gen = (typeof module !== 'undefined' && module.exports && typeof require === 'function') ? require('./worldgen.js') : root.Gen;
+let W = 144, H = 108;                 // set from the generated map
+const TICK_HZ = 5, DAY_TICKS = 1200, INF = 65535;
+const TILE = { GRASS: 0, ROAD: 1, BLOCK: 2, WATER: 3, OPEN: 4, TREE: 5, BRIDGE: 6, FORD: 7, SAND: 8, ROCK: 9 };
+const COST = [4, 2, INF, INF, 3, INF, 2, 4, 4, INF];
+const BT = { HOUSE: 0, FARM: 1, MARKET: 2, TAVERN: 3, WORKSHOP: 4, PARK: 5, HALL: 6, DOCK: 7 };
+const BT_NAME = ['House', 'Farm', 'Market', 'Tavern', 'Workshop', 'Park', 'Town Hall', 'Dock'];
+const BUILD_SHIFTS = [6, 5, 10, 8, 8, 3, 14, 12], UPKEEP = [0, 10, 40, 22, 18, 0, 0, 35], STAFF = [0, 4, 0, 3, 4, 0, 0, 4], MAXM = 64;
+const JOBS = ['farmer', 'crafter', 'keeper', 'drifter'];
+const FOOD_PRICE = 3, DRINK_PRICE = 2, STOCK_CAP = 700, ADULT = 8, YEAR_DAYS = 3, SEASON_DAYS = 2;
+const SEASONS = ['Spring', 'Summer', 'Autumn', 'Winter'], YIELD = [1.0, 1.3, 2.0, 0.7], RAIN_P = [0.35, 0.15, 0.4, 0.55];
+
+const CON = [['ME','me'],['YOU','you'],['WANT','want'],['GO','go'],['GIVE','give'],['SEE','see'],['LIKE','like'],['HELP','help'],
+  ['HUNGRY','hungry'],['TIRED','tired'],['HAPPY','happy'],['SAD','sad'],['LONELY','lonely'],['RICH','rich'],['BROKE','broke'],
+  ['FOOD','food'],['HOME','home'],['WORK','work'],['SLEEP','sleep'],['COIN','coin'],['FRIEND','friend'],
+  ['MARKET','market'],['FARM','farm'],['PARK','park'],['TAVERN','tavern'],['WORKSHOP','workshop'],
+  ['NIGHT','night'],['DAY','day'],['DRINK','drink'],['NO','no'],['YES','yes'],['MUCH','plenty of'],['LITTLE','little'],
+  ['GOOD','good'],['BAD','bad'],['NOW','now'],['HELLO','hello'],['BYE','bye'],['THANKS','thanks'],['AND','and'],
+  ['STEAL','steal'],['LOVE','love'],['ANGRY','angry'],['THIEF','thief'],['STOP','stop'],['SORRY','sorry'],['BABY','baby'],['MARRY','marry'],['MINE','mine'],['DIE','died'],['AFRAID','afraid'],['JEALOUS','jealous']];
+const C = {}; CON.forEach((c, i) => C[c[0]] = i);
+
+const TRAITS = ['thief','hothead','gossip','kind','romantic','jealous','coward','ambitious','lazy'];
+const TRAIT_W = [0.07,0.12,0.15,0.15,0.2,0.1,0.12,0.15,0.1];
+const DREAMS = ['rich','famous','love','family'];
+const DREAM_TXT = { rich: 'get rich (250 coins)', famous: 'have 8 friends', love: 'find true love', family: 'raise 2 children', content: 'content with life' };
+function rollTraits(rf) {
+  const n = rf() < 0.7 ? 1 : 2, out = [], tot = TRAIT_W.reduce((a, b) => a + b, 0);
+  let guard = 0;
+  while (out.length < n && guard++ < 20) { let r = rf() * tot, i = 0; for (; i < TRAITS.length - 1; i++) { r -= TRAIT_W[i]; if (r <= 0) break; } if (!out.includes(TRAITS[i])) out.push(TRAITS[i]); }
+  if (out.includes('lazy') && out.includes('ambitious')) out.splice(out.indexOf('lazy'), 1);
+  return out;
+}
+function mk(seed) { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ t >>> 15, t | 1); t ^= t + Math.imul(t ^ t >>> 7, t | 61); return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+
+function makeField(tiles, sources) {
+  const N = W * H, dist = new Uint16Array(N).fill(INF), heap = [];
+  const push = k => { let i = heap.length; heap.push(k); while (i > 0) { const p = (i - 1) >> 1; if (heap[p] <= k) break; heap[i] = heap[p]; i = p; } heap[i] = k; };
+  const pop = () => { const top = heap[0], last = heap.pop(); if (heap.length) { let i = 0; const n = heap.length; for (;;) { let c = 2 * i + 1; if (c >= n) break; if (c + 1 < n && heap[c + 1] < heap[c]) c++; if (heap[c] >= last) break; heap[i] = heap[c]; i = c; } heap[i] = last; } return top; };
+  for (const s of sources) { dist[s] = 0; push(s); }
+  while (heap.length) {
+    const k = pop(), d = Math.floor(k / 32768), i = k - d * 32768;
+    if (d > dist[i]) continue;
+    const x = i % W, y = (i / W) | 0;
+    for (let q = 0; q < 4; q++) {
+      const nx = x + (q === 0 ? 1 : q === 1 ? -1 : 0), ny = y + (q === 2 ? 1 : q === 3 ? -1 : 0);
+      if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+      const ni = ny * W + nx, c = COST[tiles[ni]];
+      if (c >= INF) continue;
+      const nd = d + c;
+      if (nd < dist[ni]) { dist[ni] = nd; push(nd * 32768 + ni); }
+    }
+  }
+  return dist;
+}
+
+const rnd = () => Math.random();
+const pick = a => a[(rnd() * a.length) | 0];
+
+class World {
+  constructor(o = {}) {
+    this.seed = o.seed || 1337; this.R = mk(this.seed); this.pop = o.pop || 420; this.maxPop = o.maxPop || Math.round(this.pop * 1.7);
+    this.sites = []; this.fq = []; this.fgen = 0; this.biz = { opened: 0, closed: 0, built: 0, sold: 0, fires: 0, arrived: 0 }; this.blightAt = -1e9; this.lastTheftTick = -1e9; this.sPop = []; this.sbl = [];
+    this.tick = Math.floor(0.3 * DAY_TICKS); this.out = []; this.pending = [];
+    this.stats = { meals: 0, chats: 0, friends: 0, deliveries: 0, wasted: 0, thefts: 0, fights: 0, births: 0, deaths: 0 };
+    this.pairs = new Set(); this.festival = 0; this.blight = 0;
+    this.weather = 0; this.mayor = -1; this.treasury = 0; this.taxRate = 5; this.nextElection = 7; this.cd = { festival: -1e9, blight: -1e9, gift: -1e9, zap: -1e9, cupid: -1e9 }; this.rep = null; this.lastEv = {};
+    this.grid = []; this.hist = [];
+    this.buildMap(); this.makeLexicon(); this.makeDots(); this.rep = new Float32Array(this.dots.length); this.lastSeason = this.season(); this.election(true);
+    this.rebuild(); for (const b of this.buildings) if (b.state === 'ok') this.F(b);
+    if (o.state) this.load(o.state);
+  }
+
+  /* ---------- world gen: the whole country comes from worldgen.js ---------- */
+  buildMap() {
+    const map = this.map = Gen.generate(this.seed, { pop: this.pop });
+    W = map.W; H = map.H; this.tiles = map.t;
+    this.buildings = []; this.markets = []; this.taverns = []; this.workshops = []; this.parks = []; this.farms = []; this.houses = []; this.halls = []; this.docks = [];
+    this.mcount = 0; this.S = map.settlements;
+    let tot = 0;
+    for (const s of this.S) { s.pop0 = Math.max([0, 24, 14, 8][s.tier], Math.round(s.share * this.pop)); tot += s.pop0; this.sbl[s.id] = []; }
+    this.S[0].pop0 = Math.max(30, this.S[0].pop0 + this.pop - tot);
+    const plots = map.plots;
+    for (const s of this.S) for (let k = 0; k < 10 && Gen.freeUrbanPlots(map, s) < Math.ceil(s.pop0 / 4) + 3; k++) Gen.expand(map, s, () => this.R());
+    for (const s of this.S) {
+      const tier = s.tier, P = s.pop0, [sw, sh] = Gen.SQ[tier];
+      const sq = this.mkBuilding(BT.PARK, s.x - (sw >> 1), s.y - (sh >> 1), [s.x, s.y], true, s.id);   // the square is the town green
+      sq.w = sw; sq.h = sh; sq.sqPark = true; sq.src = []; for (let b = 0; b < sh; b++) for (let a = 0; a < sw; a++) sq.src.push((sq.y + b) * W + sq.x + a);
+      const mine = (s.plots || []).map(id => plots[id]);
+      const urban = mine.filter(p => !p.rural).sort((a, b) => a.dc - b.dc), rural = mine.filter(p => p.rural).sort((a, b) => (b.fert - a.fert) + (a.dc - b.dc) * 0.045);
+      const take = (list, pred) => { for (const p of list) if (!p.used && (!pred || pred(p))) return p; return null; };
+      const put = (type, p) => (p ? this.placeOn(p, type) : null);
+      const nMarket = tier === 0 ? 2 : tier <= 2 ? 1 : 0, nTavern = tier === 0 ? Math.max(2, Math.round(P / 55)) : tier === 1 ? 1 : (tier === 2 && P >= 16 ? 1 : 0);
+      const nShop = tier === 0 ? Math.max(2, Math.round(P * 0.26 / 18)) : tier === 1 ? 1 : (tier === 2 && P >= 22 ? 1 : 0), nDock = s.quayAt !== undefined && tier <= 1 ? (tier === 0 ? 2 : 1) : 0;
+      for (let i = 0; i < nMarket; i++) put(BT.MARKET, take(urban, p => p.sq) || take(urban));
+      if (tier <= 1) put(BT.HALL, take(urban, p => p.sq) || take(urban));
+      for (let i = 0; i < nTavern; i++) put(BT.TAVERN, take(urban, p => p.sq) || take(urban));
+      for (let i = 0; i < nDock; i++) put(BT.DOCK, take(urban, p => p.quay));
+      for (let i = 0; i < nShop; i++) { const free = urban.filter(p => !p.used && !p.sq); put(BT.WORKSHOP, free.length ? free[Math.floor(free.length * (0.45 + 0.1 * i))] || free[free.length - 1] : take(urban)); }
+      if (tier === 0) { const free = urban.filter(p => !p.used && !p.sq); put(BT.PARK, free[Math.floor(free.length * 0.3)]); }
+      const nHouse = Math.ceil(P / 4);
+      for (let i = 0; i < nHouse; i++) put(BT.HOUSE, take(urban, p => !p.sq) || take(urban) || take(rural));
+      const nFarm = Math.max(1, Math.round(P * 0.36 / 11));
+      for (let i = 0; i < nFarm; i++) put(BT.FARM, take(rural) || take(urban.slice().reverse()));
+    }
+    this.pop = this.S.reduce((a, s) => a + s.pop0, 0); this.maxPop = Math.max(this.maxPop, Math.round(this.pop * 1.7));
+    this.rebuild();
+    for (const m of this.markets) m.stock = 90;
+  }
+  mkBuilding(type, x, y, door, open, sid) {
+    const b = { id: this.buildings.length, type, x, y, door, open, occ: 0, stock: 0, inside: [], name: '', flag: false, sid, owner: -1, cash: 0, rev: 0, wage: 0, state: 'ok', born: this.tick || 0, visits: 0, hist: [], mi: -1, vac: 0, w: 3, h: 3, plot: -1 };
+    if (type === BT.MARKET) b.mi = this.mcount++;
+    this.buildings.push(b); return b;
+  }
+  placeOn(plot, type, state) {
+    const open = type === BT.FARM || type === BT.PARK, t = this.tiles;
+    const b = this.mkBuilding(type, plot.x, plot.y, [plot.dx, plot.dy], open, plot.sid);
+    for (let dy = 0; dy < 3; dy++) for (let dx = 0; dx < 3; dx++) t[(plot.y + dy) * W + plot.x + dx] = open ? TILE.OPEN : TILE.BLOCK;
+    plot.used = true; plot.bid = b.id; b.plot = plot.id; b.state = state || 'ok';
+    b.src = []; if (open) { for (let dy = 0; dy < 3; dy++) for (let dx = 0; dx < 3; dx++) b.src.push((plot.y + dy) * W + plot.x + dx); } else b.src.push(plot.dy * W + plot.dx);
+    return b;
+  }
+  rebuild() {
+    this.markets = []; this.taverns = []; this.workshops = []; this.parks = []; this.farms = []; this.houses = []; this.halls = []; this.docks = [];
+    for (const l of this.sbl) l.length = 0;
+    for (const b of this.buildings) {
+      if (b.state !== 'ok') continue;
+      (this.sbl[b.sid] = this.sbl[b.sid] || []).push(b);
+      switch (b.type) { case BT.MARKET: this.markets.push(b); break; case BT.TAVERN: this.taverns.push(b); break; case BT.WORKSHOP: this.workshops.push(b); break; case BT.DOCK: this.workshops.push(b); this.docks.push(b); break; case BT.PARK: this.parks.push(b); break; case BT.FARM: this.farms.push(b); break; case BT.HOUSE: this.houses.push(b); break; case BT.HALL: this.halls.push(b); break; }
+    }
+  }
+  F(b) {   // distance field, computed lazily and refreshed (a few per tick) when the map changes
+    if (!b.field) { b.field = makeField(this.tiles, b.src); b.fgen = this.fgen; }
+    else if (b.fgen !== this.fgen && !b.fq) { b.fq = true; this.fq.push(b); }
+    return b.field;
+  }
+  nameBuilding(b, owner) { if (b.type === BT.HOUSE) b.fam = owner ? owner.fam : this.word(2, 3, true); else if (!b.name) b.name = this.word(2, 2, true); }
+
+  makeLexicon() {
+    const R = this.R, used = new Set();
+    const C1 = 'ptkbdgmnslrvz', V1 = 'aeiou';
+    const syl = () => C1[(R() * C1.length) | 0] + V1[(R() * V1.length) | 0];
+    const word = (a, b, cap) => { for (;;) { let w = ''; const n = a + ((R() * (b - a + 1)) | 0); for (let i = 0; i < n; i++) w += syl(); if (R() < 0.25) w += 'n'; if (!used.has(w)) { used.add(w); return cap ? w[0].toUpperCase() + w.slice(1) : w; } } };
+    this.word = word;
+    this.lex = CON.map(c => [word(1, 2, false), c[1]]);
+    this.nameGen = () => word(2, 3, true);
+    this.names = []; for (let i = 0; i < this.pop + 10; i++) this.names.push(this.nameGen());
+    for (const s of this.S) s.name = word(2, 3, true);
+    for (const b of this.buildings) { if (b.type !== BT.HOUSE) b.name = b.sqPark ? this.S[b.sid].name : word(2, 2, true); else b.fam = word(2, 3, true); }
+    this.famGen = () => word(2, 3, true);
+  }
+
+  makeDot(id, o, rf) {
+    const home = this.buildings[o.home], traits = o.traits, has = t => traits.includes(t);
+    const d = {
+      id, name: o.name, fam: o.fam || '', job: o.job, home: o.home, work: o.work, future: o.future !== undefined ? o.future : o.job,
+      soc: 0.35 + rf() * 0.9 + (has('gossip') ? 0.3 : 0), dil: Math.max(0.15, 0.3 + rf() * 0.9 + (has('ambitious') ? 0.35 : 0) - (has('lazy') ? 0.35 : 0)), off: (rf() - 0.5) * 0.1,
+      x: home.door[0], y: home.door[1], nx: -1, ny: -1, prog: 0, speed: 0.30 + rf() * 0.08,
+      phase: 'walk', prev: 'walk', goal: null, timer: 0, chatT: 0, chatCd: (rf() * 100) | 0, inside: false, fight: false,
+      hunger: o.hunger !== undefined ? o.hunger : 10 + rf() * 50, energy: o.energy !== undefined ? o.energy : 50 + rf() * 45,
+      social: o.social !== undefined ? o.social : 30 + rf() * 60, coin: o.coin !== undefined ? o.coin : 10 + rf() * 50,
+      aff: new Map(), belief: new Int32Array(MAXM).fill(-1), carry: 0, invite: null, starvedDay: -1, rich: false, meals: 0,
+      traits, done: new Set(), isThief: has('thief'), age: o.age, life: o.life, partner: -1, married: false, since: 0, thieves: new Set(), dead: false,
+      grief: 0, starveT: 0, theftCd: 200 + ((rf() * 900) | 0), dream: null, dreams: 0, adult: o.age >= ADULT, kids: 0, rejectCd: 0
+    };
+    d.dream = this.pickDream(d, rf);
+    return d;
+  }
+  pickDream(d, rf, not) {
+    const w = [d.traits.includes('ambitious') ? 3 : 1, d.traits.includes('gossip') ? 3 : 1, d.traits.includes('romantic') ? 3 : 1, 1];
+    const ks = DREAMS.map((k, i) => [k, k === not || d.done.has(k) ? 0 : w[i]]); const tot = ks.reduce((a, b) => a + b[1], 0);
+    if (!tot) return 'content';
+    let r = rf() * tot;
+    for (const [k, x] of ks) { r -= x; if (r <= 0 && x > 0) return k; }
+    return 'rich';
+  }
+
+  workFor(job, sid) {
+    const s = this.S[sid], list = job === 0 ? this.farms : job === 1 ? this.workshops : job === 2 ? this.taverns : null; if (!list || !list.length) return null;
+    let best = null, bv = 1e9; for (const b of list) { const v = Math.hypot(b.x - s.x, b.y - s.y) + (b.staff || 0) * 0.9 + rnd() * 4; if (v < bv) { bv = v; best = b; } }
+    if (best) best.staff = (best.staff || 0) + 1; return best;
+  }
+  makeDots() {
+    const R = this.R, dots = this.dots = [];
+    const link = (a, b, v) => { a.aff.set(b.id, v); b.aff.set(a.id, v); this.pairs.add(Math.min(a.id, b.id) * 1000 + Math.max(a.id, b.id)); this.stats.friends++; };
+    for (const s of this.S) {
+      const houses = this.sbl[s.id].filter(b => b.type === BT.HOUSE); if (!houses.length) continue;
+      const per = Math.ceil(s.pop0 / houses.length), nTav = this.sbl[s.id].filter(b => b.type === BT.TAVERN).length;
+      const near = l => l.some(b => b.sid === s.id || Math.hypot(b.x - s.x, b.y - s.y) <= 34), hasFarm = near(this.farms), hasShop = near(this.workshops);
+      let left = s.pop0, keepers = nTav * 3;
+      for (const home of houses) for (let k = 0; k < per && left > 0; k++, left--) {
+        const id = dots.length, r = R();
+        let job = keepers > 0 && this.taverns.length ? 2 : r < 0.36 ? (hasFarm ? 0 : 3) : r < 0.62 ? (hasShop ? 1 : hasFarm ? 0 : 3) : 3;
+        if (job === 2) keepers--;
+        const w = job === 3 ? null : this.workFor(job, s.id);
+        const life = 45 + R() * 25, age = ADULT + R() * (life - ADULT - 4);
+        if (id >= this.names.length) this.names.push(this.nameGen());
+        dots.push(this.makeDot(id, { name: this.names[id], fam: home.fam, job, home: home.id, work: w ? w.id : -1, traits: rollTraits(R), age, life }, R));
+      }
+    }
+    const n = dots.length;
+    // starting relationships: housemates (kin), coworkers, and a batch of couples
+    const byHome = {}; for (const d of dots) (byHome[d.home] = byHome[d.home] || []).push(d);
+    for (const g of Object.values(byHome)) for (let i = 0; i < g.length; i++) for (let j = i + 1; j < g.length; j++) link(g[i], g[j], 35 + R() * 15);
+    for (const d of dots) for (let k = 0; k < 2; k++) {
+      const o = dots[(R() * n) | 0];
+      if (o !== d && !d.aff.has(o.id) && (this.buildings[o.home].sid === this.buildings[d.home].sid) && (o.job === d.job || R() < 0.3)) link(d, o, 28 + R() * 10);
+    }
+    let made = 0, tries = 0; const wantC = Math.round(n * 0.07);
+    while (made < wantC && tries++ < 1500) {
+      const a = dots[(R() * n) | 0], b = dots[(R() * n) | 0];
+      if (a === b || a.partner >= 0 || b.partner >= 0 || a.home === b.home || a.fam === b.fam || this.buildings[a.home].sid !== this.buildings[b.home].sid) continue;
+      link(a, b, 45 + R() * 20); a.partner = b.id; b.partner = a.id; a.since = b.since = -Math.floor(R() * 1.2 * DAY_TICKS);
+      a.married = b.married = made < wantC * 0.36; made++;
+      for (const d of [a, b]) { d.done.add('love'); if (d.dream === 'love') d.dream = this.pickDream(d, R, 'love'); }
+    }
+    // ownership: house heads own their homes; about half of the businesses start in private hands
+    for (const d of dots) { const h = this.buildings[d.home]; if (h.owner < 0) h.owner = d.id; }
+    for (const b of this.buildings) if (b.state === 'ok' && (b.type === BT.MARKET || b.type === BT.TAVERN || b.type === BT.WORKSHOP || b.type === BT.FARM || b.type === BT.DOCK) && R() < 0.55) {
+      const pool = dots.filter(d => d.adult && this.buildings[d.home].sid === b.sid && !this.ownedBy(d.id).length).sort((a, c) => (c.traits.includes('ambitious') ? 1 : 0) + R() * 0.8 - ((a.traits.includes('ambitious') ? 1 : 0) + R() * 0.8));
+      if (pool.length) { b.owner = pool[0].id; b.cash = 40; pool[0].coin += 30; }
+    }
+  }
+  ownedBy(id, types) { return this.buildings.filter(b => b.owner === id && b.state === 'ok' && b.type !== BT.HOUSE); }
+
+  /* ---------- the growing country: construction, ownership, businesses, failure ---------- */
+  bldMsg(b) { return { i: b.id, ty: b.type, x: b.x, y: b.y, n: b.name, d: b.door, w: b.w, h: b.h, st: b.state === 'ok' ? 0 : b.state === 'build' ? 1 : b.state === 'vacant' ? 2 : 3, o: b.owner, s: b.sid, f: b.fam || '', ow: b.owner >= 0 && this.dots[b.owner] ? this.dots[b.owner].name : '' }; }
+  pushBld(b, op) { this.out.push({ t: 'bld', op, b: this.bldMsg(b) }); }
+  pushTiles(list) { if (list.length) this.out.push({ t: 'tiles', c: list.map(i => [i, this.tiles[i]]) }); }
+  footprint(b) { const r = []; for (let dy = 0; dy < b.h; dy++) for (let dx = 0; dx < b.w; dx++) r.push((b.y + dy) * W + b.x + dx); return r; }
+  siteFor(d) {
+    const sid = this.buildings[d.home].sid; let best = null, bv = 1e9;
+    for (const st of this.sites) { const v = (st.sid === sid ? 0 : 30) + Math.hypot(st.x - d.x, st.y - d.y); if (v < bv && v < 60) { bv = v; best = st; } }
+    return best;
+  }
+  freePlot(s, kind) {
+    const pl = (s.plots || []).map(id => this.map.plots[id]).filter(p => !p.used), dc = (a, b) => a.dc - b.dc;
+    const urban = pl.filter(p => !p.rural), rural = pl.filter(p => p.rural);
+    switch (kind) {
+      case 'center': return urban.filter(p => p.sq).sort(dc)[0] || urban.sort(dc)[0] || null;
+      case 'house': return urban.filter(p => !p.sq).sort(dc)[0] || rural.sort(dc)[0] || null;
+      case 'dock': return urban.filter(p => p.quay)[0] || null;
+      case 'shop': { const f = urban.filter(p => !p.sq).sort(dc); return f.length ? f[Math.floor(f.length * 0.55)] : null; }
+      case 'farm': return rural.sort((a, b) => (b.fert - a.fert) + (a.dc - b.dc) * 0.045)[0] || urban.sort((a, b) => b.dc - a.dc)[0] || null;
+    }
+    return null;
+  }
+  expandSettlement(s) {
+    const r = Gen.expand(this.map, s, () => rnd()); if (!r.ok) return false;
+    if (r.tiles.length) { this.pushTiles(r.tiles); this.fgen++; this.ev('road', `🛣️ ${s.name} laid a new street.`, [], 40, 1); }
+    return true;
+  }
+  plotFor(s, kind) { return this.freePlot(s, kind) || (this.expandSettlement(s) ? this.freePlot(s, kind) : null); }
+  startBuild(plot, type, owner, cost) {
+    const b = this.placeOn(plot, type, 'build'); b.owner = owner; b.need = BUILD_SHIFTS[type]; b.prog = 0; b.escrow = cost; b.started = this.tick;
+    this.nameBuilding(b, owner >= 0 ? this.dots[owner] : null);
+    this.sites.push(b); this.fgen++; this.pushBld(b, 'add'); this.pushTiles(this.footprint(b)); return b;
+  }
+  buildStep(d, b) {
+    if (!b || b.state !== 'build') return;
+    const w = Math.min(9, Math.max(0, b.escrow)); b.escrow -= w; d.coin += w; b.prog++;
+    if (b.prog >= b.need) this.completeBuild(b);
+  }
+  completeBuild(b) {
+    b.state = 'ok'; b.born = this.tick; this.sites = this.sites.filter(x => x !== b); this.biz.built++; this.rebuild(); this.fgen++; this.pushBld(b, 'upd');
+    const o = b.owner >= 0 ? this.dots[b.owner] : null, s = this.S[b.sid], nm = BT_NAME[b.type].toLowerCase();
+    if (b.type === BT.MARKET) { b.stock = 40; b.cash = 20; }
+    if (b.type === BT.HOUSE) { this.moveIn(b); this.ev('house', `🏠 ${o ? o.name + "'s" : 'A'} new house is finished in ${s.name}.`, o ? [o.id] : [], 20, 1); return; }
+    if (o && b.owner >= 0) b.cash = Math.max(b.cash, 15);
+    this.ev('opened', `${o ? '🏪' : '🏛️'} ${b.name} ${BT_NAME[b.type]} opens in ${s.name}${o ? ` — owner ${o.name}` : ' — a public works project'}!`, o ? [o.id] : [], 0, 3);
+  }
+  moveIn(b) {
+    const o = this.dots[b.owner]; if (!o || o.dead) return; const old = o.home, grp = [o];
+    if (o.partner >= 0 && !this.dots[o.partner].dead && this.dots[o.partner].home === old) grp.push(this.dots[o.partner]);
+    for (const k of this.dots) if (!k.dead && !k.adult && k.home === old && k.fam === o.fam) grp.push(k);
+    for (const m of grp) m.home = b.id; b.fam = o.fam;
+  }
+  residents(hid) { let n = 0; for (const d of this.dots) if (!d.dead && d.home === hid) n++; return n; }
+  unemployed(sid) { let n = 0; for (const d of this.dots) if (!d.dead && d.adult && d.job === 3 && this.buildings[d.home].sid === sid) n++; return n; }
+  unstaff(b) {
+    for (const d of this.dots) if (!d.dead && d.work === b.id) {
+      d.work = -1; const w = d.job === 3 || d.job === 2 ? null : this.workFor(d.job, b.sid);
+      if (w && w.id !== b.id) d.work = w.id; else d.job = 3;
+    }
+    b.staff = 0;
+  }
+  demolish(b) {
+    for (const d of b.inside.slice()) { d.inside = false; d.phase = 'walk'; d.goal = null; } b.inside.length = 0; b.occ = 0;
+    b.state = 'gone'; b.stock = 0; const p = this.map.plots[b.plot]; if (p) { p.used = false; p.bid = -1; }
+    const fp = this.footprint(b); for (const i of fp) this.tiles[i] = TILE.GRASS;
+    this.sites = this.sites.filter(x => x !== b); this.rebuild(); this.fgen++; this.pushBld(b, 'del'); this.pushTiles(fp);
+  }
+  isBiz(b) { return b.type === BT.MARKET || b.type === BT.TAVERN || b.type === BT.WORKSHOP || b.type === BT.FARM || b.type === BT.DOCK; }
+
+  economyDawn() {
+    this.sPop = []; for (const d of this.dots) if (!d.dead) { const sid = this.buildings[d.home].sid; this.sPop[sid] = (this.sPop[sid] || 0) + 1; }
+    this.settle(); this.hire(); this.disasters(); this.housing(); this.entrepreneurs(); this.sales(); this.immigration(); this.vacancies();
+  }
+  settle() {
+    const day = this.day();
+    for (const b of this.buildings) {
+      if (b.state !== 'ok' || !this.isBiz(b)) continue;
+      if (b.type === BT.DOCK && rnd() < 0.45) {                       // a ship comes in: trade, and sometimes grain
+        const mk = this.sbl[b.sid].find(x => x.type === BT.MARKET), tr = this.S[b.sid].trade + 0.5; b.rev += Math.round(40 + rnd() * 70 * tr);
+        if (mk && mk.stock < 300 && rnd() < 0.6) { const q = 70 + ((rnd() * 90) | 0); mk.stock = Math.min(STOCK_CAP, mk.stock + q); this.ev('ship', `⚓ A trading ship docked at ${this.S[b.sid].name} and unloaded ${q} sacks of grain at ${b.name} Dock.`, [], 30, 2); }
+      }
+      if (b.owner < 0) { b.rev = 0; b.wage = 0; b.visits = 0; continue; }
+      const o = this.dots[b.owner]; if (!o || o.dead) { b.owner = -1; continue; }
+      const up = UPKEEP[b.type], inc = b.type === BT.MARKET ? b.rev * 0.3 : b.rev, profit = inc - up - b.wage;
+      b.hist.push(Math.round(profit)); if (b.hist.length > 6) b.hist.shift();
+      b.cash += profit;
+      if (b.cash > 70) { const dv = Math.round((b.cash - 40) * 0.6); b.cash -= dv; o.coin += dv; }
+      if (b.cash < -25 && o.coin > 45) { const inj = Math.min(40, o.coin - 20); o.coin -= inj; b.cash += inj; }
+      const young = this.tick - b.born < 3 * DAY_TICKS, v = b.visits; b.rev = 0; b.wage = 0; b.visits = 0;
+      if (b.cash < -80 && !young) this.fail(b, v);
+    }
+  }
+  fail(b, visits) {
+    const o = this.dots[b.owner], s = this.S[b.sid], rivals = this.sbl[b.sid].filter(x => x !== b && x.type === b.type).length;
+    const why = b.type === BT.FARM && this.tick - this.blightAt < 4 * DAY_TICKS ? 'the blight wrecked the harvest' : (b.type === BT.FARM || b.type === BT.WORKSHOP || b.type === BT.TAVERN) && (b.staff || 0) === 0 ? 'nobody was working there' : rivals >= 2 ? 'too many rivals in town' : visits < 4 ? 'hardly any customers' : o.traits.includes('lazy') ? 'the owner never kept it up' : 'costs outran takings';
+    this.ev('bankrupt', `📉 ${o.name}'s ${BT_NAME[b.type].toLowerCase()} ${b.name} in ${s.name} went bankrupt — ${why}.`, [o.id], 0, 4);
+    o.coin = Math.max(0, o.coin - 20); o.social = Math.max(0, o.social - 25); this.say(o, [C.ME, C.BROKE]);
+    b.state = 'vacant'; b.vac = 0; b.owner = -1; b.cash = 0; if (b.type === BT.MARKET) b.stock = 0;
+    this.biz.closed++; this.unstaff(b); this.rebuild(); this.fgen++; this.pushBld(b, 'upd');
+  }
+  hire() {
+    const staff = new Map(); for (const d of this.dots) if (!d.dead && d.adult && d.work >= 0) staff.set(d.work, (staff.get(d.work) || 0) + 1);
+    const pools = {}; for (const d of this.dots) if (!d.dead && d.adult && d.job === 3) (pools[this.buildings[d.home].sid] = pools[this.buildings[d.home].sid] || []).push(d);
+    for (const b of this.buildings) b.staff = staff.get(b.id) || 0;
+    for (const b of this.buildings) {
+      if (b.state !== 'ok' || !STAFF[b.type]) continue; let need = STAFF[b.type] - b.staff; const pool = pools[b.sid]; if (need <= 0 || !pool) continue;
+      const job = b.type === BT.FARM ? 0 : b.type === BT.TAVERN ? 2 : 1;
+      while (need > 0 && pool.length) { const d = pool.splice((rnd() * pool.length) | 0, 1)[0]; d.job = job; d.work = b.id; need--; b.staff++; }
+    }
+  }
+  entrepreneurs() {
+    if (this.sites.length >= 8) return; let made = 0;
+    for (const d of this.dots) {
+      if (d.dead || !d.adult || d.coin < 75 || made >= 2) continue;
+      let m = 0.004; if (d.traits.includes('ambitious')) m *= 3; if (d.dream === 'rich') m *= 2; if (d.job === 3) m *= 1.6; if (d.traits.includes('lazy')) m *= 0.3; if (d.coin > 200) m *= 2;
+      if (this.ownedBy(d.id).length >= 2 || this.sites.some(x => x.owner === d.id) || rnd() > m) continue;
+      if (this.tryFound(d)) made++;
+    }
+  }
+  tryFound(d) {
+    const home = this.buildings[d.home], s = this.S[home.sid], P = this.sPop[s.id] || 1, L = this.sbl[s.id];
+    const cnt = t => L.filter(b => b.type === t).length, nm = this.nearest(this.markets, d, 0), starved = nm && nm.stock < 60 ? 0.5 : 0;
+    const opts = [[BT.MARKET, P / 85 - cnt(BT.MARKET) + starved + (s.tier <= 1 ? 0.1 : -0.25)], [BT.TAVERN, P / 60 - cnt(BT.TAVERN)], [BT.WORKSHOP, P / 40 - cnt(BT.WORKSHOP) + this.unemployed(s.id) / 12], [BT.FARM, P * 0.36 / 11 - this.farms.filter(f => f.sid === s.id).length + starved]];
+    if (s.quayAt !== undefined && cnt(BT.DOCK) < (s.tier === 0 ? 3 : 1)) opts.push([BT.DOCK, 0.55 - cnt(BT.DOCK) * 0.3 + s.trade * 0.5]);
+    for (const o of opts) { o[1] += (rnd() - 0.5) * 0.9; if (o[0] === BT.MARKET && this.mcount >= MAXM) o[1] = -9; }   // overconfidence: people misjudge a market
+    opts.sort((a, b) => b[1] - a[1]); const [type, score] = opts[0]; if (score < 0.15) return false;
+    const why = d.traits.includes('ambitious') ? 'ambitious' : d.dream === 'rich' ? 'dreams of getting rich' : d.job === 3 ? 'tired of odd jobs' : starved && (type === BT.MARKET || type === BT.FARM) ? `saw ${nm.name} Market run low` : d.coin > 200 ? 'has money to put to work' : 'saw an opening';
+    // reuse a closed-down building if one fits (cheaper: a refit, not a new build)
+    const vac = this.buildings.find(b => b.state === 'vacant' && b.sid === s.id && this.isBiz(b) && (type === BT.FARM ? b.type === BT.FARM : (!b.open && type !== BT.DOCK) || b.type === type));
+    if (vac) {
+      const cost = Math.round(BUILD_SHIFTS[type] * 10 * 0.35); if (d.coin < cost + 30) return false;
+      d.coin -= cost; const was = BT_NAME[vac.type].toLowerCase();
+      vac.type = type; vac.open = type === BT.FARM; vac.state = 'build'; vac.need = Math.max(2, Math.ceil(BUILD_SHIFTS[type] * 0.4)); vac.prog = 0; vac.escrow = cost; vac.owner = d.id; vac.vac = 0; vac.name = this.word(2, 2, true); vac.hist = [];
+      if (type === BT.MARKET && vac.mi < 0) vac.mi = this.mcount++;
+      this.sites.push(vac); this.rebuild(); this.fgen++; this.pushBld(vac, 'upd');
+      this.ev('refit', `♻️ ${d.name} (${why}) is turning the empty ${was} in ${s.name} into a ${BT_NAME[type].toLowerCase()}.`, [d.id], 0, 3); return true;
+    }
+    const kind = type === BT.DOCK ? 'dock' : type === BT.FARM ? 'farm' : type === BT.WORKSHOP ? 'shop' : 'center', cost = BUILD_SHIFTS[type] * 10;
+    if (d.coin < cost + 25) return false;
+    const plot = this.plotFor(s, kind); if (!plot) return false;
+    d.coin -= cost; this.startBuild(plot, type, d.id, cost);
+    this.ev('found', `🏗️ ${d.name} (${why}) is building a ${BT_NAME[type].toLowerCase()} in ${s.name}.`, [d.id], 0, 3); return true;
+  }
+  housing() {
+    if (this.sites.length >= 8) return;
+    const res = new Map(); for (const d of this.dots) if (!d.dead) { if (!res.has(d.home)) res.set(d.home, []); res.get(d.home).push(d); }
+    let did = 0;
+    for (const [hid, list] of res) {
+      if (list.length < 5 || did >= 2) continue; const h = this.buildings[hid]; if (h.state !== 'ok') continue;
+      const ad = list.filter(d => d.adult && d.id !== h.owner && !this.sites.some(x => x.owner === d.id));
+      const mover = ad.find(d => d.partner >= 0 && list.includes(this.dots[d.partner])) || ad.sort((a, b) => b.coin - a.coin)[0]; if (!mover) continue;
+      const cost = BUILD_SHIFTS[BT.HOUSE] * 10; if (mover.coin < cost * 0.4 && this.treasury < cost * 3) continue;
+      const s = this.S[h.sid], plot = this.plotFor(s, 'house'); if (!plot) continue;
+      const own = Math.max(0, Math.min(cost, mover.coin - 5)); mover.coin -= own; if (own < cost) this.treasury -= cost - own;
+      this.startBuild(plot, BT.HOUSE, mover.id, cost); did++;
+      this.ev('moveout', `🏠 ${mover.name} is building a place of their own in ${s.name}${own < cost ? ' (town housing grant)' : ''}.`, [mover.id], 30, 1);
+    }
+  }
+  addDot(o) {
+    const slot = this.dots.find(x => x.dead), id = this.dots.length < this.maxPop ? this.dots.length : (slot ? slot.id : -1); if (id < 0) return null;
+    const d = this.makeDot(id, o, rnd); this.dots[id] = d; this.names[id] = d.name; if (this.rep.length <= id) this.rep = new Float32Array(this.dots.length + 8);
+    this.out.push({ t: 'born', id: d.id, name: d.name, f: d.fam, j: d.job, h: d.home, tr: d.traits }); return d;
+  }
+  immigration() {
+    if (this.dots.filter(d => !d.dead).length >= this.maxPop || !this.markets.length) return;
+    const avg = this.markets.reduce((a, m) => a + m.stock, 0) / this.markets.length; if (avg < 130 || rnd() > 0.3) return;
+    const w = this.S.map(s => { const sp = this.sbl[s.id].filter(b => b.type === BT.HOUSE && this.residents(b.id) <= 2).length; return (s.tier === 0 ? 3 : s.tier === 1 ? 1.5 : 1) * (1 + sp) * (this.sbl[s.id].some(b => b.type === BT.HOUSE) ? 1 : 0); });
+    let r = rnd() * w.reduce((a, b) => a + b, 0), s = this.S[0]; for (let i = 0; i < w.length; i++) { r -= w[i]; if (r <= 0) { s = this.S[i]; break; } }
+    const houses = this.sbl[s.id].filter(b => b.type === BT.HOUSE).sort((a, b) => this.residents(a.id) - this.residents(b.id)); if (!houses.length) return;
+    const home = houses[0], n = 1 + ((rnd() * 3) | 0), fam = this.famGen(), made = [];
+    for (let i = 0; i < n; i++) { const d = this.addDot({ name: this.newName(), fam, job: 3, home: home.id, work: -1, traits: rollTraits(rnd), age: ADULT + 2 + rnd() * 14, life: 45 + rnd() * 25, coin: 50 + rnd() * 90 }); if (d) made.push(d); }
+    for (const a of made) for (const b of made) if (a !== b) a.aff.set(b.id, 40);
+    if (made.length) { this.biz.arrived += made.length; this.ev('arrive', `🚶 ${made.length === 1 ? made[0].name + ' arrives' : made.map(m => m.name).join(' & ') + ' arrive'} in ${s.name} looking for work and a home.`, made.map(m => m.id), 0, 3); }
+  }
+  sales() {
+    if (rnd() > 0.25) return; const cand = this.buildings.filter(b => b.state === 'ok' && b.owner >= 0 && this.isBiz(b)); if (!cand.length) return;
+    const b = pick(cand), o = this.dots[b.owner], avg = b.hist.length ? b.hist.reduce((x, y) => x + y, 0) / b.hist.length : 0;
+    const price = Math.max(40, Math.round(avg * 5)), buyer = this.dots.filter(x => !x.dead && x.adult && x.id !== o.id && x.coin > price * 1.2 && this.buildings[x.home].sid === b.sid).sort((x, y) => y.coin - x.coin)[0];
+    if (!buyer || (o.coin > 60 && avg > 0 && rnd() > 0.15)) return;
+    buyer.coin -= price; o.coin += price; b.owner = buyer.id; this.biz.sold++; this.pushBld(b, 'upd');
+    this.ev('sale', `🔑 ${o.name} sold ${b.name} ${BT_NAME[b.type]} to ${buyer.name} for ${price} coins.`, [o.id, buyer.id], 0, 2);
+  }
+  disasters() {
+    for (const b of this.buildings) {
+      if (b.state !== 'ok' || b.type === BT.PARK) continue;
+      const p = 0.0007 * (this.season() === 3 ? 1.5 : 1) * (b.type === BT.TAVERN || b.type === BT.WORKSHOP ? 1.6 : 1);
+      if (rnd() < p) { this.burn(b); break; }
+    }
+  }
+  burn(b) {
+    const o = b.owner >= 0 ? this.dots[b.owner] : null, s = this.S[b.sid]; let homeless = 0;
+    if (b.type === BT.HOUSE) {
+      const alt = this.sbl[b.sid].filter(x => x.type === BT.HOUSE && x !== b).sort((x, y) => this.residents(x.id) - this.residents(y.id))[0];
+      for (const d of this.dots) if (!d.dead && d.home === b.id) { d.home = alt ? alt.id : this.houses.find(x => x !== b).id; d.coin = Math.max(0, d.coin - 10); d.social = Math.max(0, d.social - 20); homeless++; }
+    } else this.unstaff(b);
+    this.ev('fire', `🔥 Fire in ${s.name}! ${b.name} ${BT_NAME[b.type]} burned to the ground${o ? ` — ${o.name} loses everything in it` : ''}${homeless ? `, ${homeless} left homeless` : ''}.`, o ? [o.id] : [], 0, 4);
+    this.biz.fires++; this.demolish(b);
+  }
+  vacancies() {
+    for (const b of this.buildings) if (b.state === 'vacant') {
+      b.vac++;
+      if (b.vac >= 8) { this.ev('demolish', `🧱 The empty ${BT_NAME[b.type].toLowerCase()} ${b.name} in ${this.S[b.sid].name} was torn down.`, [], 60, 1); this.demolish(b); }
+    }
+  }
+  inherit(d) {
+    for (const b of this.buildings) if (b.owner === d.id && b.state !== 'gone') {
+      const heir = (d.partner >= 0 && !this.dots[d.partner].dead && this.dots[d.partner]) || this.dots.find(k => !k.dead && k.adult && k.home === d.home && k.id !== d.id) || this.friends(d).map(f => this.dots[f[0]]).find(k => k.adult) || null;
+      if (b.type !== BT.HOUSE && heir) { b.owner = heir.id; this.ev('inherit', `📜 ${heir.name} inherits ${b.name} ${BT_NAME[b.type]}.`, [heir.id], 40, 2); } else b.owner = heir ? heir.id : -1;
+      if (b.state === 'build' && b.owner < 0) { /* orphaned site: town finishes it */ }
+    }
+  }
+  civicBuild(m) {
+    if (this.sites.length >= 6) return false;
+    for (const s of this.S) {
+      const P = this.sPop[s.id] || 0, has = t => this.sbl[s.id].some(b => b.type === t) || this.sites.some(b => b.sid === s.id && b.type === t);
+      if (s.tier <= 2 && P >= 16 && !has(BT.MARKET) && this.mcount < MAXM && this.treasury >= 160) { const p = this.plotFor(s, 'center'); if (p) { this.treasury -= 110; this.startBuild(p, BT.MARKET, -1, 110); this.ev('civic', `🏛️ Mayor ${m.name} funds a public market for ${s.name}.`, [m.id], 0, 3); return true; } }
+      if (s.tier <= 1 && !has(BT.HALL) && this.treasury >= 300) { const p = this.plotFor(s, 'center'); if (p) { this.treasury -= 150; this.startBuild(p, BT.HALL, -1, 150); this.ev('civic', `🏛️ Mayor ${m.name} commissions a town hall for ${s.name}.`, [m.id], 0, 3); return true; } }
+    }
+    if (this.treasury > 900) { const fords = []; for (let i = 0; i < this.tiles.length; i++) if (this.tiles[i] === TILE.FORD) fords.push(i); if (fords.length) { const i = pick(fords); this.tiles[i] = TILE.BRIDGE; this.treasury -= 200; this.fgen++; this.pushTiles([i]); this.ev('bridge', `🌉 Mayor ${m.name} replaced a river ford with a stone bridge.`, [m.id], 0, 3); return true; } }
+    return false;
+  }
+
+  /* ---------- helpers ---------- */
+  dayIdx() { return Math.floor(this.tick / DAY_TICKS); }
+  season() { return Math.floor(this.dayIdx() / SEASON_DAYS) % 4; }
+  year() { return Math.floor(this.dayIdx() / (SEASON_DAYS * 4)) + 1; }
+  mprice(b) { return b.stock < 25 ? 8 : b.stock < 60 ? 6 : b.stock < 120 ? 4 : b.stock < 260 ? 3 : 2; }
+  price(d) { return d.adult ? 2 : 0; }   // cheapest possible meal; actual price is set by the market's stock
+  tod() { return (this.tick % DAY_TICKS) / DAY_TICKS; }
+  day() { return Math.floor(this.tick / DAY_TICKS) + 1; }
+  isNight(d) { const t = this.tod(); return t < 0.22 + d.off || t > 0.88 + d.off; }
+  say(d, k) { this.out.push({ t: 'say', d: d.id, k }); }
+  sayB(b, k) { this.out.push({ t: 'say', b: b.id, k }); }
+  ev(kind, text, ids, gap = 0, w = 1) {
+    if (gap && this.tick - (this.lastEv[kind] || -1e9) < gap) return;
+    this.lastEv[kind] = this.tick; const m = { t: 'ev', k: kind, x: text, ids: ids || [], w }; this.out.push(m); this.hist.push(m); if (this.hist.length > 40) this.hist.shift();
+  }
+  later(dt, m) { this.pending.push({ at: this.tick + dt, m }); }
+  fieldAt(b, d) { return this.F(this.buildings[b])[d.y * W + d.x]; }
+  nearest(list, d, jitter = 0) { let best = null, bv = 1e9; for (const b of list) { const v = this.F(b)[d.y * W + d.x] + rnd() * jitter; if (v < bv) { bv = v; best = b; } } return best; }
+
+  believedEmpty(d) { let n = 0; for (const m of this.markets) { const b = d.belief[m.mi]; if (b >= 0 && this.tick - b < 300 && this.F(m)[d.y * W + d.x] < 160) n++; } return n; }
+  pickMarket(d) {
+    let best = -1, bv = 1e9;
+    for (const m of this.markets) { const b = d.belief[m.mi]; if (b >= 0 && this.tick - b < 300) continue; const v = this.F(m)[d.y * W + d.x]; if (v < bv) { bv = v; best = m.id; } }
+    return best;
+  }
+
+  addAff(a, b, v) {
+    const prev = a.aff.get(b.id) || 0, nv = Math.max(-100, Math.min(100, prev + v));
+    a.aff.set(b.id, nv);
+    if (a.aff.size > 14) { let mk = -1, mv = 1e9; for (const [k, x] of a.aff) if (Math.abs(x) < mv && k !== b.id) { mv = Math.abs(x); mk = k; } a.aff.delete(mk); }
+    if (prev < 25 && nv >= 25) {
+      const o = this.dots[b.id].aff.get(a.id) || 0;
+      if (o >= 25) { const key = Math.min(a.id, b.id) * 1000 + Math.max(a.id, b.id); if (!this.pairs.has(key)) { this.pairs.add(key); this.stats.friends++; this.ev('friend', `🤝 ${a.name} and ${b.name} became friends.`, [a.id, b.id], 8); } }
+    }
+  }
+  friends(d) { const r = []; for (const [k, v] of d.aff) if (v >= 25 && !this.dots[k].dead) r.push([k, v]); return r.sort((a, b) => b[1] - a[1]); }
+  mood(d) { return Math.max(0, Math.min(100, Math.round(100 - Math.max(0, d.hunger - 40) * 0.8 - Math.max(0, 60 - d.energy) * 0.5 - Math.max(0, 60 - d.social) * 0.5 + Math.min(10, this.friends(d).length * 2) - (this.tick < d.grief ? 25 : 0)))); }
+
+  enter(d, b) { d.inside = true; b.occ++; b.inside.push(d); }
+  leave(d) { if (!d.inside) return; const b = this.buildings[d.goal.b]; d.inside = false; b.occ--; const i = b.inside.indexOf(d); if (i >= 0) b.inside.splice(i, 1); }
+
+  /* ---------- the brain (swap me for an ML policy) ---------- */
+  decide(d) {
+    const tk = this.tick, tod = this.tod(), night = this.isNight(d), hours = tod > 0.27 && tod < 0.80;
+    const c = [];
+    c.push(['sleep', (100 - d.energy) * 1.15 + (night ? 75 : 0) - (d.hunger > 88 ? 60 : 0)]);
+    const mk = d.hunger > 35 ? this.pickMarket(d) : -1;
+    if (mk >= 0 && d.coin >= this.price(d) && !(d.shortAt && this.tick - d.shortAt < 150 && d.coin < 8)) c.push(['eat', d.hunger * 1.3 - (night && d.energy < 40 ? 30 : 0)]);
+    const broke = d.coin < FOOD_PRICE * 2;
+    if (d.adult && (hours || (broke && d.hunger > 50 && !night) || (d.job === 0 && this.believedEmpty(d) && !night)) && d.energy > 20) {
+      let s = d.dil * 32 + (d.coin < 30 ? 35 : 0) + (d.coin < 10 ? 30 : 0) - (d.coin > 140 ? 45 : 0);
+      if (d.job === 0) { const nm = this.nearest(this.markets, d, 0), low = nm ? nm.stock : 999; s += (low < 90 ? 30 : 0) + (low < 30 ? 35 : 0) + (low > (this.season() === 2 ? 600 : 250) ? -50 : 0) + (this.believedEmpty(d) ? 30 : 0) + (low < 40 && d.coin > 60 ? 45 : 0) + (this.season() === 2 ? 20 : 0); }
+      if (d.hunger > 85 && d.coin >= FOOD_PRICE && mk >= 0) s -= 60;
+      c.push(['work', s]);
+    }
+    if (d.adult && (d.job === 1 || d.job === 3) && this.sites.length && hours && d.energy > 22) {
+      const st = this.siteFor(d); if (st) c.push(['build', 38 + d.dil * 18 + (d.coin < 30 ? 28 : 0) + (d.job === 3 ? 12 : 0)]);
+    }
+    const fest = tk < this.festival, inv = d.invite && tk < d.invite.until ? d.invite : null;
+    c.push(['social', (100 - d.social) * d.soc * 0.95 + (fest ? 90 : 0) + (inv && inv.k === 'social' ? 60 : 0) - (night ? 45 : 0) - (this.weather ? 30 : 0)]);
+    if (d.adult && d.coin >= DRINK_PRICE * 2) c.push(['drink', (100 - d.social) * d.soc * 0.55 + (tod > 0.62 && tod < 0.92 ? 22 : -35) + (inv && inv.k === 'drink' ? 60 : 0) + (fest ? 30 : 0) + (this.weather ? 15 : 0)]);
+    c.push(['wander', 18 + rnd() * 10]);
+    let bk = 'wander', bs = -1e9;
+    for (const [k, s] of c) { const v = s + (rnd() - 0.5) * 14; if (v > bs) { bs = v; bk = k; } }
+    this.setGoal(d, bk, mk, inv);
+  }
+
+  setGoal(d, k, mk, inv) {
+    let g;
+    switch (k) {
+      case 'sleep': g = { k, b: d.home, enter: true }; break;
+      case 'eat': g = { k, b: mk, enter: true }; break;
+      case 'work': {
+        let b = d.job === 3 ? this.nearest(this.workshops, d, 10) : this.buildings[d.work];
+        if (!b || b.state !== 'ok') { b = this.nearest(this.workshops, d, 10) || this.buildings[d.home]; }
+        g = { k, b: b.id, enter: !b.open }; break;
+      }
+      case 'build': {
+        const st = this.siteFor(d) || this.buildings[d.home];
+        g = { k, b: st.id, enter: false }; break;
+      }
+      case 'social': {
+        let b = (inv && inv.k === 'social') ? this.buildings[inv.b] : this.nearest(this.parks, d, this.tick < this.festival ? 8 : 40);
+        if (inv && inv.k === 'social') d.invite = null;
+        g = { k, b: b.id, enter: false }; break;
+      }
+      case 'drink': {
+        let b = (inv && inv.k === 'drink') ? this.buildings[inv.b] : this.nearest(this.taverns, d, 25);
+        if (inv && inv.k === 'drink') d.invite = null;
+        g = { k, b: b.id, enter: true }; break;
+      }
+      default: { const sb = this.sbl[this.buildings[d.home].sid] || [], far = rnd() < 0.04, b = far ? pick(this.parks) : (sb.length ? pick(sb) : this.buildings[d.home]); g = { k: 'wander', b: b.id, enter: false }; }
+    }
+    d.goal = g; d.phase = 'walk'; d.nx = -1; d.prog = 0;
+  }
+
+  /* ---------- movement + activities ---------- */
+  move(d) {
+    const f = this.F(this.buildings[d.goal.b]);
+    if (d.nx < 0) {
+      const cur = f[d.y * W + d.x];
+      if (cur === 0) { this.arrive(d); return; }
+      let best = -1, bv = cur;
+      const s = (rnd() * 4) | 0;
+      for (let q0 = 0; q0 < 4; q0++) {
+        const q = (q0 + s) & 3, nx = d.x + (q === 0 ? 1 : q === 1 ? -1 : 0), ny = d.y + (q === 2 ? 1 : q === 3 ? -1 : 0);
+        if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+        const v = f[ny * W + nx]; if (v < bv) { bv = v; best = ny * W + nx; }
+      }
+      if (best < 0) { d.goal = null; return; }
+      d.nx = best % W; d.ny = (best / W) | 0; d.prog = 0;
+    }
+    const tt = this.tiles[d.y * W + d.x];
+    d.prog += d.speed * (tt === TILE.ROAD ? 1 : tt === TILE.OPEN ? 0.85 : 0.7) * (this.weather ? 0.8 : 1);
+    if (d.prog >= 1) { d.x = d.nx; d.y = d.ny; d.nx = -1; d.prog = 0; if (f[d.y * W + d.x] === 0) this.arrive(d); }
+  }
+
+  arrive(d) {
+    const g = d.goal, b = this.buildings[g.b];
+    if ((b.state === 'gone' || b.state === 'vacant') && g.k !== 'wander' && g.k !== 'social') { d.phase = 'walk'; d.goal = null; return; }
+    d.phase = 'do';
+    switch (g.k) {
+      case 'sleep': this.enter(d, b); d.timer = 900; break;
+      case 'eat':
+        {
+          let pr = d.adult ? this.mprice(b) : 0; if (d.adult && d.hunger > 85 && d.coin < pr && b.stock > 20) pr = 0;   // the starving get charity
+          if (b.stock > 0 && d.coin >= pr) { b.stock--; d.coin -= pr; b.till = (b.till || 0) + pr; b.rev += pr; b.visits++; this.enter(d, b); d.timer = 14; this.stats.meals++; d.meals++; if (b.stock === 0) this.checkStock(b); }
+          else if (b.stock > 0) { this.sayDelayed(d, [C.ME, C.BROKE]); d.phase = 'walk'; d.goal = null; d.shortAt = this.tick; }
+          else { d.belief[b.mi] = this.tick; this.sayDelayed(d, [2000 + b.id, C.NO, C.FOOD]); this.checkStock(b); d.phase = 'walk'; d.goal = null; }
+        }
+        break;
+      case 'work': {
+        const t = d.job === 0 ? 55 : d.job === 1 ? 70 : d.job === 2 ? 80 : 60;
+        if (g.enter) this.enter(d, b); d.timer = t; break;
+      }
+      case 'deliver': {
+        this.enter(d, b);
+        const room = STOCK_CAP - b.stock, add = Math.min(room, d.carry);
+        const rate = this.mprice(b) * 0.9 / 1.6;
+        b.stock += add; d.coin += Math.round(d.carry * rate * 1.6);
+        { const fb = this.buildings[d.work]; if (fb && fb.owner >= 0 && fb.state === 'ok' && fb.type === BT.FARM) { fb.rev += Math.round(d.carry * rate * 1.6 * 0.15); fb.visits++; } } this.stats.deliveries++; this.stats.wasted += d.carry - add; d.carry = 0; d.timer = 8; this.checkStock(b); break;
+      }
+      case 'build': if (b.state !== 'build') { d.phase = 'walk'; d.goal = null; } else d.timer = 70; break;
+      case 'social': d.timer = 70 + ((rnd() * 70) | 0); break;
+      case 'drink':
+        if (d.coin >= DRINK_PRICE) { d.coin -= DRINK_PRICE; b.rev += DRINK_PRICE; b.visits++; this.enter(d, b); d.timer = 60 + ((rnd() * 50) | 0); }
+        else { d.phase = 'walk'; d.goal = null; }
+        break;
+      default: d.timer = 12 + ((rnd() * 25) | 0);
+    }
+  }
+  sayDelayed(d, k) { this.later(1, { t: 'say', d: d.id, k }); }
+
+  checkStock(b) {
+    if (b.stock <= 0 && !b.flag) { b.flag = true; this.ev('empty' + b.id, `🍞 ${b.name} Market has run out of food!`, [], 40, 2); }
+    else if (b.stock >= 25 && b.flag) { b.flag = false; this.ev('restock' + b.id, `🌾 ${b.name} Market is stocked again.`, [], 40); }
+  }
+
+  doing(d) {
+    const g = d.goal;
+    switch (g.k) {
+      case 'sleep': {
+        d.energy = Math.min(100, d.energy + 0.42);
+        if (--d.timer <= 0 || d.hunger > 96 || (!this.isNight(d) && d.energy >= 80)) this.finish(d);
+        break;
+      }
+      case 'eat': if (--d.timer <= 0) { d.hunger = Math.max(0, d.hunger - 62); this.finish(d); } break;
+      case 'work':
+        if (--d.timer <= 0) {
+          if (d.job === 0) { d.carry = tkLess(this.tick, this.blight) ? 0 : Math.max(1, Math.round(4 * YIELD[this.season()])); if (!d.carry) this.out.push({ t: 'say', d: d.id, k: [C.FARM, C.BAD] }); }
+          else { const w = d.job === 1 ? 9 : d.job === 2 ? 10 : 8; d.coin += w; const wb = this.buildings[g.b]; wb.visits++; if (wb.owner >= 0 && wb.state === 'ok') { wb.wage += w; wb.rev += wb.type === BT.DOCK ? 13 : wb.type === BT.WORKSHOP ? 11 : 0; } }
+          this.finish(d);
+        }
+        break;
+      case 'build': if (--d.timer <= 0) { this.buildStep(d, this.buildings[g.b]); this.finish(d); } break;
+      case 'social': d.social = Math.min(100, d.social + 0.30); if (--d.timer <= 0) this.finish(d); break;
+      case 'drink': {
+        d.social = Math.min(100, d.social + 0.38);
+        if (this.tick % 20 === d.id % 20) { const b = this.buildings[g.b]; if (b.inside.length > 1) { const o = pick(b.inside); if (o !== d) { this.addAff(d, o, 3); this.addAff(o, d, 3); } } }
+        if (--d.timer <= 0) this.finish(d); break;
+      }
+      default: if (--d.timer <= 0) this.finish(d);
+    }
+  }
+  finish(d) {
+    this.leave(d);
+    const was = d.goal; d.goal = null; d.phase = 'walk';
+    if (was.k === 'work' && d.job === 0 && d.carry > 0) {
+      const m = this.markets.reduce((a, b) => (this.F(a)[d.y * W + d.x] + a.stock * 0.3 < this.F(b)[d.y * W + d.x] + b.stock * 0.3 ? a : b));
+      d.goal = { k: 'deliver', b: m.id, enter: true }; d.nx = -1; d.prog = 0;
+    }
+  }
+
+  /* ---------- life, death, drama ---------- */
+  die(d, cause) {
+    if (d.dead) return;
+    if (d.inside && d.goal) this.leave(d);
+    d.inside = false; d.dead = true; d.goal = null; d.phase = 'walk'; d.nx = -1; d.prog = 0; d.fight = false;
+    const home = this.buildings[d.home]; d.x = home.door[0]; d.y = home.door[1];
+    const fr = this.friends(d).map(f => this.dots[f[0]]);
+    const heir = d.partner >= 0 && !this.dots[d.partner].dead ? this.dots[d.partner] : fr[0];
+    const est = Math.round(d.coin);
+    if (heir && est > 0) heir.coin += est;
+    if (d.partner >= 0) { const p = this.dots[d.partner]; p.partner = -1; p.married = false; p.grief = this.tick + 900; p.social = Math.max(0, p.social - 30); }
+    d.partner = -1; d.coin = 0;
+    this.inherit(d);
+    const mourners = fr.slice(0, 6), park = this.nearest(this.parks, mourners[0] || d, 0);
+    for (const m of mourners) { m.grief = this.tick + 400; m.social = Math.max(0, m.social - 15); m.invite = { k: 'social', b: park.id, until: this.tick + 300 }; this.later(2 + ((rnd() * 10) | 0), { t: 'say', d: m.id, k: [1000 + d.id, C.DIE] }); }
+    this.stats.deaths++;
+    this.ev('death', `🕯️ ${d.name} ${cause === 'hunger' ? 'starved' : 'died of old age'} at ${Math.round(d.age)}.${mourners.length ? ` ${mourners.length} friend${mourners.length > 1 ? 's' : ''} mourn.` : ''}${heir && est > 0 ? ` ${heir.name} inherits ${est} coins.` : ''}`, [d.id].concat(mourners.slice(0, 1).map(m => m.id)), 0, 4);
+  }
+  spawn(a, b) {
+    const slot = this.dots.find(x => x.dead) || (this.dots.length < this.maxPop && this.residents(a.home) < 7 ? { id: this.dots.length } : null); if (!slot) return false;
+    if (this.rep.length <= slot.id) this.rep = new Float32Array(this.dots.length + 8);
+    let traits = []; for (const t of a.traits.concat(b.traits)) if (rnd() < 0.35 && !traits.includes(t) && traits.length < 2) traits.push(t);
+    if (!traits.length) traits = rollTraits(rnd);
+    if (traits.includes('lazy') && traits.includes('ambitious')) traits = traits.filter(t => t !== 'lazy');
+    const pj = (rnd() < 0.5 ? a : b).future, future = pj === 2 ? 3 : pj;
+    const d = this.makeDot(slot.id, { name: this.newName(), fam: (rnd() < 0.5 ? a : b).fam, job: 3, home: a.home, work: -1, future, traits, age: 0, life: 45 + rnd() * 25, hunger: 20, energy: 90, social: 60, coin: 0 }, rnd);
+    d.speed = 0.26; this.dots[slot.id] = d; this.names[slot.id] = d.name;
+    for (const p of [a, b]) { p.aff.set(d.id, 70); d.aff.set(p.id, 70); p.kids++; }
+    for (const o of this.dots) if (!o.dead && o.home === a.home && o.id !== d.id && o.id !== a.id && o.id !== b.id) { o.aff.set(d.id, 40); d.aff.set(o.id, 40); }
+    this.stats.births++;
+    this.out.push({ t: 'born', id: d.id, name: d.name, f: d.fam, j: d.job, h: d.home, tr: d.traits });
+    this.ev('birth', `👶 ${a.name} and ${b.name} had a baby: ${d.name}!`, [d.id, a.id], 0, 2);
+    return true;
+  }
+  newName() { const taken = new Set(this.dots.map(d => d.name)); for (let i = 0; i < 60; i++) { const w = this.nameGen(); if (!taken.has(w)) return w; } return this.nameGen() + 'x'; }
+  grow(d) { d.adult = true; d.job = d.future; { const w = d.job === 3 || d.job === 2 ? null : this.workFor(d.job, this.buildings[d.home].sid); d.work = w ? w.id : -1; if (!w && d.job < 2) d.job = 3; } this.ev('grow', `🎓 ${d.name} grew up and became a ${JOBS[d.job]}.`, [d.id], 60, 1); }
+  dreamCheck(d) {
+    if (d.dream === 'content') return;
+    const ok = d.dream === 'rich' ? d.coin >= 250 : d.dream === 'famous' ? this.friends(d).length >= 8 : d.dream === 'family' ? d.kids >= 2 : d.partner >= 0;
+    if (!ok) return;
+    d.done.add(d.dream); d.dreams++; d.social = 100; this.ev('dream', `✨ ${d.name} achieved a dream: ${DREAM_TXT[d.dream]}.`, [d.id], 20, 2);
+    this.say(d, [C.ME, C.HAPPY]); d.dream = this.pickDream(d, rnd, d.dream);
+  }
+  couple(a, b) {
+    if (a.dead || b.dead || a.partner >= 0 || b.partner >= 0) return;
+    a.partner = b.id; b.partner = a.id; a.since = b.since = this.tick; a.social = b.social = 100;
+    const park = this.nearest(this.parks, a, 10), inv = { k: 'social', b: park.id, until: this.tick + 300 }; a.invite = inv; b.invite = Object.assign({}, inv);
+    this.ev('love', `💘 ${a.name} and ${b.name} are now a couple!`, [a.id, b.id], 0, 3);
+  }
+  reject(s, l) {
+    s.rejectCd = 1500; s.social = Math.max(0, s.social - 30); s.aff.set(l.id, (s.aff.get(l.id) || 0) - 8);
+    this.ev('reject', `💔 ${s.name} confessed to ${l.name} and got turned down.`, [s.id, l.id], 0, 3);
+  }
+  breakup(a, b) {
+    a.partner = b.partner = -1; a.married = b.married = false; a.social = Math.max(0, a.social - 30); b.social = Math.max(0, b.social - 30);
+    this.ev('breakup', `💔 ${a.name} and ${b.name} broke up.`, [a.id, b.id], 0, 3);
+  }
+  wedding(a, b) {
+    a.married = b.married = true;
+    const park = this.nearest(this.parks, a, 10), inv = { k: 'social', b: park.id, until: this.tick + 400 };
+    const guests = this.friends(a).slice(0, 6).concat(this.friends(b).slice(0, 6)).map(f => this.dots[f[0]]);
+    for (const g of guests.concat([a, b])) g.invite = Object.assign({}, inv);
+    this.say(a, [C.ME, C.MARRY, C.YOU]); this.later(5, { t: 'say', d: b.id, k: [C.YES] });
+    this.ev('wedding', `💍 ${a.name} and ${b.name} got married! ${guests.length} guests head to the park.`, [a.id, b.id], 0, 4);
+  }
+  jealous(a, b) {
+    if (a.partner < 0 || b.id === a.partner) return;
+    const P = this.dots[a.partner]; if (P.dead || P.inside) return;
+    const dx = P.x - a.x, dy = P.y - a.y, jt = P.traits.includes('jealous');
+    if (dx * dx + dy * dy > 64 || rnd() > (jt ? 0.7 : 0.06)) return;
+    P.aff.set(b.id, Math.min(P.aff.get(b.id) || 0, 0) - 25); this.say(P, [C.ME, C.JEALOUS]);
+    this.ev('jealous', `😠 ${P.name} saw ${a.name} chatting with ${b.name}.`, [P.id, a.id], 15, 3);
+    if (rnd() < (jt ? 0.4 : 0.1)) this.breakup(P, a);
+  }
+  kindness(a, b) {
+    if (a.traits.includes('kind') && b.coin < 15 && a.coin > 50 && rnd() < 0.5) { a.coin -= 15; b.coin += 15; this.addAff(b, a, 8); this.say(b, [C.THANKS]); this.ev('kind', `💖 ${a.name} gave ${b.name} 15 coins.`, [a.id, b.id], 40, 1); }
+  }
+  couples() {
+    const tk = this.tick;
+    for (const d of this.dots) {
+      if (d.dead || d.partner < 0 || d.id > d.partner) continue;
+      const p = this.dots[d.partner];
+      if (rnd() < 0.05) { const tav = rnd() < 0.45 && d.coin > 6 && p.coin > 6 && d.adult, place = tav ? this.nearest(this.taverns, d, 0) : this.nearest(this.parks, d, 10); const inv = { k: tav ? 'drink' : 'social', b: place.id, until: tk + 300 }; d.invite = inv; p.invite = Object.assign({}, inv); }
+      if (!d.married && tk - d.since > 2 * DAY_TICKS && rnd() < 0.03 && (d.aff.get(p.id) || 0) >= 50) this.wedding(d, p);
+      if (d.married && d.kids < 4 && rnd() < 0.02) this.spawn(d, p);
+    }
+  }
+  stealTick() {
+    for (const t of this.dots) {
+      if (!t.isThief || t.dead || t.inside || t.phase === 'chat' || t.theftCd > 0 || !t.adult || rnd() > 0.08) continue;
+      let vic = null;
+      for (const v of this.dots) {
+        if (v === t || v.dead || v.inside || v.coin < 15 || v.phase === 'chat') continue;
+        const dx = v.x - t.x, dy = v.y - t.y; if (dx * dx + dy * dy > 4 || (t.aff.get(v.id) || 0) >= 25) continue;
+        vic = v; break;
+      }
+      if (vic) this.steal(t, vic);
+    }
+  }
+  steal(t, v) {
+    const amt = Math.round(Math.min(v.coin, 8 + rnd() * 14)); v.coin -= amt; t.coin += amt; t.theftCd = 900 + ((rnd() * 1200) | 0);
+    const wit = [];
+    for (const o of this.dots) { if (o === t || o === v || o.dead || o.inside) continue; const dx = o.x - t.x, dy = o.y - t.y; if (dx * dx + dy * dy <= 36 && rnd() < 0.5) wit.push(o); }
+    const noticed = rnd() < 0.45;
+    if (!noticed && !wit.length) { this.ev('theft0', `🥷 ${t.name} picked ${v.name}'s pocket (${amt} coins). Nobody noticed.`, [t.id, v.id], 25, 2); return; }
+    const knowers = wit.slice(0, 4).concat(noticed ? [v] : []);
+    for (const k of knowers) { k.thieves.add(t.id); k.aff.set(t.id, Math.min(k.aff.get(t.id) || 0, 0) - 30); }
+    this.stats.thefts++;
+    this.ev('theft', `🚨 ${t.name} robbed ${v.name}${noticed ? '' : ' unnoticed'}!${wit[0] ? ` ${wit[0].name} saw it.` : ''}`, [t.id, v.id], 0, 3);
+    for (const k of knowers) { if (k.traits.includes('coward')) this.say(k, [C.AFRAID]); else if (k !== v) this.say(k, [1000 + t.id, C.THIEF]); }
+    if (noticed && !v.traits.includes('coward') && rnd() < (v.traits.includes('hothead') ? 0.95 : 0.6)) this.fight(v, t, { amt });
+    else if (noticed) this.say(v, [C.ME, C.ANGRY]);
+  }
+  fight(a, b, ctx) {
+    if (a.phase === 'chat' || b.phase === 'chat' || a.inside || b.inside || a.dead || b.dead) return;
+    for (const d of [a, b]) { d.prev = d.phase; d.phase = 'chat'; d.chatT = 18; d.fight = true; d.chatCd = 250; }
+    this.say(a, [C.STOP, C.THIEF]); this.later(4, { t: 'say', d: b.id, k: [ctx ? C.SORRY : C.NO] }); this.later(9, { t: 'say', d: a.id, k: [C.ANGRY] });
+    this.later(18, { fn: () => this.resolveFight(a, b, ctx) });
+  }
+  resolveFight(a, b, ctx) {
+    if (a.dead || b.dead) return;
+    const pw = d => d.energy * 0.3 + (d.traits.includes('hothead') ? 25 : 0) + rnd() * 40 + (d.isThief ? 8 : 0);
+    const aw = pw(a) >= pw(b), w = aw ? a : b, l = aw ? b : a;
+    w.energy = Math.max(0, w.energy - 6); l.energy = Math.max(0, l.energy - 16);
+    this.addAff(a, b, -15); this.addAff(b, a, -15); this.stats.fights++;
+    if (ctx) {
+      if (aw) { const back = Math.round(Math.min(b.coin, ctx.amt + 5)); b.coin -= back; a.coin += back; this.ev('fight', `💥 ${a.name} caught ${b.name} red-handed and took ${back} coins back.`, [a.id, b.id], 0, 3); }
+      else this.ev('fight', `🏃 ${b.name} beat ${a.name} in a scuffle and kept the loot.`, [b.id, a.id], 0, 3);
+    } else this.ev('fight', `🥊 ${a.name} confronted known thief ${b.name} — ${w.name} won the brawl.`, [a.id, b.id], 0, 3);
+  }
+
+  /* ---------- talking ---------- */
+  dialogue(a, b) {
+    const tk = this.tick, nm = x => 1000 + x.id;
+    const L = [];
+    L.push([a, [C.HELLO].concat(rnd() < 0.4 ? [nm(b)] : [])]);
+    L.push([b, [C.HELLO].concat(rnd() < 0.4 ? [nm(a)] : [])]);
+    const fx = [];
+    const moodTok = s => s.hunger > 70 ? C.HUNGRY : s.energy < 30 ? C.TIRED : s.social < 30 ? C.LONELY : this.mood(s) > 65 ? C.HAPPY : C.SAD;
+    const topic = (s, l) => {
+      if (s.hunger > 65) {
+        L.push([s, [C.ME, C.HUNGRY]]);
+        const m = this.pickMarket(l);
+        if (m >= 0 && l.belief[this.buildings[m].mi] < 0) { L.push([l, [C.YOU, C.GO, 2000 + m]]); fx.push(() => { s.belief[this.buildings[m].mi] = -1; }); }
+        else L.push([l, [C.ME, C.SAD]]);
+        return true;
+      }
+      for (const m of this.markets) { const bs = s.belief[m.mi]; if (bs >= 0 && tk - bs < 250 && !(l.belief[m.mi] >= 0 && tk - l.belief[m.mi] < 250)) { L.push([s, [2000 + m.id, C.NO, C.FOOD]]); L.push([l, [C.THANKS]]); fx.push(() => { l.belief[m.mi] = bs; }); return true; } }
+      if (s.coin < 12) { L.push([s, [C.ME, C.BROKE]]); L.push([l, [C.YOU, C.GO, C.WORK]]); return true; }
+      if (s.adult && l.adult && s.partner < 0 && l.partner < 0 && s.home !== l.home && s.fam !== l.fam && s.rejectCd <= 0 && (s.aff.get(l.id) || 0) >= 22 && rnd() < (s.traits.includes('romantic') ? 0.5 : 0.2)) {
+        L.push([s, [C.ME, C.LOVE, C.YOU]]);
+        if (rnd() < 0.3 + (l.aff.get(s.id) || 0) / 100 + (l.traits.includes('romantic') ? 0.15 : 0)) { L.push([l, [C.ME, C.LOVE, C.YOU]]); fx.push(() => this.couple(s, l)); }
+        else { L.push([l, [C.NO, C.SORRY]]); fx.push(() => this.reject(s, l)); }
+        return true;
+      }
+      if (s.thieves.size) {
+        const tid = [...s.thieves].find(x => x !== l.id && !this.dots[x].dead && !l.thieves.has(x));
+        if (tid !== undefined && rnd() < (s.traits.includes('gossip') ? 0.9 : 0.5)) { L.push([s, [1000 + tid, C.THIEF]]); L.push([l, [C.ANGRY]]); fx.push(() => { l.thieves.add(tid); this.addAff(l, this.dots[tid], -12); }); return true; }
+      }
+      if (s.social < 70 && rnd() < 0.55 && l.coin >= 4 && s.coin >= 4) {
+        const tav = rnd() < 0.4, place = tav ? this.nearest(this.taverns, s, 0) : this.nearest(this.parks, s, 10);
+        L.push([s, [C.YOU, C.AND, C.ME, C.GO, 2000 + place.id]]);
+        const yes = (l.aff.get(s.id) || 0) + rnd() * 40 > 15;
+        if (yes) { L.push([l, [C.YES]]); fx.push(() => { const inv = { k: tav ? 'drink' : 'social', b: place.id, until: tk + 400 }; s.invite = inv; l.invite = Object.assign({}, inv); }); }
+        else L.push([l, [C.NO]]);
+        return true;
+      }
+      const fr = [...s.aff.keys()].filter(k => k !== l.id && !this.dots[k].dead);
+      if (fr.length && rnd() < (s.traits.includes('gossip') ? 0.8 : 0.4)) {
+        const c = this.dots[pick(fr)], good = (s.aff.get(c.id) || 0) >= 10;
+        L.push([s, [nm(c), good ? C.GOOD : C.BAD]]); L.push([l, [C.YES]]);
+        fx.push(() => this.addAff(l, c, good ? 3 : -3)); return true;
+      }
+      L.push([s, [C.ME, moodTok(s)]]); L.push([l, [C.ME, moodTok(l)]]); return true;
+    };
+    const sp = (a.hunger > 65 || (b.hunger <= 65 && rnd() < 0.5)) ? a : b;
+    topic(sp, sp === a ? b : a);
+    L.push([rnd() < 0.5 ? a : b, [C.BYE]]);
+    return { L, fx };
+  }
+
+  startChat(a, b) {
+    const { L, fx } = this.dialogue(a, b);
+    L.forEach(([s, k], i) => this.later(1 + i * 4, { t: 'say', d: s.id, k }));
+    const dur = 4 + L.length * 4 + 2;
+    for (const d of [a, b]) { d.prev = d.phase; d.phase = 'chat'; d.chatT = dur; d.chatCd = 120 + ((rnd() * 80) | 0); }
+    this.later(dur, { fn: () => {
+      if (a.dead || b.dead) return;
+      for (const f of fx) f();
+      const bonus = 12;
+      a.social = Math.min(100, a.social + bonus); b.social = Math.min(100, b.social + bonus);
+      this.addAff(a, b, 7 + rnd() * 4); this.addAff(b, a, 7 + rnd() * 4); this.stats.chats++;
+      this.jealous(a, b); this.jealous(b, a); this.kindness(a, b); this.kindness(b, a);
+    } });
+  }
+
+  /* ---------- tick ---------- */
+  step() {
+    const tk = ++this.tick, tod = this.tod();
+    // time-of-day events
+    const tIn = tk % DAY_TICKS;
+    if (tIn === Math.floor(0.25 * DAY_TICKS)) this.dawn();
+    if (tIn === Math.floor(0.88 * DAY_TICKS)) this.ev('night', '🌙 Night falls over the town.', [], 0);
+    if (tk === this.festival) this.ev('fest', '🎈 The festival is winding down.', [], 0);
+    if (tk === this.blight) this.ev('blight', '🌱 The blight has passed — crops recover.', [], 0);
+    for (let q = 0; q < 2 && this.fq.length; q++) { const b = this.fq.shift(); b.fq = false; b.field = makeField(this.tiles, b.src); b.fgen = this.fgen; }
+    // pending
+    if (this.pending.length) {
+      const rest = [];
+      for (const p of this.pending) { if (p.at <= tk) { if (p.m && p.m.fn) p.m.fn(); else if (p.m) this.out.push(p.m); } else rest.push(p); }
+      this.pending = rest;
+    }
+    // chat grid
+    const GW = Math.ceil(W / 2), GH = Math.ceil(H / 2), g = this.grid;
+    if (g.length !== GW * GH) { g.length = 0; for (let i = 0; i < GW * GH; i++) g.push([]); }
+    for (let i = 0; i < g.length; i++) g[i].length = 0;
+    const dots = this.dots, hr = this.season() === 3 ? 1.1 : 1;
+    for (const d of dots) {
+      if (d.dead) continue;
+      d.age += 1 / (DAY_TICKS * YEAR_DAYS); if (d.theftCd > 0) d.theftCd--; if (d.rejectCd > 0) d.rejectCd--;
+      // needs
+      const asleep = d.phase === 'do' && d.goal && d.goal.k === 'sleep';
+      d.hunger = Math.min(100, d.hunger + (asleep ? 0.05 : 0.12) * hr);
+      if (!asleep) d.energy = Math.max(0, d.energy - 0.075 - (d.phase === 'do' && d.goal && d.goal.k === 'work' ? 0.03 : 0));
+      d.social = Math.max(0, d.social - 0.07);
+      if (d.chatCd > 0) d.chatCd--;
+      if (d.hunger >= 99.5) d.starveT++; else d.starveT = 0;
+      if (d.starveT > 900) { this.die(d, 'hunger'); continue; }
+      if (d.age > d.life && rnd() < 1 / (DAY_TICKS * 2)) { this.die(d, 'age'); continue; }
+      if (!d.adult && d.age >= ADULT) this.grow(d);
+      if ((tk + d.id) % 25 === 0) this.dreamCheck(d);
+      if (d.hunger >= 99.5 && d.starvedDay !== this.day()) { d.starvedDay = this.day(); this.ev('starve', `😵 ${d.name} is starving.`, [d.id], 400); }
+      if (!d.rich && d.coin > 220) { d.rich = true; this.ev('rich', `💰 ${d.name} is getting rich.`, [d.id], 60); }
+      if (d.rich && d.coin < 100) d.rich = false;
+      if (d.hunger > 85 && rnd() < 0.0015 && !d.inside) this.say(d, [C.ME, C.HUNGRY]);
+      if (d.phase === 'chat') { if (--d.chatT <= 0) { d.phase = d.prev; d.fight = false; } continue; }
+      if (!d.goal) this.decide(d);
+      if (d.phase === 'walk') this.move(d); else if (d.phase === 'do') this.doing(d);
+      if (!d.inside && d.chatCd <= 0 && d.phase !== 'chat' && !(d.phase === 'do' && d.goal && !this.buildings[d.goal.b].open && d.goal.k !== 'wander')) g[(d.y >> 1) * GW + (d.x >> 1)].push(d);
+    }
+    // chat matching
+    for (let i = 0; i < g.length; i++) {
+      const cell = g[i]; if (!cell.length) continue;
+      const cx = i % GW, cy = (i / GW) | 0;
+      for (const a of cell) {
+        if (a.phase === 'chat' || a.chatCd > 0) continue;
+        let done = false;
+        for (let oy = -1; oy <= 1 && !done; oy++) for (let ox = -1; ox <= 1 && !done; ox++) {
+          const X = cx + ox, Y = cy + oy; if (X < 0 || Y < 0 || X >= GW || Y >= GH) continue;
+          for (const b of g[Y * GW + X]) {
+            if (b === a || b.dead || b.phase === 'chat' || b.chatCd > 0) continue;
+            const dx = (a.x + (a.nx >= 0 ? (a.nx - a.x) * a.prog : 0)) - (b.x + (b.nx >= 0 ? (b.nx - b.x) * b.prog : 0)), dy = (a.y + (a.ny >= 0 ? (a.ny - a.y) * a.prog : 0)) - (b.y + (b.ny >= 0 ? (b.ny - b.y) * b.prog : 0));
+            if (dx * dx + dy * dy > 2.4) continue;
+            if (a.thieves.has(b.id) || b.thieves.has(a.id)) {
+              const kn = a.thieves.has(b.id) ? a : b, th = kn === a ? b : a;
+              if (!kn.traits.includes('coward') && rnd() < (kn.traits.includes('hothead') ? 0.004 : 0.001)) { this.fight(kn, th, null); done = true; break; }
+              continue;
+            }
+            const fr = (a.aff.get(b.id) || 0) >= 25;
+            const p = 0.05 * (0.5 + (100 - a.social) / 100) * ((a.soc + b.soc) / 2) * (fr ? 2.5 : 1);
+            if (rnd() < p) { this.startChat(a, b); done = true; break; }
+          }
+        }
+      }
+    }
+    this.stealTick();
+    if (tk % 50 === 0) this.couples();
+    // tavern chatter
+    for (const b of this.taverns) if (b.occ > 0 && tk % 25 === b.id % 25) {
+      const o = pick(b.inside), lines = [[C.ME, C.WANT, C.DRINK], [C.HELLO], [C.ME, C.HAPPY], [C.YOU, C.GOOD], [C.DRINK, C.GOOD], [C.ME, C.LIKE, C.FRIEND]];
+      this.out.push({ t: 'say', b: b.id, k: pick(lines) });
+    }
+  }
+
+  dawn() {
+    const day = this.day();
+    const alive = this.dots.filter(d => !d.dead);
+    for (const d of alive) if (d.adult) { const pay = Math.min(d.coin, this.taxRate); d.coin -= pay; this.treasury += pay; }   // taxes
+    const se = this.season();
+    if (se !== this.lastSeason) {
+      this.lastSeason = se;
+      const msg = ['🌱 Spring has arrived. Fields are planted.', '☀️ Summer is here. Long days, good growth.', '🍂 Autumn: harvest season!', `❄️ Winter has set in. Food will be scarce — Year ${this.year()}.`][se];
+      this.ev('season', msg, [], 0, 3);
+    }
+    this.weather = rnd() < RAIN_P[se] ? (se === 3 ? 2 : 1) : 0;
+    if (this.weather) this.ev('weather', this.weather === 2 ? '❄️ Snow falls on the town.' : '🌧️ It\'s raining today.', [], 0, 1);
+    this.mayorDawn(); this.economyDawn();
+    let mood = 0; for (const d of alive) mood += this.mood(d);
+    const top = alive.reduce((a, b) => (this.friends(a).length >= this.friends(b).length ? a : b));
+    const s = this.stats;
+    this.ev('dawn', `☀️ Day ${day} begins. Mood ${Math.round(mood / alive.length)}/100 · ${alive.length} alive · ${s.births} born, ${s.deaths} died · most popular: ${top.name} (${this.friends(top).length}).`, [top.id], 0, 0);
+  }
+
+  /* ---------- government ---------- */
+  election(first, exclude) {
+    this.computeRep();
+    const adults = this.dots.filter(d => !d.dead && d.adult && d.id !== exclude);
+    const cands = adults.slice().sort((a, b) => this.rep[b.id] - this.rep[a.id]).slice(0, 3);
+    if (!cands.length) return;
+    const votes = new Map(cands.map(c => [c.id, 0]));
+    for (const v of adults) {
+      let bc = cands[0], bs = -1e9;
+      for (const c of cands) { const sc = (v.aff.get(c.id) || 0) + rnd() * 25 + (v.thieves.has(c.id) ? -60 : 0); if (sc > bs) { bs = sc; bc = c; } }
+      votes.set(bc.id, votes.get(bc.id) + 1);
+    }
+    const win = cands.slice().sort((a, b) => votes.get(b.id) - votes.get(a.id))[0], re = win.id === this.mayor;
+    this.mayor = win.id; this.taxRate = win.traits.includes('ambitious') ? 8 : win.traits.includes('kind') ? 3 : 5; this.nextElection = this.day() + 6;
+    if (!first) { this.ev('elect', `🗳️ Election! ${cands.map(c => `${c.name} (${votes.get(c.id)})`).join(' vs ')} — ${win.name} ${re ? 'is re-elected' : 'wins'} as mayor. Tax: ${this.taxRate}/day.`, [win.id], 0, 4); this.say(win, [C.ME, C.HAPPY]); }
+  }
+  mayorDawn() {
+    if (this.mayor >= 0 && this.dots[this.mayor].dead) { this.election(); return; }
+    const m = this.dots[this.mayor]; if (!m) return;
+    const low = this.markets.reduce((a, b) => (a.stock < b.stock ? a : b));
+    if (low.stock < 150 && this.treasury >= 100) {
+      const spend = Math.min(300, Math.floor(this.treasury)); this.treasury -= spend; low.stock = Math.min(STOCK_CAP, low.stock + Math.round(spend * 1.6));
+      this.ev('grain', `🏛️ Mayor ${m.name} spent ${spend} coins on emergency grain for ${low.name} Market.`, [m.id], 0, 3);
+    }
+    if (this.treasury > 400) {
+      const poor = this.dots.filter(o => !o.dead && o.adult && o.id !== m.id).sort((a, b) => a.coin - b.coin).slice(0, 50);
+      for (const o of poor) { o.coin += 12; this.treasury -= 12; this.addAff(o, m, 3); }
+      this.ev('welfare', `🏛️ Mayor ${m.name} handed relief payments to the ${poor.length} poorest households.`, [m.id], 0, 2);
+    }
+    if (this.treasury > 900) { this.treasury -= 250; this.festival = this.tick + 5 * 50; this.ev('feast', `🎪 Mayor ${m.name} funded a town feast!`, [m.id], 0, 3); }
+    if (this.treasury > 250 && this.civicBuild(m)) { /* real public works */ }
+    else if (this.treasury > 1200) {
+      const what = pick(['a new well', 'a clock tower', 'a town library', 'a bigger granary', 'a fountain in the square']);
+      const cost = Math.round(this.treasury * 0.6); this.treasury -= cost;
+      this.ev('project', `🏗️ Mayor ${m.name} funded ${what} (${cost} coins).`, [m.id], 0, 3);
+      for (const o of this.dots) if (!o.dead && o.adult && rnd() < 0.5) o.aff.set(m.id, Math.min(100, (o.aff.get(m.id) || 0) + 4));
+    }
+    if (m.isThief && this.treasury > 80 && rnd() < 0.3) {
+      const cut = Math.round(this.treasury * 0.4); this.treasury -= cut; m.coin += cut;
+      this.ev('scandal', `📰 SCANDAL: Mayor ${m.name} skimmed ${cut} coins from the treasury!`, [m.id], 0, 4);
+      for (const o of this.dots) if (!o.dead && o.adult && o.id !== m.id && rnd() < 0.5) o.aff.set(m.id, (o.aff.get(m.id) || 0) - 25);
+      this.election(false, m.id); return;
+    }
+    if (this.treasury > 1500 && this.taxRate > 1) { this.taxRate--; this.ev('tax', `📉 Mayor ${m.name} cut the tax to ${this.taxRate}/day.`, [m.id], 0, 2); }
+    else if (this.treasury < 80 && this.taxRate < 12) { this.taxRate++; this.ev('tax', `📈 Mayor ${m.name} raised the tax to ${this.taxRate}/day.`, [m.id], 0, 2); }
+    if (this.day() >= this.nextElection) this.election();
+  }
+
+  /* ---------- viewer interaction ---------- */
+  act(name, id) {
+    const tk = this.tick, CD = 100;
+    if (name === 'festival' && tk - this.cd.festival > 5 * 45) { this.cd.festival = tk; this.festival = tk + 5 * 60; this.ev('fest', '🎉 A viewer declared a festival! Everyone heads to the parks.', [], 0, 2); return true; }
+    if (name === 'blight' && tk - this.cd.blight > 5 * 45) { this.cd.blight = tk; this.blightAt = tk; this.blight = tk + 5 * 40; this.ev('blight', '🥀 Blight strikes the fields. Farms produce nothing!', [], 0, 2); return true; }
+    if (name === 'gift' || name === 'zap' || name === 'cupid') {
+      const d = this.dots[id]; if (!d || d.dead || tk - this.cd[name] < CD) return false;
+      if (name === 'gift') { d.coin += 30; this.say(d, [C.THANKS]); this.ev('gift', `🎁 A viewer gifted ${d.name} 30 coins.`, [d.id], 0, 2); }
+      else if (name === 'zap') { d.energy = 3; this.say(d, [C.AFRAID]); this.ev('zap', `⚡ A viewer zapped ${d.name}! They're completely drained.`, [d.id], 0, 3); }
+      else {
+        if (!d.adult || d.partner >= 0) return false;
+        let best = null, bv = 1e9;
+        for (const o of this.dots) { if (o === d || o.dead || !o.adult || o.partner >= 0 || o.home === d.home || o.fam === d.fam) continue; const v = (o.x - d.x) ** 2 + (o.y - d.y) ** 2; if (v < bv) { bv = v; best = o; } }
+        if (!best) return false;
+        d.aff.set(best.id, Math.max(50, d.aff.get(best.id) || 0)); best.aff.set(d.id, Math.max(50, best.aff.get(d.id) || 0));
+        const park = this.nearest(this.parks, d, 10), inv = { k: 'social', b: park.id, until: tk + 400 }; d.invite = inv; best.invite = Object.assign({}, inv);
+        d.rejectCd = 0; best.rejectCd = 0;
+        this.ev('cupid', `💘 A viewer's cupid arrow hits ${d.name} and ${best.name}…`, [d.id, best.id], 0, 3);
+      }
+      this.cd[name] = tk; return true;
+    }
+    return false;
+  }
+
+  /* ---------- output ---------- */
+  initMsg() {
+    const m = this.map, el = new Uint8Array(W * H); for (let i = 0; i < el.length; i++) el[i] = Math.round(Math.min(1, m.h[i]) * 255);
+    return { t: 'init', W, H, hz: TICK_HZ, tiles: Array.from(this.tiles).join(''), wk: Array.from(m.wk).join(''), el: b64(el), tick: this.tick,
+      setts: this.S.map(s => ({ i: s.id, n: s.name, t: s.tier, x: s.x, y: s.y })),
+      blds: this.buildings.map(b => this.bldMsg(b)),
+      hist: this.hist.slice(-25), dots: this.dots.map(d => ({ n: d.name, f: d.fam, j: d.job, h: d.home, tr: d.traits })), lex: this.lex, jobs: JOBS, bt: BT_NAME };
+  }
+  actCode(d) {
+    if (d.phase === 'chat') return 7; if (d.phase === 'walk' || !d.goal) return 1;
+    switch (d.goal.k) { case 'sleep': return 2; case 'work': case 'deliver': case 'build': return 3; case 'eat': return 4; case 'social': return 5; case 'drink': return 6; default: return 0; }
+  }
+  frame() {
+    const n = this.dots.length, nb = this.buildings.length, buf = new ArrayBuffer(15 + n * 5 + nb * 2), v = new DataView(buf);
+    v.setUint8(0, 1); v.setUint32(1, this.tick, true); v.setFloat32(5, this.tod(), true); v.setUint16(9, this.day(), true); v.setUint16(11, n, true); v.setUint16(13, nb, true);
+    let o = 15;
+    for (const d of this.dots) {
+      const px = d.x + (d.nx >= 0 ? (d.nx - d.x) * d.prog : 0), py = d.y + (d.ny >= 0 ? (d.ny - d.y) * d.prog : 0);
+      v.setUint16(o, Math.round((px + 0.5) * 16), true); v.setUint16(o + 2, Math.round((py + 0.5) * 16), true);
+      v.setUint8(o + 4, (d.inside ? 1 : 0) | (this.actCode(d) << 1) | (d.carry > 0 ? 16 : 0) | (d.fight ? 32 : 0) | (d.dead ? 64 : 0) | (d.adult ? 0 : 128)); o += 5;
+    }
+    for (const b of this.buildings) { v.setUint16(o, b.occ, true); o += 2; }
+    return buf;
+  }
+  drain() { const o = this.out; this.out = []; return o; }
+  computeRep() {
+    const rep = new Float32Array(this.dots.length);
+    for (const d of this.dots) { if (d.dead) continue; for (const [k, v] of d.aff) if (!this.dots[k].dead) rep[k] += v; }
+    this.rep = rep;
+  }
+  statsMsg() {
+    this.computeRep();
+    const alive = this.dots.filter(d => !d.dead), n = alive.length || 1;
+    let mood = 0, coin = 0; for (const d of alive) { mood += this.mood(d); coin += d.coin; }
+    const top = (f, k = 3, desc = true) => alive.map(d => [d.id, Math.round(f(d))]).sort((a, b) => desc ? b[1] - a[1] : a[1] - b[1]).slice(0, k);
+    const cdl = k => Math.max(0, (this.cd[k] + (k === 'festival' || k === 'blight' ? 225 : 100) - this.tick) / TICK_HZ | 0);
+    return { t: 'stats', day: this.day(), pop: alive.length, food: this.markets.map(m => m.stock), mk: this.markets.map(m => this.S[m.sid].name),
+      towns: this.S.map(s => [s.name, s.tier, this.sPop[s.id] || 0]), biz: { open: this.buildings.filter(b => b.state === 'ok' && this.isBiz(b)).length, built: this.biz.built, closed: this.biz.closed, sold: this.biz.sold, fires: this.biz.fires, arrived: this.biz.arrived, sites: this.sites.length, vacant: this.buildings.filter(b => b.state === 'vacant').length }, mood: Math.round(mood / n), coin: Math.round(coin / n),
+      meals: this.stats.meals, chats: this.stats.chats, friends: this.stats.friends, births: this.stats.births, deaths: this.stats.deaths, thefts: this.stats.thefts, fights: this.stats.fights,
+      couples: alive.filter(d => d.partner >= 0).length / 2,
+      lead: { rich: top(d => d.coin), loved: top(d => this.rep[d.id]), hated: top(d => this.rep[d.id], 3, false), old: top(d => d.age) },
+      cd: { festival: cdl('festival'), blight: cdl('blight'), gift: cdl('gift'), zap: cdl('zap'), cupid: cdl('cupid') },
+      fest: this.tick < this.festival, blight: this.tick < this.blight,
+      season: this.season(), year: this.year(), weather: this.weather, mayor: this.mayor, treasury: Math.round(this.treasury), tax: this.taxRate, nextElection: this.nextElection };
+  }
+  doingText(d) {
+    const g = d.goal, b = g ? this.buildings[g.b] : null, nm = b ? (b.name ? `${b.name} ${BT_NAME[b.type]}` : 'home') : '';
+    if (d.phase === 'chat') return 'chatting';
+    if (!g) return 'thinking';
+    const walk = d.phase === 'walk';
+    switch (g.k) {
+      case 'sleep': return walk ? 'heading home to sleep' : 'sleeping';
+      case 'eat': return walk ? `walking to ${nm} for food` : 'eating';
+      case 'work': return walk ? `heading to work at ${nm}` : `working at ${nm}`;
+      case 'deliver': return walk ? `carrying crops to ${nm}` : `delivering crops`;
+      case 'build': return walk ? `heading to the building site` : `building a ${BT_NAME[b.type].toLowerCase()}`;
+      case 'social': return walk ? `heading to ${nm}` : `hanging out at ${nm}`;
+      case 'drink': return walk ? `off to ${nm}` : `having a drink at ${nm}`;
+      default: return 'wandering';
+    }
+  }
+  thought(d) {
+    const e = this.believedEmpty(d), tod = this.tod();
+    if (this.tick < d.grief) return 'Missing someone.';
+    if (d.thieves.size && rnd() < 0.5) return 'Watching out for thieves.';
+    if (d.hunger > 85) return e >= this.markets.length ? 'Starving, and I heard every market is empty.' : 'So hungry I can barely think.';
+    if (d.phase === 'do' && d.goal && d.goal.k === 'sleep') return 'zzz…';
+    if (d.coin < 8) return 'Pockets are empty. I need to work.';
+    if (e > 0 && d.hunger > 40) return 'Heard one market has no food. Trying another.';
+    if (d.energy < 25) return 'Running on fumes.';
+    if (d.social < 25) return 'Could really use some company.';
+    if (d.invite && this.tick < d.invite.until) return 'Meeting a friend soon.';
+    if (this.mood(d) > 75) return tod < 0.5 ? 'Nice morning.' : 'Good day so far.';
+    return 'Just getting on with it.';
+  }
+  detail(id) {
+    const d = this.dots[id]; if (!d) return null;
+    const p = d.partner >= 0 ? this.dots[d.partner] : null;
+    return { t: 'detail', id, name: d.name, fam: d.fam, mayor: id === this.mayor, dead: d.dead, job: d.adult ? JOBS[d.job] : 'child', age: Math.round(d.age), traits: d.traits,
+      hunger: Math.round(d.hunger), energy: Math.round(d.energy), social: Math.round(d.social), coin: Math.round(d.coin),
+      mood: this.mood(d), doing: d.dead ? 'passed away' : this.doingText(d), thought: this.thought(d), home: d.home,
+      dream: DREAM_TXT[d.dream], partner: p ? p.name : null, pid: p ? p.id : -1, married: d.married, rep: Math.round(this.rep ? this.rep[id] : 0), kids: d.kids,
+      thieves: [...d.thieves].filter(x => !this.dots[x].dead).slice(0, 3),
+      friends: this.friends(d).slice(0, 6).map(([k, v]) => [k, Math.round(v)]) };
+  }
+
+  /* ---------- persistence ---------- */
+  serialize() {
+    const pl = this.map.plots;
+    return { v: 3, civ: { mayor: this.mayor, treasury: this.treasury, tax: this.taxRate, next: this.nextElection, weather: this.weather, mcount: this.mcount }, tick: this.tick, stats: this.stats, biz: this.biz, pairs: [...this.pairs],
+      tiles: Array.from(this.tiles).join(''),
+      plots: pl.map(p => [p.x, p.y, p.dx, p.dy, p.sid, p.rural ? 1 : 0, p.used ? 1 : 0, p.bid, Math.round(p.dc * 10), Math.round(p.fert * 100), p.sq ? 1 : 0, p.quay ? 1 : 0]),
+      blds: this.buildings.map(b => [b.type, b.x, b.y, b.door, b.open ? 1 : 0, b.sid, b.owner, Math.round(b.cash), b.state, b.name, b.fam || '', b.stock, b.w, b.h, b.plot, b.mi, b.born, b.sqPark ? 1 : 0, b.need || 0, b.prog || 0, b.escrow || 0, b.vac]),
+      dots: this.dots.map(d => ({ n: d.name, fm: d.fam, j: d.job, h: d.home, w: d.work, f: d.future, tr: d.traits, dr: d.dream, a: d.age, l: d.life, p: d.partner, m: d.married ? 1 : 0, x: d.dead ? 1 : 0, s: d.since,
+        e: [d.hunger, d.energy, d.social, d.coin], af: [...d.aff], th: [...d.thieves], kd: d.kids, drs: d.dreams, dn: [...d.done] })) };
+  }
+  load(s) {
+    if (!s || s.v !== 3 || s.tiles.length !== W * H) return;
+    this.tick = s.tick; this.lastSeason = this.season(); const c = s.civ; this.mayor = c.mayor; this.treasury = c.treasury; this.taxRate = c.tax; this.nextElection = c.next; this.weather = c.weather; this.mcount = c.mcount || 0;
+    this.stats = Object.assign(this.stats, s.stats); this.biz = Object.assign(this.biz, s.biz || {}); this.pairs = new Set(s.pairs);
+    for (let i = 0; i < s.tiles.length; i++) this.tiles[i] = +s.tiles[i];
+    const map = this.map; map.plots.length = 0; map.pm.fill(-1);
+    for (const q of this.S) { const [sw, sh] = Gen.SQ[q.tier], hw = sw >> 1, hh = sh >> 1; for (let b = -hh; b <= hh; b++) for (let a = -hw; a <= hw; a++) map.pm[(q.y + b) * W + q.x + a] = -2; q.plots = []; }
+    s.plots.forEach((o, i) => { const p = { id: i, sid: o[4], x: o[0], y: o[1], dx: o[2], dy: o[3], rural: !!o[5], used: !!o[6], bid: o[7], dc: o[8] / 10, fert: o[9] / 100, sq: !!o[10], quay: !!o[11] }; map.plots.push(p); this.S[p.sid].plots.push(i); for (let b = 0; b < 3; b++) for (let a = 0; a < 3; a++) map.pm[(p.y + b) * W + p.x + a] = i; });
+    this.buildings = s.blds.map((o, i) => { const b = { id: i, type: o[0], x: o[1], y: o[2], door: o[3], open: !!o[4], occ: 0, stock: o[11], inside: [], name: o[9], fam: o[10], flag: false, sid: o[5], owner: o[6], cash: o[7], rev: 0, wage: 0, state: o[8], born: o[16], visits: 0, hist: [], mi: o[15], vac: o[21] || 0, w: o[12], h: o[13], plot: o[14], sqPark: !!o[17], need: o[18], prog: o[19], escrow: o[20] };
+      b.src = []; if (b.sqPark) { for (let q = 0; q < b.h; q++) for (let p = 0; p < b.w; p++) b.src.push((b.y + q) * W + b.x + p); } else if (b.open) { for (let q = 0; q < 3; q++) for (let p = 0; p < 3; p++) b.src.push((b.y + q) * W + b.x + p); } else b.src.push(b.door[1] * W + b.door[0]);
+      return b; });
+    this.sites = this.buildings.filter(b => b.state === 'build'); this.fgen++; this.rebuild();
+    this.dots = []; this.names = [];
+    s.dots.forEach((o, i) => {
+      const d = this.makeDot(i, { name: o.n, fam: o.fm, job: o.j, home: o.h, work: o.w, future: o.f, traits: o.tr, age: o.a, life: o.l, hunger: o.e[0], energy: o.e[1], social: o.e[2], coin: o.e[3] }, rnd);
+      d.dream = o.dr; d.partner = o.p; d.married = !!o.m; d.dead = !!o.x; d.since = o.s; d.aff = new Map(o.af); d.thieves = new Set(o.th); d.kids = o.kd; d.dreams = o.drs; d.done = new Set(o.dn || []);
+      this.dots[i] = d; this.names[i] = d.name;
+    });
+    this.rep = new Float32Array(this.dots.length + 8);
+  }
+}
+function b64(u8) { if (typeof Buffer !== 'undefined') return Buffer.from(u8).toString('base64'); let s = ''; for (let i = 0; i < u8.length; i += 8192) s += String.fromCharCode.apply(null, u8.subarray(i, i + 8192)); return btoa(s); }
+function tkLess(tick, until) { return tick < until; }
+
+const api = { World, get W() { return W; }, get H() { return H; }, TICK_HZ, DAY_TICKS, C, BT, BT_NAME, JOBS, TILE };
+if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Sim = api;
+})(typeof window !== 'undefined' ? window : globalThis);
+
+</script>
+<script>
+(() => {
+'use strict';
+const $ = s => document.querySelector(s);
+const LOCAL = !!window.__LOCAL__ || /[?&]local/.test(location.search);
+const JOBCOL = ['#7bd36b', '#f0a74a', '#b98cf0', '#59b6ee'];
+let W, H, tiles, wk, el, setts = [], blds = [], dots = [], lex = [], names = [], fams = [], bnames = [], JOBS = [], BTN = [];
+let tod = 0.3, day = 1, occ = [], sel = -1, follow = false, translate = true, bubbles = [], statsM = null;
+let stat = null, detail = null, ready = false, lastClock = '';
+const TRI = { thief: '🥷', hothead: '🔥', gossip: '💬', kind: '💖', romantic: '🌹', jealous: '💚', coward: '🐥', ambitious: '⭐', lazy: '💤' };
+const parts = [];
+let auto = true, userAt = -1e9, dirUntil = 0, dirIds = null, lastShot = -1e9, deadTimer = null, tab = 'feed';
+const colFor = n => { let x = 7; for (let i = 0; i < n.length; i++) x = (x * 31 + n.charCodeAt(i)) % 3600; return `hsl(${x / 10},68%,62%)`; };
+const cam = { x: 0, y: 0, z: 1 }; let camTarget = null;
+const cv = $('#c'), ctx = cv.getContext('2d');
+let cssW = 300, cssH = 200, fit = 5, dpr = 1;
+
+/* ---------- transport ---------- */
+let ws = null, localWorld = null, localSpeed = 1;
+function send(m) { if (LOCAL) localSend(m); else if (ws && ws.readyState === 1) ws.send(JSON.stringify(m)); }
+function connect() {
+  ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host);
+  ws.binaryType = 'arraybuffer';
+  ws.onmessage = e => { if (typeof e.data === 'string') handle(JSON.parse(e.data)); else frame(e.data); };
+  ws.onclose = () => { $('#live').textContent = 'reconnecting…'; setTimeout(connect, 1500); };
+  ws.onopen = () => { if (sel >= 0) send({ t: 'sel', id: sel }); };
+}
+function startLocal() {
+  localWorld = new Sim.World({});
+  handle(localWorld.initMsg());
+  $('#bSpd').style.display = ''; $('#live').textContent = 'local sim (just you)';
+  setInterval(() => {
+    for (let i = 0; i < localSpeed; i++) { localWorld.step(); if (localWorld.tick % 5 === 0 && i < localSpeed - 1) { const q = localWorld.drain(); if (q.length) handle({ t: 'batch', m: q }); } }
+    frame(localWorld.frame());
+    let ms = localWorld.drain(); if (ms.length > 400) ms = ms.slice(-400);
+    if (ms.length) handle({ t: 'batch', m: ms });
+    if (localWorld.tick % 5 === 0) { const s = localWorld.statsMsg(); s.viewers = 1; handle(s); if (sel >= 0) handle(localWorld.detail(sel)); }
+  }, 200);
+}
+function localSend(m) { if (m.t === 'act') localWorld.act(m.n, m.id); }
+
+/* ---------- messages ---------- */
+function handle(m) {
+  switch (m.t) {
+    case 'init': init(m); break;
+    case 'batch': for (const x of m.m) handle(x); break;
+    case 'ev': ticker(m); break;
+    case 'say': say(m); break;
+    case 'born': dots[m.id] = Object.assign(dots[m.id] || { id: m.id, x: 0, y: 0, tx: 0, ty: 0, fx: 0, fy: 0, t0: 0, fl: 64 }, { name: m.name, job: m.j, home: m.h, traits: m.tr || [], seen: false, col: colFor(m.name) }); names[m.id] = m.name; fams[m.id] = m.f || ''; break;
+    case 'bld': bldUpd(m); break;
+    case 'tiles': { const a = tiles.split(''); for (const [i, v] of m.c) a[i] = v; tiles = a.join(''); terrDirty = true; break; }
+    case 'stats': stat = m; hud(); break;
+    case 'detail': detail = m; card(); break;
+  }
+}
+function init(m) {
+  W = m.W; H = m.H; tiles = m.tiles; wk = m.wk; setts = m.setts; blds = m.blds; lex = m.lex; JOBS = m.jobs; BTN = m.bt;
+  const bin = atob(m.el); el = new Uint8Array(W * H); for (let i = 0; i < el.length; i++) el[i] = bin.charCodeAt(i);
+  dots = m.dots.map((d, i) => ({ id: i, name: d.n, job: d.j, home: d.h, traits: d.tr || [], col: colFor(d.n), x: 0, y: 0, tx: 0, ty: 0, fx: 0, fy: 0, t0: 0, fl: 0, seen: false }));
+  names = dots.map(d => d.name); fams = m.dots.map(d => d.f || '');
+  bnames = blds.map(bname);
+  buildStatic(); resize(); cam.x = W / 2; cam.y = H / 2; cam.z = 1; occ = []; ready = true;
+  $('#ticker').innerHTML = ''; (m.hist || []).forEach(e => ticker(e, false));
+}
+const bname = b => b.n ? b.n + ' ' + BTN[b.ty] : 'House';
+function bldUpd(m) {
+  const b = m.b; if (m.op === 'del') b.st = 3;
+  blds[b.i] = b; bnames[b.i] = bname(b);
+}
+function frame(buf) {
+  if (!ready) return;
+  const v = new DataView(buf);
+  tod = v.getFloat32(5, true); day = v.getUint16(9, true); const n = v.getUint16(11, true), nb = v.getUint16(13, true);
+  const now = performance.now(); let o = 15;
+  for (let i = 0; i < n; i++, o += 5) {
+    const d = dots[i] || (dots[i] = { id: i, name: 'newcomer', job: 0, home: 0, traits: [], col: '#ccc', x: 0, y: 0, tx: 0, ty: 0, fx: 0, fy: 0, t0: 0, fl: 0, seen: false }); if (!names[i]) names[i] = d.name;
+    const x = v.getUint16(o, true) / 16, y = v.getUint16(o + 2, true) / 16;
+    d.fx = d.seen ? d.x : x; d.fy = d.seen ? d.y : y; d.tx = x; d.ty = y; d.t0 = now; d.fl = v.getUint8(o + 4); d.seen = true;
+  }
+  occ = []; for (let i = 0; i < nb; i++, o += 2) occ.push(v.getUint16(o, true));
+}
+const clk = () => { const h = tod * 24, hh = Math.floor(h), mm = Math.floor((h - hh) * 60); return (hh < 10 ? '0' : '') + hh + ':' + (mm < 10 ? '0' : '') + mm + (h < 6 || h >= 20 ? ' 🌙' : h < 8 ? ' 🌅' : h >= 18 ? ' 🌇' : ' ☀️'); };
+function hud() {
+  $('#pop').textContent = stat.pop; $('#mood').textContent = stat.mood; $('#fr').textContent = stat.couples; if (tab === 'town') town(); $('#viewers').textContent = stat.viewers;
+  const fa = stat.food; $('#food').textContent = fa.length ? Math.round(fa.reduce((a, b) => a + b, 0) / fa.length) + ' avg · ' + Math.min(...fa) + ' min' : '–';
+  const f = $('#bFest'), b = $('#bBlight');
+  f.disabled = stat.cd.festival > 0; b.disabled = stat.cd.blight > 0;
+  f.textContent = stat.fest ? '🎉 On!' : stat.cd.festival > 0 ? `🎉 ${stat.cd.festival}s` : '🎉 Festival';
+  b.textContent = stat.blight ? '🥀 On!' : stat.cd.blight > 0 ? `🥀 ${stat.cd.blight}s` : '🥀 Blight';
+}
+function ticker(m, live) {
+  const el = document.createElement('div'); el.className = (m.w || 1) >= 4 ? 'big' : (m.w || 1) >= 3 ? 'hot' : '';
+  if (live !== false) director(m);
+  el.innerHTML = m.x.replace(/</g, '&lt;') + `<small>${clk()} · day ${day}</small>`;
+  if (m.ids && m.ids.length) el.onclick = () => select(m.ids[0]);
+  const t = $('#ticker'); t.prepend(el); while (t.children.length > 60) t.lastChild.remove();
+}
+function tokWord(k) { return k >= 3000 ? (setts[k - 3000] ? setts[k - 3000].n : '?') : k >= 2000 ? ((blds[k - 2000] || {}).n || 'home') : k >= 1000 ? names[k - 1000] : lex[k][0]; }
+function tokGloss(k) { return k >= 3000 ? (setts[k - 3000] ? setts[k - 3000].n : '?') : k >= 2000 ? (bnames[k - 2000] || 'home') : k >= 1000 ? names[k - 1000] : lex[k][1]; }
+function say(m) {
+  const k = m.k, inv = k.map(tokWord).join(' '), en0 = k.map(tokGloss).join(' ');
+  const en = en0[0].toUpperCase() + en0.slice(1) + (lex[36] && k[0] === 36 ? '!' : '.');
+  if (m.d !== undefined) { bubbles = bubbles.filter(b => b.d !== m.d); }
+  bubbles.push({ d: m.d, b: m.b, inv, en, t0: performance.now() });
+  if (bubbles.length > 60) bubbles.shift();
+}
+function card() {
+  const c = $('#card'); if (sel < 0 || !detail || detail.id !== sel) return;
+  const dt = detail, bar = (n, v, col) => `<div class="bar"><span>${n}</span><div><i style="width:${v}%;background:${col}"></i></div></div>`;
+  const cd = a => (stat && stat.cd[a] > 0) ? ` ${stat.cd[a]}s` : '';
+  const dis = a => (stat && stat.cd[a] > 0) || dt.dead ? 'disabled' : '';
+  c.innerHTML = `<h3>${dt.name} ${dt.fam || ''} <small>${dt.job} · age ${dt.age} · ${dt.coin} coins · mood ${dt.mood}</small></h3>
+    <div class="trs">${dt.mayor ? '<span class="tr" style="background:#6b5a1f">🏛️ mayor</span>' : ''}${dt.traits.map(t => `<span class="tr">${TRI[t]} ${t}</span>`).join('')}</div>
+    <div class="do">${dt.doing}${dt.partner ? ` · ${dt.married ? '💍' : '💘'} <a data-i="${dt.pid}" style="text-decoration:underline;cursor:pointer">${dt.partner}</a>` : ''}</div>
+    ${bar('hunger', dt.hunger, '#e0775a')}${bar('energy', dt.energy, '#e6c65a')}${bar('social', dt.social, '#7fb0f0')}
+    <div class="th">“${dt.thought}”</div>
+    <div class="do">✨ Dream: ${dt.dream}${dt.thieves.length ? ` · 🥷 distrusts ${dt.thieves.map(i => names[i]).join(', ')}` : ''}</div>
+    <div class="fr">${dt.friends.length ? dt.friends.map(f => `<a data-i="${f[0]}">${names[f[0]]}</a>`).join('') : '<span class="hint" style="color:#7d8ba1">no close friends yet</span>'}</div>
+    <div class="act"><button data-a="gift" ${dis('gift')}>🎁 +30${cd('gift')}</button><button data-a="cupid" ${dis('cupid')}>💘 Cupid${cd('cupid')}</button><button data-a="zap" ${dis('zap')}>⚡ Zap${cd('zap')}</button></div>`;
+  c.querySelectorAll('a[data-i]').forEach(a => a.onclick = () => select(+a.dataset.i));
+  c.querySelectorAll('button[data-a]').forEach(b => b.onclick = () => send({ t: 'act', n: b.dataset.a, id: sel }));
+  if (dt.dead && !deadTimer) deadTimer = setTimeout(() => { deadTimer = null; if (sel === dt.id) select(-1); }, 4000);
+}
+function town() {
+  if (!stat || !stat.lead) return; const L = stat.lead;
+  const row = (t, arr, f) => `<h4>${t}</h4>` + arr.map(([id, v], i) => `<div class="row" data-i="${id}"><span>${i + 1}. ${names[id]}</span><i>${f(v)}</i></div>`).join('');
+  const mayor = stat.mayor >= 0 ? `<div class="row" data-i="${stat.mayor}"><span>🏛️ Mayor ${names[stat.mayor]} ${fams[stat.mayor]}</span><i>tax ${stat.tax}/day</i></div><div class="tstats" style="margin:4px 0 6px">Treasury ${stat.treasury} coins · next election day ${stat.nextElection}</div>` : '';
+  const B = stat.biz || {}, tw = (stat.towns || []).map(([n, t, p]) => `<div class="row"><span>${['👑', '🏘️', '🏡', '🛖'][t]} ${n}</span><i>${p}</i></div>`).join('');
+  const eco = `<div class="tstats" style="margin:6px 0">🏪 ${B.open} businesses open · 🏗️ ${B.sites} building sites · 🚪 ${B.vacant} vacant<br>📈 ${B.built} built · 📉 ${B.closed} failed · 🤝 ${B.sold} sold · 🔥 ${B.fires} fires · 🧳 ${B.arrived} arrived</div>`;
+  $('#town').innerHTML = mayor + `<h4>Settlements</h4>` + tw + eco + `<div class="tstats">💑 ${stat.couples} couples · 👶 ${stat.births} born · 🕯️ ${stat.deaths} died<br>🚨 ${stat.thefts} robberies · 🥊 ${stat.fights} brawls · 🍞 ${stat.food.join(' / ')}</div>`
+    + row('💰 Richest', L.rich, v => v + ' coins') + row('❤️ Most loved', L.loved, v => v) + row('😡 Most hated', L.hated, v => v) + row('🧓 Oldest', L.old, v => v + ' yrs');
+  $('#town').querySelectorAll('.row').forEach(r => r.onclick = () => select(+r.dataset.i));
+}
+function director(m) {
+  if (!auto || !ready || !m.ids || !m.ids.length || (m.w || 1) < 3) return;
+  const now = performance.now();
+  if (now - userAt < 18000) return;
+  if (now - lastShot < 7000 && m.w < 4) return;
+  lastShot = now; dirUntil = now + 9000; dirIds = m.ids.slice(0, 2);
+  pick_(m.ids[0], false);
+}
+function pick_(id, user) {
+  if (user) { userAt = performance.now(); dirIds = null; }
+  sel = id; follow = id >= 0; detail = null;
+  if (id >= 0) { send({ t: 'sel', id }); camTarget = (dirIds && dirIds.length > 1 ? 20 : 26) / fit; $('#card').innerHTML = `<h3>${dots[id].name}</h3><div class="do">…</div>`; if (LOCAL) handle(localWorld.detail(id)); }
+  else { send({ t: 'sel', id: -1 }); camTarget = 1; $('#card').innerHTML = '<div class="hint">Tap a dot to follow it.<br>🎥 auto-camera cuts to the drama.</div>'; }
+}
+function select(id) { pick_(id, true); }
+
+/* ---------- terrain layer (re-rendered when tiles change) + dynamic buildings ---------- */
+let stat0 = null, terrDirty = false, terrAt = 0; const T0 = 12;
+function hash(x, y) { let h = (x * 374761393 + y * 668265263) | 0; h = (h ^ (h >>> 13)) * 1274126177 | 0; return ((h ^ (h >>> 16)) >>> 0) / 4294967296; }
+let shoreD = null;
+function calcShore() { // distance of water cells from land (for depth shading)
+  shoreD = new Uint8Array(W * H).fill(255); const q = [];
+  for (let i = 0; i < W * H; i++) if (wk[i] === '0') { shoreD[i] = 0; q.push(i); }
+  for (let h = 0; h < q.length; h++) { const i = q[h], x = i % W, y = (i / W) | 0, d = shoreD[i] + 1; if (d > 12) continue;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy; if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue; const j = ny * W + nx; if (shoreD[j] > d) { shoreD[j] = d; q.push(j); } } }
+}
+const E = (x, y) => el[Math.max(0, Math.min(H - 1, y)) * W + Math.max(0, Math.min(W - 1, x))] / 255;
+const isW = (x, y) => x < 0 || y < 0 || x >= W || y >= H ? true : wk[y * W + x] !== '0';
+function mix(a, b, t) { return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]; }
+const css = c => `rgb(${c[0] | 0},${c[1] | 0},${c[2] | 0})`;
+function buildStatic() {
+  if (!shoreD) calcShore();
+  if (!stat0) { stat0 = document.createElement('canvas'); stat0.width = W * T0; stat0.height = H * T0; }
+  const g = stat0.getContext('2d'), T = tiles;
+  const tt = (x, y) => (x < 0 || y < 0 || x >= W || y >= H) ? -1 : +T[y * W + x];
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const i = y * W + x, t = +T[i], r = hash(x, y), w = wk[i], px = x * T0, py = y * T0;
+    let c;
+    if (w !== '0') { // water
+      const d = shoreD[i], deep = Math.min(1, d / 9);
+      c = w === '1' ? mix([86, 160, 196], [28, 74, 120], deep) : w === '2' ? mix([96, 168, 200], [52, 118, 164], Math.min(1, d / 5)) : [84, 158, 204];
+      c = mix(c, [255, 255, 255], r * 0.025);
+    } else {
+      const h = E(x, y), sh = (E(x - 1, y - 1) - E(x + 1, y + 1)) * 5.5;
+      const base = t === 8 ? [214, 198, 148] : t === 9 ? [128, 126, 120] : mix(mix([88, 138, 78], [124, 150, 84], Math.min(1, h * 1.8)), [150, 130, 96], Math.max(0, h - 0.55) * 2.2);
+      c = [base[0] + sh * 30 + (r - .5) * 7, base[1] + sh * 30 + (r - .5) * 7, base[2] + sh * 26 + (r - .5) * 6];
+      if (t === 2) c = mix(c, [128, 108, 80], 0.55);
+      if (t === 4) c = [176, 160, 130];
+    }
+    g.fillStyle = css(c); g.fillRect(px, py, T0 + 0.5, T0 + 0.5);
+  }
+  // shoreline foam + coast shading
+  g.fillStyle = 'rgba(255,255,255,.55)';
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (wk[y * W + x] !== '0') {
+    const px = x * T0, py = y * T0;
+    if (!isW(x, y - 1)) g.fillRect(px, py, T0, 1.6); if (!isW(x, y + 1)) g.fillRect(px, py + T0 - 1.6, T0, 1.6);
+    if (!isW(x - 1, y)) g.fillRect(px, py, 1.6, T0); if (!isW(x + 1, y)) g.fillRect(px + T0 - 1.6, py, 1.6, T0);
+  }
+  // trees
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (+T[y * W + x] === 5) {
+    const px = x * T0, py = y * T0, r = hash(x + 9, y + 3), r2 = hash(x + 4, y + 8);
+    for (let k = 0; k < 2; k++) { const cx = px + 3 + (k ? r : r2) * 6 + k * 1.5, cy = py + 3.5 + (k ? r2 : r) * 5 + k * 1.5, rad = 3.6 + (k ? r : r2) * 1.6;
+      g.fillStyle = 'rgba(10,40,20,.35)'; g.beginPath(); g.arc(cx + 1, cy + 1.4, rad, 0, 7); g.fill();
+      g.fillStyle = `hsl(${120 + r * 20},${34 + r2 * 8}%,${23 + k * 4 + r * 4}%)`; g.beginPath(); g.arc(cx, cy, rad, 0, 7); g.fill();
+      g.fillStyle = 'rgba(190,230,140,.18)'; g.beginPath(); g.arc(cx - 1, cy - 1.2, rad * 0.5, 0, 7); g.fill(); }
+  }
+  // roads (connected strips) / bridges / fords / squares
+  const link = (x, y) => { const t = tt(x, y); return t === 1 || t === 6 || t === 7 || t === 4; };
+  const strip = (x, y, wd, col) => {
+    const cx = x * T0 + T0 / 2, cy = y * T0 + T0 / 2, hw = wd / 2; g.fillStyle = col; g.fillRect(cx - hw, cy - hw, wd, wd);
+    if (link(x + 1, y)) g.fillRect(cx, cy - hw, T0 / 2 + 0.5, wd); if (link(x - 1, y)) g.fillRect(x * T0 - 0.5, cy - hw, T0 / 2 + 0.5, wd);
+    if (link(x, y + 1)) g.fillRect(cx - hw, cy, wd, T0 / 2 + 0.5); if (link(x, y - 1)) g.fillRect(cx - hw, y * T0 - 0.5, wd, T0 / 2 + 0.5);
+  };
+  for (const pass of [0, 1]) for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const t = tt(x, y); if (t !== 1 && t !== 6 && t !== 7) continue;
+    if (t === 6) { if (pass === 0) { g.fillStyle = 'rgba(30,20,10,.45)'; g.fillRect(x * T0 - 0.5, y * T0 + 1, T0 + 1, T0 + 1); } strip(x, y, pass ? 7 : 9, pass ? '#a07f55' : '#4a3a28'); }
+    else if (t === 7) strip(x, y, pass ? 6 : 8, pass ? '#cdbb8a' : 'rgba(255,255,255,.4)');
+    else strip(x, y, pass ? 5.5 : 7.5, pass ? '#c9b895' : '#6e6350');
+  }
+  // plaza cobbles
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (+T[y * W + x] === 4) { const r = hash(x, y * 3); g.fillStyle = 'rgba(90,70,50,.15)'; g.fillRect(x * T0 + r * 8, y * T0 + ((r * 91) % 1) * 9, 2, 2); }
+  terrDirty = false;
+}
+const PAL = ['#d98f7a', '#d9b56e', '#8ec0d9', '#b49ad9', '#d97a9b', '#9ed99e'];
+const EMO = ['🏠', '🌾', '🧺', '🍺', '🔨', '🌳', '🏛️', '⚓'];
+function drawBld(b, s, now) {
+  const [px, py] = toS(b.x, b.y), w = b.w * s, h = b.h * s;
+  if (px > cssW + 4 || py > cssH + 4 || px + w < -4 || py + h < -4) return;
+  const r = hash(b.x, b.y), st = b.st, ty = b.ty, ex = Math.max(1, s * 0.07);
+  if (ty === 1) { // farm: tilled field
+    ctx.fillStyle = st === 2 ? '#6b6a45' : '#7a6338'; ctx.fillRect(px, py, w, h);
+    ctx.strokeStyle = st === 2 ? '#8d8c5f' : '#a8944f'; ctx.lineWidth = Math.max(1, s * 0.12);
+    for (let i = 0.5; i < b.w; i += 0.75) { ctx.beginPath(); ctx.moveTo(px + i * s, py + s * .1); ctx.lineTo(px + i * s, py + h - s * .1); ctx.stroke(); }
+  } else if (ty === 5) { // park / square
+    ctx.fillStyle = '#4d9a58'; ctx.fillRect(px, py, w, h); ctx.strokeStyle = '#b8a57e'; ctx.lineWidth = Math.max(1, s * .18);
+    ctx.beginPath(); ctx.moveTo(px, py + h / 2); ctx.lineTo(px + w, py + h / 2); ctx.moveTo(px + w / 2, py); ctx.lineTo(px + w / 2, py + h); ctx.stroke();
+    ctx.fillStyle = '#8fd0e3'; ctx.beginPath(); ctx.arc(px + w / 2, py + h / 2, Math.min(w, h) * .2, 0, 7); ctx.fill(); ctx.fillStyle = '#e8f6fb'; ctx.beginPath(); ctx.arc(px + w / 2, py + h / 2, Math.min(w, h) * .08, 0, 7); ctx.fill();
+  } else if (ty === 7) { // dock: pier planks
+    ctx.fillStyle = '#6b5236'; ctx.fillRect(px, py, w, h); ctx.strokeStyle = '#947653'; ctx.lineWidth = 1;
+    for (let i = 0.3; i < b.h; i += 0.5) { ctx.beginPath(); ctx.moveTo(px, py + i * s); ctx.lineTo(px + w, py + i * s); ctx.stroke(); }
+    ctx.fillStyle = '#3f3020'; ctx.fillRect(px, py, ex * 2, ex * 2); ctx.fillRect(px + w - ex * 2, py + h - ex * 2, ex * 2, ex * 2);
+  } else {
+    const body = ty === 0 ? PAL[(r * PAL.length) | 0] : ty === 2 ? '#d98a3a' : ty === 3 ? '#b04a42' : ty === 6 ? '#c9c2b0' : '#6f86a6';
+    ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.fillRect(px + s * .12, py + s * .18, w, h);
+    ctx.fillStyle = st === 1 ? 'rgba(200,170,110,.35)' : body; ctx.fillRect(px, py, w, h);
+    if (st !== 1) { ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.fillRect(px, py, w, h * .3); ctx.fillStyle = 'rgba(255,255,255,.2)'; ctx.fillRect(px, py, w, Math.max(1, h * .1));
+      ctx.fillStyle = 'rgba(0,0,0,.18)'; ctx.fillRect(px + w / 2 - ex / 2, py, ex, h * .5);
+      if (ty === 6) { ctx.fillStyle = '#d6b44c'; ctx.fillRect(px, py, w, Math.max(1, ex * 1.4)); } }
+    if (st !== 1 && b.d) { ctx.fillStyle = '#2a2018'; const dx = (b.d[0] - b.x + 0.5) * s, dy = (b.d[1] - b.y + 0.5) * s;
+      if (b.d[1] >= b.y + b.h) ctx.fillRect(px + dx - s * .17, py + h - s * .25, s * .34, s * .25); else if (b.d[1] < b.y) ctx.fillRect(px + dx - s * .17, py, s * .34, s * .25);
+      else if (b.d[0] < b.x) ctx.fillRect(px, py + dy - s * .17, s * .25, s * .34); else ctx.fillRect(px + w - s * .25, py + dy - s * .17, s * .25, s * .34); }
+  }
+  if (st === 1) { // scaffold
+    ctx.strokeStyle = '#e8c15a'; ctx.lineWidth = Math.max(1, s * .1); ctx.setLineDash([s * .35, s * .25]); ctx.strokeRect(px + 1, py + 1, w - 2, h - 2); ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px + w, py + h); ctx.moveTo(px + w, py); ctx.lineTo(px, py + h); ctx.globalAlpha = .45; ctx.stroke(); ctx.globalAlpha = 1;
+  } else if (st === 2) { // vacant / boarded
+    ctx.fillStyle = 'rgba(40,40,50,.45)'; ctx.fillRect(px, py, w, h); ctx.strokeStyle = '#3b2e22'; ctx.lineWidth = Math.max(1, s * .14);
+    ctx.beginPath(); ctx.moveTo(px + w * .15, py + h * .2); ctx.lineTo(px + w * .85, py + h * .8); ctx.moveTo(px + w * .85, py + h * .2); ctx.lineTo(px + w * .15, py + h * .8); ctx.stroke();
+  }
+  if (s > 10 && ty !== 0 && ty !== 1 && st === 0 && !(ty === 7)) { ctx.font = `${Math.min(24, s * 1.15)}px system-ui,"Apple Color Emoji","Noto Color Emoji"`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(EMO[ty], px + w / 2, py + h / 2 + s * .08); }
+  else if (s > 10 && ty === 7) { ctx.font = `${Math.min(18, s)}px system-ui,"Apple Color Emoji"`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('⚓', px + w / 2, py + h / 2); }
+  else if (s > 12 && st === 1) { ctx.font = `${Math.min(20, s)}px system-ui,"Apple Color Emoji"`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('🚧', px + w / 2, py + h / 2); }
+  if (st === 0 && ty !== 1 && ty !== 5 && ty !== 7 && occ[b.i] > 0 && dark() > 0.1) { ctx.fillStyle = `rgba(255,214,120,${0.6 * dark() / 0.52})`; ctx.fillRect(px + w * .18, py + h * .45, s * .5, s * .45); if (w > s * 2) ctx.fillRect(px + w * .62, py + h * .45, s * .5, s * .45); }
+}
+
+/* ---------- camera + render ---------- */
+function resize() {
+  dpr = window.devicePixelRatio || 1; cssW = $('#stage').clientWidth;
+  const maxH = window.innerWidth <= 820 ? Math.min(window.innerHeight * 0.52, cssW * H / W) : $('#stage').clientHeight;
+  cssH = W ? Math.min(Math.round(cssW * H / W), maxH) : 200;
+  if (window.innerWidth > 820) cssH = Math.min(Math.round(cssW * H / W), $('#stage').clientHeight);
+  fit = Math.min(cssW / W, cssH / H);
+  cv.style.width = cssW + 'px'; cv.style.height = cssH + 'px'; cv.width = cssW * dpr; cv.height = cssH * dpr;
+}
+addEventListener('resize', resize);
+const sc = () => fit * cam.z, zMax = () => 40 / fit;
+const toS = (x, y) => [(x - cam.x) * sc() + cssW / 2, (y - cam.y) * sc() + cssH / 2];
+function clampCam() { const s = sc(), vw = cssW / s, vh = cssH / s; cam.x = vw >= W ? W / 2 : Math.max(vw / 2, Math.min(W - vw / 2, cam.x)); cam.y = vh >= H ? H / 2 : Math.max(vh / 2, Math.min(H - vh / 2, cam.y)); }
+function dark() { const h = tod * 24; if (h < 5 || h >= 21) return 0.52; if (h < 7.5) return 0.52 * (7.5 - h) / 2.5; if (h >= 18.5) return 0.52 * (h - 18.5) / 2.5; return 0; }
+function rr(x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+const clamp01 = v => v < 0 ? 0 : v > 1 ? 1 : v;
+
+function draw(now) {
+  requestAnimationFrame(draw);
+  if (!ready) return;
+  // camera easing
+  if (camTarget !== null) { cam.z += (camTarget - cam.z) * 0.12; if (Math.abs(camTarget - cam.z) < 0.01) { cam.z = camTarget; camTarget = null; } }
+  for (const d of dots) { const a = clamp01((now - d.t0) / 200); d.x = d.fx + (d.tx - d.fx) * a; d.y = d.fy + (d.ty - d.fy) * a; }
+  if (dirIds && now > dirUntil) { dirIds = null; if (performance.now() - userAt > 18000) pick_(-1, false); }
+  if (follow && sel >= 0) {
+    let tx = dots[sel].x, ty = dots[sel].y;
+    if (dirIds && dirIds.length > 1) { const o = dots[dirIds[1]]; if (!(o.fl & 65)) { tx = (tx + o.x) / 2; ty = (ty + o.y) / 2; } }
+    cam.x += (tx - cam.x) * 0.15; cam.y += (ty - cam.y) * 0.15;
+  }
+  clampCam();
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.fillStyle = '#0d1016'; ctx.fillRect(0, 0, cssW, cssH);
+  const s = sc(), [ox, oy] = toS(0, 0);
+  if (terrDirty && now - terrAt > 400) { terrAt = now; buildStatic(); }
+  ctx.imageSmoothingEnabled = true; ctx.drawImage(stat0, ox, oy, W * s, H * s);
+  for (const b of blds) if (b.st !== 3) drawBld(b, s, now);
+  const TINT = [null, 'rgba(255,215,120,.07)', 'rgba(225,120,40,.16)', 'rgba(225,238,255,.24)'], se = stat ? stat.season : 0, wx = stat ? stat.weather : 0;
+  if (TINT[se]) { ctx.fillStyle = TINT[se]; ctx.fillRect(ox, oy, W * s, H * s); }
+  const dk = Math.min(0.7, dark() + (wx ? 0.1 : 0));
+  if (dk > 0) { ctx.fillStyle = `rgba(8,12,42,${dk})`; ctx.fillRect(ox, oy, W * s, H * s); }
+  // settlement labels
+  if (s < 26) { ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; const al = s < 18 ? 1 : (26 - s) / 8;
+    for (const t of setts) { const [lx, ly] = toS(t.x + .5, t.y + .5), fs = [15, 12.5, 11, 10][t.t] * (s < 7 ? 1 : 1);
+      ctx.globalAlpha = al; ctx.font = `700 ${fs}px system-ui`; const lbl = (t.t === 0 ? '★ ' : '') + t.n + (stat && stat.towns && stat.towns[t.i] && stat.towns[t.i][2] ? ' · ' + stat.towns[t.i][2] : '');
+      ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(10,14,22,.8)'; ctx.strokeText(lbl, lx, ly - 2.2 * s - 6); ctx.fillStyle = t.t === 0 ? '#ffe58a' : '#f2f5fb'; ctx.fillText(lbl, lx, ly - 2.2 * s - 6); ctx.globalAlpha = 1; } }
+  // building labels when zoomed
+  if (s > 12) { ctx.font = `600 ${Math.min(13, s * 0.7)}px system-ui`; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; for (const b of blds) if (b.n && b.ty !== 1 && b.st !== 3) { const [bx, by] = toS(b.x + 1.5, b.y - 0.2); if (bx > -50 && bx < cssW + 50 && by > -20 && by < cssH + 20) { ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillText(b.n, bx + 1, by + 1); ctx.fillStyle = '#f2f5fb'; ctx.fillText(b.n, bx, by); } } }
+  // friend lines
+  if (sel >= 0 && detail && detail.id === sel) {
+    const a = dots[sel], [ax, ay] = toS(a.x, a.y); ctx.strokeStyle = 'rgba(255,130,180,.6)'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 4]);
+    for (const [fid] of detail.friends) { const f = dots[fid]; if (f.fl & 1) continue; const [fx, fy] = toS(f.x, f.y); ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(fx, fy); ctx.stroke(); }
+    ctx.setLineDash([]);
+    if (detail.pid >= 0) { const f = dots[detail.pid]; if (!(f.fl & 1)) { const [fx, fy] = toS(f.x, f.y); ctx.strokeStyle = 'rgba(255,70,110,.9)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(fx, fy); ctx.stroke(); } }
+  }
+  // dots
+  const R0 = Math.max(1.9, s * 0.34);
+  for (const d of dots) {
+    if (d.fl & 65) continue;
+    const [x, y] = toS(d.x, d.y); if (x < -10 || y < -10 || x > cssW + 10 || y > cssH + 10) continue;
+    const act = (d.fl >> 1) & 7, R = (d.fl & 128) ? R0 * 0.68 : R0;
+    ctx.fillStyle = d.col; ctx.beginPath(); ctx.arc(x, y, R, 0, 7); ctx.fill();
+    ctx.strokeStyle = (d.fl & 128) ? 'rgba(255,255,255,.7)' : JOBCOL[d.job]; ctx.lineWidth = Math.max(1, R * 0.38); ctx.stroke();
+    if (d.fl & 16) { ctx.fillStyle = '#ffe27a'; ctx.fillRect(x - R * .4, y - R * 1.7, R * .8, R * .8); }
+    if (act === 7 && !(d.fl & 32)) { ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x + R * 1.1, y - R * 1.1, Math.max(1.3, R * .38), 0, 7); ctx.fill(); }
+    if (d.fl & 32) { ctx.strokeStyle = '#ff4d3d'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, y, R + 3 + Math.abs(Math.sin(now / 90)) * 3, 0, 7); ctx.stroke(); if (s > 7) { ctx.font = `${Math.max(11, R * 3)}px "Apple Color Emoji","Noto Color Emoji",system-ui`; ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; ctx.fillText('💥', x, y - R - 6); } }
+    if ((s > 16 || d.id === sel) && d.traits.length && !(d.fl & 32)) { ctx.font = `${Math.min(14, s * 0.7)}px "Apple Color Emoji","Noto Color Emoji",system-ui`; ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; ctx.fillText(TRI[d.traits[0]], x, y - R - 3); }
+    if (d.id === sel || (s > 22 && Math.hypot(x - cssW / 2, y - cssH / 2) < cssW * 0.3)) { ctx.font = '11px system-ui'; ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(255,255,255,.9)'; ctx.fillText(d.name, x, y + R + 11); }
+  }
+  const R = R0;
+  if (sel >= 0) { const d = dots[sel], [x, y] = toS(d.x, d.y); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, y, R + 4 + Math.sin(now / 200) * 1.2, 0, 7); ctx.stroke(); }
+  // weather
+  if (wx) {
+    if (!parts.length) for (let i = 0; i < 110; i++) parts.push({ x: Math.random() * 1000, y: Math.random() * 1000, v: 0.6 + Math.random() });
+    ctx.strokeStyle = wx === 2 ? 'rgba(255,255,255,.85)' : 'rgba(170,200,255,.55)'; ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 1;
+    for (const q of parts) {
+      q.y += (wx === 2 ? 1.2 : 7) * q.v; q.x += (wx === 2 ? Math.sin(now / 700 + q.v * 9) * 0.5 : -1.5) * q.v; if (q.y > cssH) { q.y = -8; q.x = Math.random() * cssW; } if (q.x < 0) q.x += cssW; if (q.x > cssW) q.x -= cssW;
+      if (wx === 2) { ctx.beginPath(); ctx.arc(q.x % cssW, q.y, 1.6 * q.v, 0, 7); ctx.fill(); } else { ctx.beginPath(); ctx.moveTo(q.x % cssW, q.y); ctx.lineTo((q.x % cssW) - 2, q.y + 8); ctx.stroke(); }
+    }
+  }
+  // bubbles
+  bubbles = bubbles.filter(b => now - b.t0 < (b.d === sel && sel >= 0 ? 5200 : 3400));
+  const list = bubbles.length > 16 ? bubbles.slice(-16) : bubbles;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  for (const b of list) {
+    let wx, wy;
+    if (b.d !== undefined) { const d = dots[b.d]; if (d.fl & 65) continue; wx = d.x; wy = d.y; } else { const B = blds[b.b]; wx = B.x + 1.5; wy = B.y + 0.5; }
+    const [x, y0] = toS(wx, wy), age = now - b.t0, a = age < 250 ? age / 250 : age > 3000 && !(b.d === sel) ? Math.max(0, 1 - (age - 3000) / 400) : 1;
+    const fs = Math.max(10, Math.min(13, s * 0.8)), y = y0 - R - 6 - Math.min(10, age / 60);
+    ctx.globalAlpha = a; ctx.font = `700 ${fs}px system-ui`; const w1 = ctx.measureText(b.inv).width;
+    let w2 = 0; if (translate) { ctx.font = `${fs - 2}px system-ui`; w2 = ctx.measureText(b.en).width; }
+    const w = Math.max(w1, w2) + 12, h = translate ? fs * 2 + 6 : fs + 8;
+    ctx.fillStyle = 'rgba(250,250,252,.95)'; rr(x - w / 2, y - h, w, h, 6); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(x - 4, y); ctx.lineTo(x + 4, y); ctx.lineTo(x, y + 5); ctx.fill();
+    ctx.fillStyle = '#1b2230'; ctx.font = `700 ${fs}px system-ui`; ctx.fillText(b.inv, x, y - h + (translate ? fs * 0.95 + 1 : h / 2));
+    if (translate) { ctx.fillStyle = '#5b6a82'; ctx.font = `${fs - 2}px system-ui`; ctx.fillText(b.en, x, y - 6 - (fs - 2) * 0.1); }
+    ctx.globalAlpha = 1;
+  }
+  const ct = `${stat ? ['🌱', '☀️', '🍂', '❄️'][stat.season] + ' Y' + stat.year + ' · ' : ''}Day <i>${day}</i> · <i>${clk()}</i>${stat && stat.weather ? (stat.weather === 2 ? ' ❄' : ' 🌧') : ''}`; if (ct !== lastClock) { lastClock = ct; $('#clock').innerHTML = ct; }
+}
+
+/* ---------- input ---------- */
+let drag = null;
+cv.addEventListener('pointerdown', e => { cv.setPointerCapture(e.pointerId); drag = { x: e.clientX, y: e.clientY, cx: cam.x, cy: cam.y, moved: false }; });
+cv.addEventListener('pointermove', e => {
+  if (!drag) return; const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+  if (Math.hypot(dx, dy) > 6) { drag.moved = true; follow = false; cam.x = drag.cx - dx / sc(); cam.y = drag.cy - dy / sc(); }
+});
+cv.addEventListener('pointerup', e => {
+  if (!drag) return; const moved = drag.moved; drag = null; if (moved) return;
+  const r = cv.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top;
+  let best = -1, bd = 22;
+  for (const d of dots) { if (d.fl & 65) continue; const [x, y] = toS(d.x, d.y), dd = Math.hypot(x - px, y - py); if (dd < bd) { bd = dd; best = d.id; } }
+  if (best >= 0) select(best); else if (sel >= 0) select(-1);
+});
+cv.addEventListener('wheel', e => { e.preventDefault(); cam.z = Math.max(1, Math.min(zMax(), cam.z * (e.deltaY < 0 ? 1.15 : 0.87))); camTarget = null; }, { passive: false });
+$('#zi').onclick = () => { camTarget = Math.min(zMax(), cam.z * 1.6); };
+$('#zo').onclick = () => { camTarget = Math.max(1, cam.z / 1.6); };
+$('#bFest').onclick = () => send({ t: 'act', n: 'festival' });
+$('#bBlight').onclick = () => send({ t: 'act', n: 'blight' });
+$('#bCam').onclick = e => { auto = !auto; e.currentTarget.classList.toggle('on', auto); if (!auto && dirIds) { dirIds = null; pick_(-1, false); } };
+document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => { tab = b.dataset.t; document.querySelectorAll('#tabs button').forEach(x => x.classList.toggle('on', x === b)); $('#ticker').style.display = tab === 'feed' ? '' : 'none'; $('#town').style.display = tab === 'town' ? 'block' : 'none'; if (tab === 'town') town(); });
+cv.addEventListener('pointerdown', () => { userAt = performance.now(); });
+$('#bTr').onclick = e => { translate = !translate; e.currentTarget.classList.toggle('on', translate); };
+$('#bSpd').onclick = e => { localSpeed = localSpeed === 1 ? 4 : localSpeed === 4 ? 12 : 1; e.currentTarget.textContent = '⏩ ×' + localSpeed; };
+
+requestAnimationFrame(draw);
+if (LOCAL) startLocal(); else connect();
+window.__dv = { handle, select, get cam() { return cam; } };
+})();
+</script>
+</body>
+</html>
