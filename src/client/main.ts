@@ -125,8 +125,11 @@ function card() {
 function town() {
   if (!stat || !stat.lead) return; const L = stat.lead;
   const row = (t, arr, f) => `<h4>${t}</h4>` + arr.map(([id, v], i) => `<div class="row" data-i="${id}"><span>${i + 1}. ${names[id]}</span><i>${f(v)}</i></div>`).join('');
-  const mayor = stat.mayor >= 0 ? `<div class="row" data-i="${stat.mayor}"><span>🏛️ Mayor ${names[stat.mayor]} ${fams[stat.mayor]}</span><i>tax ${stat.tax}/day</i></div><div class="tstats" style="margin:4px 0 6px">Treasury ${stat.treasury} coins · next election day ${stat.nextElection}</div>` : '';
-  const B = stat.biz || {}, tw = (stat.towns || []).map(([n, t, p]) => `<div class="row"><span>${['👑', '🏘️', '🏡', '🛖'][t]} ${n}</span><i>${p}</i></div>`).join('');
+  const ICON = ['👑', '🏘️', '🏡', '🛖'], fmt = n => n >= 10000 ? (n / 1000).toFixed(0) + 'k' : n >= 1000 ? (n / 1000).toFixed(1) + 'k' : '' + n;
+  const B = stat.biz || {};
+  const rows = (stat.towns || []).map((t, i) => ({ n: t[0], tier: t[1], pop: t[2], mayor: t[3], tre: t[4], tax: t[5], next: t[6], i })).sort((a, b) => a.tier - b.tier || b.pop - a.pop);
+  const tw = rows.map(t => `<div class="row" ${t.mayor >= 0 ? `data-i="${t.mayor}"` : ''}><span>${ICON[t.tier]} ${t.n} <small style="opacity:.6">· ${t.pop} · ${t.mayor >= 0 ? '🏛️ ' + names[t.mayor] : 'no mayor'}</small></span><i>💰 ${fmt(t.tre)} · tax ${t.tax}</i></div>`).join('');
+  const mayor = `<div class="tstats" style="margin:4px 0 6px">🏦 National treasury ${fmt(stat.nation || 0)} coins · local treasuries ${fmt(stat.treasury || 0)} · each town elects its own mayor</div>`;
   const eco = `<div class="tstats" style="margin:6px 0">🏪 ${B.open} businesses open · 🏗️ ${B.sites} building sites · 🚪 ${B.vacant} vacant<br>📈 ${B.built} built · 📉 ${B.closed} failed · 🤝 ${B.sold} sold · 🔥 ${B.fires} fires · 🧳 ${B.arrived} arrived</div>`;
   $('#town').innerHTML = mayor + `<h4>Settlements</h4>` + tw + eco + `<div class="tstats">💑 ${stat.couples} couples · 👶 ${stat.births} born · 🕯️ ${stat.deaths} died<br>🚨 ${stat.thefts} robberies · 🥊 ${stat.fights} brawls · 🍞 ${stat.food.join(' / ')}</div>`
     + row('💰 Richest', L.rich, v => v + ' coins') + row('❤️ Most loved', L.loved, v => v) + row('😡 Most hated', L.hated, v => v) + row('🧓 Oldest', L.old, v => v + ' yrs');

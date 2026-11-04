@@ -30,7 +30,7 @@ function step(this: World) {
     d.age += 1 / (DAY_TICKS * YEAR_DAYS); if (d.theftCd > 0) d.theftCd--; if (d.rejectCd > 0) d.rejectCd--;
     // needs
     const asleep = d.phase === 'do' && d.goal && d.goal.k === 'sleep';
-    d.hunger = Math.min(100, d.hunger + (asleep ? 0.05 : 0.12) * hr);
+    d.hunger = Math.min(100, d.hunger + (asleep ? 0.035 : 0.12) * hr);
     if (!asleep) d.energy = Math.max(0, d.energy - 0.075 - (d.phase === 'do' && d.goal && d.goal.k === 'work' ? 0.03 : 0));
     d.social = Math.max(0, d.social - 0.07);
     if (d.chatCd > 0) d.chatCd--;
@@ -85,7 +85,8 @@ function step(this: World) {
 function dawn(this: World) {
   const day = this.day();
   const alive = this.dots.filter(d => !d.dead);
-  for (const d of alive) if (d.adult) { const pay = Math.min(d.coin, this.taxRate); d.coin -= pay; this.treasury += pay; }   // taxes
+  this.sPop = []; for (const d of alive) { const sid = this.buildings[d.home].sid; this.sPop[sid] = (this.sPop[sid] || 0) + 1; }
+  this.collectTaxes();
   const se = this.season();
   if (se !== this.lastSeason) {
     this.lastSeason = se;
@@ -94,7 +95,8 @@ function dawn(this: World) {
   }
   this.weather = this.rnd() < RAIN_P[se] ? (se === 3 ? 2 : 1) : 0;
   if (this.weather) this.ev('weather', this.weather === 2 ? '❄️ Snow falls on the town.' : '🌧️ It\'s raining today.', [], 0, 1);
-  this.mayorDawn(); this.economyDawn();
+  for (const s of this.S) this.mayorDawn(s);
+  this.nationDawn(); this.economyDawn();
   let mood = 0; for (const d of alive) mood += this.mood(d);
   const top = alive.reduce((a, b) => (this.friends(a).length >= this.friends(b).length ? a : b));
   const s = this.stats;

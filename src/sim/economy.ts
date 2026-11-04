@@ -93,9 +93,9 @@ function housing(this: World) {
     if (list.length < 5 || did >= 2) continue; const h = this.buildings[hid]; if (h.state !== 'ok') continue;
     const ad = list.filter(d => d.adult && d.id !== h.owner && !this.sites.some(x => x.owner === d.id));
     const mover = ad.find(d => d.partner >= 0 && list.includes(this.dots[d.partner])) || ad.sort((a, b) => b.coin - a.coin)[0]; if (!mover) continue;
-    const cost = BUILD_SHIFTS[BT.HOUSE] * 10; if (mover.coin < cost * 0.4 && this.treasury < cost * 3) continue;
+    const cost = BUILD_SHIFTS[BT.HOUSE] * 10; const tg = this.gov(this.S[h.sid]); if (mover.coin < cost * 0.4 && tg.treasury < cost * 3) continue;
     const s = this.S[h.sid], plot = this.plotFor(s, 'house'); if (!plot) continue;
-    const own = Math.max(0, Math.min(cost, mover.coin - 5)); mover.coin -= own; if (own < cost) this.treasury -= cost - own;
+    const own = Math.max(0, Math.min(cost, mover.coin - 5)); mover.coin -= own; if (own < cost) tg.treasury -= cost - own;
     this.startBuild(plot, BT.HOUSE, mover.id, cost); did++;
     this.ev('moveout', `🏠 ${mover.name} is building a place of their own in ${s.name}${own < cost ? ' (town housing grant)' : ''}.`, [mover.id], 30, 1);
   }

@@ -10,7 +10,7 @@ function decide(this: World, d) {
   const c = [];
   c.push(['sleep', (100 - d.energy) * 1.15 + (night ? 75 : 0) - (d.hunger > 88 ? 60 : 0)]);
   const mk = d.hunger > 35 ? this.pickMarket(d) : -1;
-  if (mk >= 0 && d.coin >= this.price(d) && !(d.shortAt && this.tick - d.shortAt < 150 && d.coin < 8)) c.push(['eat', d.hunger * 1.3 - (night && d.energy < 40 ? 30 : 0)]);
+  if (mk >= 0 && d.coin >= this.price(d) && !(d.shortAt && this.tick - d.shortAt < 150 && d.coin < 8)) c.push(['eat', d.hunger * 1.3 - (night && d.energy < 40 ? 30 : 0) + (d.hunger > 45 && tod > 0.7 && tod < 0.95 ? 45 : 0)]);
   const broke = d.coin < FOOD_PRICE * 2;
   if (d.adult && (hours || (broke && d.hunger > 50 && !night) || (d.job === 0 && this.believedEmpty(d) && !night)) && d.energy > 20) {
     let s = d.dil * 32 + (d.coin < 30 ? 35 : 0) + (d.coin < 10 ? 30 : 0) - (d.coin > 140 ? 45 : 0);
@@ -21,7 +21,7 @@ function decide(this: World, d) {
   if (d.adult && (d.job === 1 || d.job === 3) && this.sites.length && hours && d.energy > 22) {
     const st = this.siteFor(d); if (st) c.push(['build', 38 + d.dil * 18 + (d.coin < 30 ? 28 : 0) + (d.job === 3 ? 12 : 0)]);
   }
-  const fest = tk < this.festival, inv = d.invite && tk < d.invite.until ? d.invite : null;
+  const fest = tk < this.festival || tk < ((this.gov(this.S[this.buildings[d.home].sid])).festival || 0), inv = d.invite && tk < d.invite.until ? d.invite : null;
   c.push(['social', (100 - d.social) * d.soc * 0.95 + (fest ? 90 : 0) + (inv && inv.k === 'social' ? 60 : 0) - (night ? 45 : 0) - (this.weather ? 30 : 0)]);
   if (d.adult && d.coin >= DRINK_PRICE * 2) c.push(['drink', (100 - d.social) * d.soc * 0.55 + (tod > 0.62 && tod < 0.92 ? 22 : -35) + (inv && inv.k === 'drink' ? 60 : 0) + (fest ? 30 : 0) + (this.weather ? 15 : 0)]);
   c.push(['wander', 18 + this.rnd() * 10]);
@@ -45,7 +45,7 @@ function setGoal(this: World, d, k, mk, inv) {
       g = { k, b: st.id, enter: false }; break;
     }
     case 'social': {
-      let b = (inv && inv.k === 'social') ? this.buildings[inv.b] : this.nearest(this.parks, d, this.tick < this.festival ? 8 : 40);
+      let b = (inv && inv.k === 'social') ? this.buildings[inv.b] : this.nearest(this.parks, d, this.tick < this.festival || this.tick < (this.gov(this.S[this.buildings[d.home].sid]).festival || 0) ? 8 : 40);
       if (inv && inv.k === 'social') d.invite = null;
       g = { k, b: b.id, enter: false }; break;
     }

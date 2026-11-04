@@ -36,27 +36,30 @@ is happening now. It's a window, not a game: slow, ambient and calming, closer t
   `npm start` builds first; `demo.html` is rebuilt by `npm run build`.
 
 ## What exists today
-- **Generated country:** simplex-noise island, rivers and lakes, a capital sited for trade (harbor, river mouth or
-  confluence), towns, villages and hamlets spaced by central place theory, A* roads with fords and bridges.
-  Each settlement gets a market square, ring road, quay, branch streets and burgage-style plots.
+- **A whole country:** a 320x240-tile continent (broad terrain, mountain range, big lakes, rivers) with 1 capital,
+  9 towns, 26 villages and 40 hamlets spaced tens of tiles apart, linked by A* roads with fords and bridges. Each
+  settlement gets a market square, ring road, quay, branch streets and burgage-style plots. About 1,800 dots at start.
+- **Government at every level:** each settlement elects its own mayor (own tax rate, treasury, feasts, relief,
+  public works, scandals). A national treasury takes 15% of local taxes and pays for bridges and emergency grants
+  to towns whose markets run dry.
 - **Self-growing economy:** businesses with owners, cash, wages and upkeep. They fail (bankruptcy, vacancy, fires),
   get refit, sold or demolished. Entrepreneurs found new ones, builders construct on sites, people immigrate, and
-  property is inherited. Mayors tax and fund public works.
+  property is inherited.
 - **People:** traits (thief, hothead, gossip, kind, romantic, jealous, coward, ambitious, lazy), dreams, friendships,
   marriage, births, aging and death. Seasons, weather, floating market prices.
 - **Language:** about 40 concept tokens mapped to invented words. Dots say true, useful things ("that market is
   empty") and listeners act on them.
-- **Viewer layer:** feed, auto-camera, followable dots, Town tab with settlements and business stats.
+- **Viewer layer:** feed, auto-camera, followable dots, Town tab with per-settlement mayors and budgets.
 
 ## Roadmap
-1. **Pacing and scale:** slow the day/year clock for ambient viewing, grow the map and population toward thousands of dots, keep the VPS budget.
-2. **Balance pass:** hunger spikes at dawn, treasury hoarding, business-founding stats, long-run (100+ day) stability.
-3. **Data:** log `(state, action)` from `World.decide()` to JSONL.
-4. **Imitation:** train a small MLP on the log and run it behind the same `decide()` interface.
-5. **RL:** PPO in a headless copy of the sim with a survive/thrive reward; export int8 ONNX.
-6. **Learned speech:** a speech head that picks token sequences while the lexicon stays as grounding.
-7. **Growth:** trade between towns by road and sea, guilds, a town-hall vote, regional rivalry, war and disaster.
-8. **Chronicle and replay:** persistent history, era summaries, highlight clips.
+1. **Modern economy:** salaries paid by employers (so firms can fail to make payroll), rent and mortgages,
+   supermarkets, offices, factories, a bank with loans, utilities, cars and buses, unemployment, a national budget.
+2. **Storyteller:** a Rimworld-style director that watches the world and nudges it toward interesting arcs
+   (rivalries, scandals, closures, floods, feuds, rags-to-riches), plus a chronicle of eras and a readable history.
+3. **Balance:** keep the world stable for 100+ days (`npm run report`), tone down violence, no dawn hunger spikes.
+4. **Pacing and scale:** slow the day/year clock for ambient viewing, grow toward thousands of dots.
+5. **Data → imitation → RL:** log `(state, action)` from `World.decide()`, train a small policy in Python, export int8 ONNX.
+6. **Learned speech**, **trade by road and sea**, **guilds, wars, disasters**, **replay and highlight clips**.
 
 ## Cheap VPS deploy (1 vCPU / 512 MB is plenty)
     git clone … && cd project-genesis && npm install && npm run build

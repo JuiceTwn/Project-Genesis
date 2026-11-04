@@ -16,7 +16,7 @@ function makeDot(this: World, id, o, rf) {
     social: o.social !== undefined ? o.social : 30 + rf() * 60, coin: o.coin !== undefined ? o.coin : 10 + rf() * 50,
     aff: new Map(), belief: new Int32Array(MAXM).fill(-1), carry: 0, invite: null, starvedDay: -1, rich: false, meals: 0,
     traits, done: new Set(), isThief: has('thief'), age: o.age, life: o.life, partner: -1, married: false, since: 0, thieves: new Set(), dead: false,
-    grief: 0, starveT: 0, theftCd: 200 + ((rf() * 900) | 0), dream: null, dreams: 0, adult: o.age >= ADULT, kids: 0, rejectCd: 0
+    grief: 0, starveT: 0, theftCd: 1200 + ((rf() * 3600) | 0), dream: null, dreams: 0, adult: o.age >= ADULT, kids: 0, rejectCd: 0
   };
   d.dream = this.pickDream(d, rf);
   return d;

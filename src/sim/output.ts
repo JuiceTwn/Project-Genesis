@@ -46,13 +46,13 @@ function statsMsg(this: World) {
   const top = (f, k = 3, desc = true) => alive.map(d => [d.id, Math.round(f(d))]).sort((a, b) => desc ? b[1] - a[1] : a[1] - b[1]).slice(0, k);
   const cdl = k => Math.max(0, (this.cd[k] + (k === 'festival' || k === 'blight' ? 225 : 100) - this.tick) / TICK_HZ | 0);
   return { t: 'stats', day: this.day(), pop: alive.length, food: this.markets.map(m => m.stock), mk: this.markets.map(m => this.S[m.sid].name),
-    towns: this.S.map(s => [s.name, s.tier, this.sPop[s.id] || 0]), biz: { open: this.buildings.filter(b => b.state === 'ok' && this.isBiz(b)).length, built: this.biz.built, closed: this.biz.closed, sold: this.biz.sold, fires: this.biz.fires, arrived: this.biz.arrived, sites: this.sites.length, vacant: this.buildings.filter(b => b.state === 'vacant').length }, mood: Math.round(mood / n), coin: Math.round(coin / n),
+    towns: this.S.map(s => { const g = this.gov(s); return [s.name, s.tier, this.sPop[s.id] || 0, g.mayor, Math.round(g.treasury), g.tax, g.next]; }), biz: { open: this.buildings.filter(b => b.state === 'ok' && this.isBiz(b)).length, built: this.biz.built, closed: this.biz.closed, sold: this.biz.sold, fires: this.biz.fires, arrived: this.biz.arrived, sites: this.sites.length, vacant: this.buildings.filter(b => b.state === 'vacant').length }, mood: Math.round(mood / n), coin: Math.round(coin / n),
     meals: this.stats.meals, chats: this.stats.chats, friends: this.stats.friends, births: this.stats.births, deaths: this.stats.deaths, thefts: this.stats.thefts, fights: this.stats.fights,
     couples: alive.filter(d => d.partner >= 0).length / 2,
     lead: { rich: top(d => d.coin), loved: top(d => this.rep[d.id]), hated: top(d => this.rep[d.id], 3, false), old: top(d => d.age) },
     cd: { festival: cdl('festival'), blight: cdl('blight'), gift: cdl('gift'), zap: cdl('zap'), cupid: cdl('cupid') },
     fest: this.tick < this.festival, blight: this.tick < this.blight,
-    season: this.season(), year: this.year(), weather: this.weather, mayor: this.mayor, treasury: Math.round(this.treasury), tax: this.taxRate, nextElection: this.nextElection };
+    season: this.season(), year: this.year(), weather: this.weather, nation: Math.round(this.nation.treasury), treasury: Math.round(this.townTreasury()) };
 }
 
 function doingText(this: World, d) {
@@ -90,7 +90,7 @@ function thought(this: World, d) {
 function detail(this: World, id) {
   const d = this.dots[id]; if (!d) return null;
   const p = d.partner >= 0 ? this.dots[d.partner] : null;
-  return { t: 'detail', id, name: d.name, fam: d.fam, mayor: id === this.mayor, dead: d.dead, job: d.adult ? JOBS[d.job] : 'child', age: Math.round(d.age), traits: d.traits,
+  return { t: 'detail', id, name: d.name, fam: d.fam, mayor: this.isMayor(id), dead: d.dead, job: d.adult ? JOBS[d.job] : 'child', age: Math.round(d.age), traits: d.traits,
     hunger: Math.round(d.hunger), energy: Math.round(d.energy), social: Math.round(d.social), coin: Math.round(d.coin),
     mood: this.mood(d), doing: d.dead ? 'passed away' : this.doingText(d), thought: this.thought(d), home: d.home,
     dream: DREAM_TXT[d.dream], partner: p ? p.name : null, pid: p ? p.id : -1, married: d.married, rep: Math.round(this.rep ? this.rep[id] : 0), kids: d.kids,

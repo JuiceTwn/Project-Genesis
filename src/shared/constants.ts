@@ -19,7 +19,7 @@ export const CON = [['ME','me'],['YOU','you'],['WANT','want'],['GO','go'],['GIVE
 
 
 export const TRAITS = ['thief','hothead','gossip','kind','romantic','jealous','coward','ambitious','lazy'];
-export const TRAIT_W = [0.07,0.12,0.15,0.15,0.2,0.1,0.12,0.15,0.1];
+export const TRAIT_W = [0.025,0.12,0.15,0.15,0.2,0.1,0.12,0.15,0.1];
 export const DREAMS = ['rich','famous','love','family'];
 export const DREAM_TXT = { rich: 'get rich (250 coins)', famous: 'have 8 friends', love: 'find true love', family: 'raise 2 children', content: 'content with life' };
 export const C: Record<string, number> = {}; CON.forEach((c, i) => { C[c[0]] = i; });

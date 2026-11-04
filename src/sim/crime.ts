@@ -19,7 +19,7 @@ function stealTick(this: World) {
 }
 
 function steal(this: World, t, v) {
-  const amt = Math.round(Math.min(v.coin, 8 + this.rnd() * 14)); v.coin -= amt; t.coin += amt; t.theftCd = 900 + ((this.rnd() * 1200) | 0);
+  const amt = Math.round(Math.min(v.coin, 8 + this.rnd() * 14)); v.coin -= amt; t.coin += amt; t.theftCd = 3600 + ((this.rnd() * 3600) | 0);
   const wit = [];
   for (const o of this.dots) { if (o === t || o === v || o.dead || o.inside) continue; const dx = o.x - t.x, dy = o.y - t.y; if (dx * dx + dy * dy <= 36 && this.rnd() < 0.5) wit.push(o); }
   const noticed = this.rnd() < 0.45;

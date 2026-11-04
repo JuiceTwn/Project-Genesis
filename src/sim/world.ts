@@ -11,7 +11,7 @@ export class World {
   seed: number; R: () => number; pop: number; maxPop: number;
   fieldHolders: Building[] = []; sites: Building[] = []; fq: Building[] = []; fgen = 0; biz: any; blightAt = -1e9; lastTheftTick = -1e9; sPop: number[] = []; sbl: Building[][] = [];
   tick = 0; out: Msg[] = []; pending: { at: number; m: any }[] = []; stats: any; pairs = new Set<number>(); festival = 0; blight = 0;
-  weather = 0; mayor = -1; treasury = 0; taxRate = 5; nextElection = 7; cd: any; rep: Float32Array | null = null; lastEv: Record<string, number> = {};
+  weather = 0; nation = { treasury: 0 }; cd: any; rep: Float32Array | null = null; lastEv: Record<string, number> = {};
   grid: Dot[][] = []; hist: Msg[] = [];
   map: any; tiles: Uint8Array = new Uint8Array(0); buildings: Building[] = [];
   markets: Building[] = []; taverns: Building[] = []; workshops: Building[] = []; parks: Building[] = []; farms: Building[] = []; houses: Building[] = []; halls: Building[] = []; docks: Building[] = [];
@@ -24,9 +24,10 @@ export class World {
     this.tick = Math.floor(0.3 * DAY_TICKS); this.out = []; this.pending = [];
     this.stats = { meals: 0, chats: 0, friends: 0, deliveries: 0, wasted: 0, thefts: 0, fights: 0, births: 0, deaths: 0 };
     this.pairs = new Set(); this.festival = 0; this.blight = 0;
-    this.weather = 0; this.mayor = -1; this.treasury = 0; this.taxRate = 5; this.nextElection = 7; this.cd = { festival: -1e9, blight: -1e9, gift: -1e9, zap: -1e9, cupid: -1e9 }; this.rep = null; this.lastEv = {};
+    this.weather = 0; this.nation = { treasury: 0 }; this.cd = { festival: -1e9, blight: -1e9, gift: -1e9, zap: -1e9, cupid: -1e9 }; this.rep = null; this.lastEv = {};
     this.grid = []; this.hist = [];
-    this.buildMap(); this.makeLexicon(); this.makeDots(); this.rep = new Float32Array(this.dots.length); this.lastSeason = this.season(); this.election(true);
+    this.buildMap(); this.makeLexicon(); this.makeDots(); this.rep = new Float32Array(this.dots.length); this.lastSeason = this.season(); this.sPop = []; for (const d of this.dots) { const sid = this.buildings[d.home].sid; this.sPop[sid] = (this.sPop[sid] || 0) + 1; }
+    this.electAll(true);
     this.rebuild();   // distance fields are built lazily (see F())
     if (o.state) this.load(o.state);
   }
