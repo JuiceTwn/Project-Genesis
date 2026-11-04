@@ -8,22 +8,27 @@ generated island with a capital, towns, villages and countryside. They talk in t
 
 ## The dream
 
-Dotville should feel like a small real civilization that never stops, something you leave open on a second
-monitor the way you'd watch an aquarium, except the fish have grudges, mortgages and dreams.
+One country. One persistent world. Always on. Anyone can drop in at any moment, watch for five minutes or an
+hour, and leave. Nobody has a "save file" or a session; the world just keeps going, and what you see is whatever
+is happening now. It's a window, not a game: slow, ambient and calming, closer to a living map than an arcade.
 
-1. **A world that's alive when you're not looking.** One persistent country on a cheap VPS. Open it any time
-   and something has changed: a new town grew, a bakery failed, a bridge got built, two families feuded.
-2. **Stories nobody wrote.** Every event comes from simple rules colliding (hunger, money, jealousy, ambition),
-   not scripts. The feed and auto-camera surface the juiciest ones; viewers pick favorites and follow them for weeks.
-3. **Brains trained from scratch, small enough to run anywhere.** The dots' decisions move from hand-written
-   utility AI to a custom-trained policy (imitation, then RL), exported as an int8 ONNX under ~100 MB of RAM.
-   Different "minds" can compete: which town thrives under which kind of dot?
-4. **A language that grows.** Dots start with a grounded lexicon of about 40 concepts and invented words. Later they
-   coin and spread their own words, so towns develop dialects. Viewers learn to read it.
-5. **Light viewer meddling, never control.** Gifts, matchmaking, festivals, blight. You nudge fate; the dots
-   decide what to do about it.
-6. **History you can read.** Years, eras, dynasties, a wiki-style chronicle of the country, replays of famous
-   moments, and an archive of every settlement that rose and fell.
+1. **Large and unhurried.** A big country (the long-term target is thousands of dots across many towns), with a
+   slow pace: a dot's day takes minutes of real time, a year takes real days, and a town takes weeks to grow.
+   Nothing is rushed or flashy. You can watch someone walk to the bakery.
+2. **Alive when you're not looking.** Open it any time and something has changed: a new town grew, a bakery
+   failed, a bridge got built, two families feuded. No catching up, no login, no waiting room.
+3. **Stories nobody wrote.** Everything comes from simple rules colliding (hunger, money, jealousy, ambition).
+   The feed and auto-camera surface the interesting moments gently; viewers pick a dot or a family and follow
+   them over days.
+4. **Light meddling only.** A viewer can gift a coin, nudge two dots together, or ask for a festival, all on long
+   shared cooldowns. It's a nudge to fate, never control, and the world never depends on viewers to function.
+5. **Brains trained from scratch, small enough to run anywhere.** Decisions move from hand-written utility AI to
+   a custom-trained policy (imitation, then RL), exported as an int8 ONNX under ~100 MB of RAM, running on a
+   cheap VPS.
+6. **A language that grows.** Dots start with a grounded lexicon of about 40 concepts and invented words. Later
+   they coin and spread their own, so towns develop dialects and viewers learn to read them.
+7. **History you can read.** Years, eras, a chronicle of the country, and an archive of every settlement that
+   rose and fell.
 
 ## Try it
 - **No server:** open `demo.html` in any browser (runs the sim locally; ⏩ speeds it up).
@@ -43,13 +48,14 @@ monitor the way you'd watch an aquarium, except the fish have grudges, mortgages
 - **Viewer layer:** feed, auto-camera, followable dots, Town tab with settlements and business stats.
 
 ## Roadmap
-1. **Balance pass:** hunger spikes at dawn, treasury hoarding, business-founding stats, long-run (100+ day) stability.
-2. **Data:** log `(state, action)` from `World.decide()` to JSONL.
-3. **Imitation:** train a small MLP on the log and run it behind the same `decide()` interface.
-4. **RL:** PPO in a headless copy of the sim with a survive/thrive reward; export int8 ONNX.
-5. **Learned speech:** a speech head that picks token sequences while the lexicon stays as grounding.
-6. **Growth:** trade between towns by road and sea, guilds, a town-hall vote, regional rivalry, war and disaster.
-7. **Chronicle and replay:** persistent history, era summaries, highlight clips.
+1. **Pacing and scale:** slow the day/year clock for ambient viewing, grow the map and population toward thousands of dots, keep the VPS budget.
+2. **Balance pass:** hunger spikes at dawn, treasury hoarding, business-founding stats, long-run (100+ day) stability.
+3. **Data:** log `(state, action)` from `World.decide()` to JSONL.
+4. **Imitation:** train a small MLP on the log and run it behind the same `decide()` interface.
+5. **RL:** PPO in a headless copy of the sim with a survive/thrive reward; export int8 ONNX.
+6. **Learned speech:** a speech head that picks token sequences while the lexicon stays as grounding.
+7. **Growth:** trade between towns by road and sea, guilds, a town-hall vote, regional rivalry, war and disaster.
+8. **Chronicle and replay:** persistent history, era summaries, highlight clips.
 
 ## Cheap VPS deploy (1 vCPU / 512 MB is plenty)
     git clone … && cd project-genesis && npm install
