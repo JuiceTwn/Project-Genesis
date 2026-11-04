@@ -1,5 +1,5 @@
 import { World } from './world';
-import { makeField, b64, tkLess, rollTraits, mk } from '../shared/util';
+import { makeField, b64, tkLess, mk } from '../shared/util';
 import * as K from '../shared/constants';
 import * as Gen from '../worldgen';
 const { TICK_HZ, DAY_TICKS, INF, TILE, COST, BT, BT_NAME, BUILD_SHIFTS, UPKEEP, STAFF, MAXM, JOBS, FOOD_PRICE, DRINK_PRICE, STOCK_CAP, ADULT, YEAR_DAYS, SEASON_DAYS, SEASONS, YIELD, RAIN_P, CON, C, TRAITS, TRAIT_W, DREAMS, DREAM_TXT } = K;
@@ -23,7 +23,7 @@ function sayB(this: World, b, k) { this.out.push({ t: 'say', b: b.id, k }); }
 
 function ev(this: World, kind, text, ids, gap = 0, w = 1) {
   if (gap && this.tick - (this.lastEv[kind] || -1e9) < gap) return;
-  this.lastEv[kind] = this.tick; const m = { t: 'ev', k: kind, x: text, ids: ids || [], w }; this.out.push(m); this.hist.push(m); if (this.hist.length > 40) this.hist.shift();
+  this.lastEv[kind] = this.tick; if (w >= 3 && this.story) this.story.tension += w * 0.35; const m = { t: 'ev', k: kind, x: text, ids: ids || [], w }; this.out.push(m); this.hist.push(m); if (this.hist.length > 40) this.hist.shift();
 }
 
 function later(this: World, dt, m) { this.pending.push({ at: this.tick + dt, m }); }

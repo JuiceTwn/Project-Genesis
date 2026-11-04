@@ -1,21 +1,22 @@
 import { World } from './world';
-import { makeField, b64, tkLess, rollTraits, mk } from '../shared/util';
+import { rollTraits, inheritTraits, fxOf } from './personality';
+import { makeField, b64, tkLess, mk } from '../shared/util';
 import * as K from '../shared/constants';
 import * as Gen from '../worldgen';
 const { TICK_HZ, DAY_TICKS, INF, TILE, COST, BT, BT_NAME, BUILD_SHIFTS, UPKEEP, STAFF, MAXM, JOBS, FOOD_PRICE, DRINK_PRICE, STOCK_CAP, ADULT, YEAR_DAYS, SEASON_DAYS, SEASONS, YIELD, RAIN_P, CON, C, TRAITS, TRAIT_W, DREAMS, DREAM_TXT } = K;
 import { W, H } from "../shared/dims";
 
 function makeDot(this: World, id, o, rf) {
-  const home = this.buildings[o.home], traits = o.traits, has = t => traits.includes(t);
+  const home = this.buildings[o.home], traits = o.traits, has = t => traits.includes(t), fx = fxOf(traits);
   const d = {
     id, name: o.name, fam: o.fam || '', job: o.job, home: o.home, work: o.work, future: o.future !== undefined ? o.future : o.job,
-    soc: 0.35 + rf() * 0.9 + (has('gossip') ? 0.3 : 0), dil: Math.max(0.15, 0.3 + rf() * 0.9 + (has('ambitious') ? 0.35 : 0) - (has('lazy') ? 0.35 : 0)), off: (rf() - 0.5) * 0.1,
+    soc: Math.max(0.1, 0.35 + rf() * 0.9 + fx.soc), dil: Math.max(0.15, 0.3 + rf() * 0.9 + fx.dil), off: (rf() - 0.5) * 0.1,
     x: home.door[0], y: home.door[1], nx: -1, ny: -1, prog: 0, speed: 0.30 + rf() * 0.08,
     phase: 'walk', prev: 'walk', goal: null, timer: 0, chatT: 0, chatCd: (rf() * 100) | 0, inside: false, fight: false,
     hunger: o.hunger !== undefined ? o.hunger : 10 + rf() * 50, energy: o.energy !== undefined ? o.energy : 50 + rf() * 45,
     social: o.social !== undefined ? o.social : 30 + rf() * 60, coin: o.coin !== undefined ? o.coin : 10 + rf() * 50,
     aff: new Map(), belief: new Int32Array(MAXM).fill(-1), carry: 0, invite: null, starvedDay: -1, rich: false, meals: 0,
-    traits, done: new Set(), isThief: has('thief'), age: o.age, life: o.life, partner: -1, married: false, since: 0, thieves: new Set(), dead: false,
+    traits, fx, scars: {}, done: new Set(), isThief: has('thief'), age: o.age, life: o.life, partner: -1, married: false, since: 0, thieves: new Set(), dead: false,
     grief: 0, starveT: 0, theftCd: 1200 + ((rf() * 3600) | 0), dream: null, dreams: 0, adult: o.age >= ADULT, kids: 0, rejectCd: 0
   };
   d.dream = this.pickDream(d, rf);
@@ -90,7 +91,7 @@ function die(this: World, d, cause) {
   const heir = d.partner >= 0 && !this.dots[d.partner].dead ? this.dots[d.partner] : fr[0];
   const est = d.coin;
   if (est > 0) { if (heir) heir.coin += est; else this.gov(this.S[this.buildings[d.home].sid]).treasury += est; }   // no heir: the estate goes to the town
-  if (d.partner >= 0) { const p = this.dots[d.partner]; p.partner = -1; p.married = false; p.grief = this.tick + 900; p.social = Math.max(0, p.social - 30); }
+  if (d.partner >= 0) { const p = this.dots[d.partner]; p.partner = -1; p.married = false; p.grief = this.tick + 900; if (this.rnd() < 0.4) this.shiftTrait(p, this.rnd() < 0.5 ? 'loner' : 'pessimist', `after losing ${d.name}`); p.social = Math.max(0, p.social - 30); }
   d.partner = -1; d.coin = 0;
   this.inherit(d);
   const mourners = fr.slice(0, 6), park = this.nearest(this.parks, mourners[0] || d, 0);
@@ -102,9 +103,7 @@ function die(this: World, d, cause) {
 function spawn(this: World, a, b) {
   const slot = this.dots.find(x => x.dead) || (this.dots.length < this.maxPop && this.residents(a.home) < 7 ? { id: this.dots.length } : null); if (!slot) return false;
   if (this.rep.length <= slot.id) this.rep = new Float32Array(this.dots.length + 8);
-  let traits = []; for (const t of a.traits.concat(b.traits)) if (this.rnd() < 0.35 && !traits.includes(t) && traits.length < 2) traits.push(t);
-  if (!traits.length) traits = rollTraits(this.rnd);
-  if (traits.includes('lazy') && traits.includes('ambitious')) traits = traits.filter(t => t !== 'lazy');
+  const traits = inheritTraits(a.traits, b.traits, this.rnd);
   const pj = (this.rnd() < 0.5 ? a : b).future, future = pj === 2 ? 3 : pj;
   const d = this.makeDot(slot.id, { name: this.newName(), fam: (this.rnd() < 0.5 ? a : b).fam, job: 3, home: a.home, work: -1, future, traits, age: 0, life: 45 + this.rnd() * 25, hunger: 20, energy: 90, social: 60, coin: 0 }, this.rnd);
   d.speed = 0.26; this.dots[slot.id] = d; this.names[slot.id] = d.name;
@@ -124,7 +123,7 @@ function dreamCheck(this: World, d) {
   if (d.dream === 'content') return;
   const ok = d.dream === 'rich' ? d.coin >= 250 : d.dream === 'famous' ? this.friends(d).length >= 8 : d.dream === 'family' ? d.kids >= 2 : d.partner >= 0;
   if (!ok) return;
-  d.done.add(d.dream); d.dreams++; d.social = 100; this.ev('dream', `✨ ${d.name} achieved a dream: ${DREAM_TXT[d.dream]}.`, [d.id], 20, 2);
+  d.done.add(d.dream); d.dreams++; d.social = 100; if (d.dream === 'rich' && this.rnd() < 0.5) this.shiftTrait(d, this.rnd() < 0.5 ? 'generous' : 'greedy', 'success changed them'); this.ev('dream', `✨ ${d.name} achieved a dream: ${DREAM_TXT[d.dream]}.`, [d.id], 20, 2);
   this.say(d, [C.ME, C.HAPPY]); d.dream = this.pickDream(d, this.rnd, d.dream);
 }
 

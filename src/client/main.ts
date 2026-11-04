@@ -1,4 +1,5 @@
 // @ts-nocheck -- TODO: type the client incrementally (state shapes are in src/shared/protocol.ts once written)
+import { CATALOG, TRAIT } from '../sim/personality';
 declare const Sim: any;   // provided by demo.ts when running without a server
 (() => {
 'use strict';
@@ -8,7 +9,7 @@ const JOBCOL = ['#7bd36b', '#f0a74a', '#b98cf0', '#59b6ee'];
 let W, H, tiles, wk, el, setts = [], blds = [], dots = [], lex = [], names = [], fams = [], bnames = [], JOBS = [], BTN = [];
 let tod = 0.3, day = 1, occ = [], sel = -1, follow = false, translate = true, bubbles = [], statsM = null;
 let stat = null, detail = null, ready = false, lastClock = '';
-const TRI = { thief: '🥷', hothead: '🔥', gossip: '💬', kind: '💖', romantic: '🌹', jealous: '💚', coward: '🐥', ambitious: '⭐', lazy: '💤' };
+const TRI = Object.fromEntries(CATALOG.map(t => [t.id, t.emoji]));
 const parts = [];
 let auto = true, userAt = -1e9, dirUntil = 0, dirIds = null, lastShot = -1e9, deadTimer = null, tab = 'feed';
 const colFor = n => { let x = 7; for (let i = 0; i < n.length; i++) x = (x * 31 + n.charCodeAt(i)) % 3600; return `hsl(${x / 10},68%,62%)`; };
@@ -50,7 +51,8 @@ function handle(m) {
     case 'born': dots[m.id] = Object.assign(dots[m.id] || { id: m.id, x: 0, y: 0, tx: 0, ty: 0, fx: 0, fy: 0, t0: 0, fl: 64 }, { name: m.name, job: m.j, home: m.h, traits: m.tr || [], seen: false, col: colFor(m.name) }); names[m.id] = m.name; fams[m.id] = m.f || ''; break;
     case 'bld': bldUpd(m); break;
     case 'tiles': { const a = tiles.split(''); for (const [i, v] of m.c) a[i] = v; tiles = a.join(''); terrDirty = true; break; }
-    case 'stats': stat = m; hud(); break;
+    case 'stats': stat = m; arcs = m.arcs || arcs; hud(); break;
+    case 'chron': addChron(m.e, true); break;
     case 'detail': detail = m; card(); break;
   }
 }
@@ -62,6 +64,7 @@ function init(m) {
   bnames = blds.map(bname);
   buildStatic(); resize(); cam.x = W / 2; cam.y = H / 2; cam.z = 1; occ = []; ready = true;
   $('#ticker').innerHTML = ''; (m.hist || []).forEach(e => ticker(e, false));
+  chron = []; (m.chron || []).forEach(e => addChron(e, false)); arcs = m.arcs || [];
 }
 const bname = b => b.n ? b.n + ' ' + BTN[b.ty] : 'House';
 function bldUpd(m) {
@@ -98,7 +101,7 @@ function reportView(now) {
 }
 const clk = () => { const h = tod * 24, hh = Math.floor(h), mm = Math.floor((h - hh) * 60); return (hh < 10 ? '0' : '') + hh + ':' + (mm < 10 ? '0' : '') + mm + (h < 6 || h >= 20 ? ' 🌙' : h < 8 ? ' 🌅' : h >= 18 ? ' 🌇' : ' ☀️'); };
 function hud() {
-  $('#pop').textContent = stat.pop; $('#mood').textContent = stat.mood; $('#fr').textContent = stat.couples; if (tab === 'town') town(); $('#viewers').textContent = stat.viewers;
+  $('#pop').textContent = stat.pop; $('#mood').textContent = stat.mood; $('#fr').textContent = stat.couples; if (tab === 'town') town(); if (tab === 'story') storyTab(); $('#viewers').textContent = stat.viewers;
   const fa = stat.food; $('#food').textContent = fa.length ? Math.round(fa.reduce((a, b) => a + b, 0) / fa.length) + ' avg · ' + Math.min(...fa) + ' min' : '–';
   const f = $('#bFest'), b = $('#bBlight');
   f.disabled = stat.cd.festival > 0; b.disabled = stat.cd.blight > 0;
@@ -127,7 +130,7 @@ function card() {
   const cd = a => (stat && stat.cd[a] > 0) ? ` ${stat.cd[a]}s` : '';
   const dis = a => (stat && stat.cd[a] > 0) || dt.dead ? 'disabled' : '';
   c.innerHTML = `<h3>${dt.name} ${dt.fam || ''} <small>${dt.job} · age ${dt.age} · ${dt.coin} coins · mood ${dt.mood}</small></h3>
-    <div class="trs">${dt.mayor ? '<span class="tr" style="background:#6b5a1f">🏛️ mayor</span>' : ''}${dt.traits.map(t => `<span class="tr">${TRI[t]} ${t}</span>`).join('')}</div>
+    <div class="trs">${dt.mayor ? '<span class="tr" style="background:#6b5a1f">🏛️ mayor</span>' : ''}${dt.traits.map(t => `<span class="tr" title="${TRAIT[t] ? TRAIT[t].blurb : ''}">${TRI[t] || ''} ${t}</span>`).join('')}</div>
     <div class="do">${dt.doing}${dt.partner ? ` · ${dt.married ? '💍' : '💘'} <a data-i="${dt.pid}" style="text-decoration:underline;cursor:pointer">${dt.partner}</a>` : ''}</div>
     ${bar('hunger', dt.hunger, '#e0775a')}${bar('energy', dt.energy, '#e6c65a')}${bar('social', dt.social, '#7fb0f0')}
     <div class="th">“${dt.thought}”</div>
@@ -152,6 +155,17 @@ function town() {
   $('#town').innerHTML = mayor + mny + `<h4>Settlements</h4>` + tw + eco + `<div class="tstats">💑 ${stat.couples} couples · 👶 ${stat.births} born · 🕯️ ${stat.deaths} died<br>🚨 ${stat.thefts} robberies · 🥊 ${stat.fights} brawls · 🍞 ${stat.food.join(' / ')}</div>`
     + row('💰 Richest', L.rich, v => v + ' coins') + row('❤️ Most loved', L.loved, v => v) + row('😡 Most hated', L.hated, v => v) + row('🧓 Oldest', L.old, v => v + ' yrs');
   $('#town').querySelectorAll('.row').forEach(r => r.onclick = () => select(+r.dataset.i));
+}
+/* ---------- stories: active arcs + the chronicle ---------- */
+let chron = [], arcs = [];
+const ARC_ICON = { rivalry: '⚔️', triangle: '💞', feud: '🏚️', protege: '🌱', drought: '☀️', investor: '💼' };
+function addChron(e, live) { chron.push(e); if (chron.length > 300) chron.shift(); if (live && tab === 'story') storyTab(); }
+function storyTab() {
+  const esc = t => String(t).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+  const active = arcs.map(a => `<div class="row arc" data-i="${a.ids[0] ?? -1}"><span>${ARC_ICON[a.k] || '📖'} <b>${esc(a.t)}</b><small style="display:block;opacity:.7;white-space:normal">${esc(a.b)}</small></span><i>day ${a.d}</i></div>`).join('') || '<div class="tstats">No story is unfolding right now — the storyteller is waiting for tension to drop.</div>';
+  const log = chron.slice().reverse().slice(0, 80).map(e => `<div class="chron ${e.big ? 'big' : ''}" ${e.ids && e.ids.length ? `data-i="${e.ids[0]}"` : ''}><small>Year ${e.year} · day ${e.day}</small><b>${esc(e.title)}</b><div>${esc(e.text)}</div></div>`).join('');
+  $('#story').innerHTML = `<div class="tstats" style="margin-bottom:6px">🎭 tension ${stat ? stat.tension : '–'} · ${arcs.length} active stories</div><h4>Unfolding now</h4>${active}<h4>Chronicle</h4>${log || '<div class="tstats">Nothing recorded yet.</div>'}`;
+  $('#story').querySelectorAll('[data-i]').forEach(r => r.onclick = () => { const i = +r.dataset.i; if (i >= 0) select(i); });
 }
 function director(m) {
   if (!auto || !ready || !m.ids || !m.ids.length || (m.w || 1) < 3) return;
@@ -408,7 +422,7 @@ $('#zo').onclick = () => { camTarget = Math.max(1, cam.z / 1.6); };
 $('#bFest').onclick = () => send({ t: 'act', n: 'festival' });
 $('#bBlight').onclick = () => send({ t: 'act', n: 'blight' });
 $('#bCam').onclick = e => { auto = !auto; e.currentTarget.classList.toggle('on', auto); if (!auto && dirIds) { dirIds = null; pick_(-1, false); } };
-document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => { tab = b.dataset.t; document.querySelectorAll('#tabs button').forEach(x => x.classList.toggle('on', x === b)); $('#ticker').style.display = tab === 'feed' ? '' : 'none'; $('#town').style.display = tab === 'town' ? 'block' : 'none'; if (tab === 'town') town(); });
+document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => { tab = b.dataset.t; document.querySelectorAll('#tabs button').forEach(x => x.classList.toggle('on', x === b)); $('#ticker').style.display = tab === 'feed' ? '' : 'none'; $('#town').style.display = tab === 'town' ? 'block' : 'none'; $('#story').style.display = tab === 'story' ? 'block' : 'none'; if (tab === 'town') town(); if (tab === 'story') storyTab(); });
 cv.addEventListener('pointerdown', () => { userAt = performance.now(); });
 $('#bTr').onclick = e => { translate = !translate; e.currentTarget.classList.toggle('on', translate); };
 $('#bSpd').onclick = e => { localSpeed = localSpeed === 1 ? 4 : localSpeed === 4 ? 12 : 1; e.currentTarget.textContent = '⏩ ×' + localSpeed; };

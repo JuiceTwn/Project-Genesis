@@ -1,5 +1,5 @@
 import { World } from './world';
-import { makeField, b64, tkLess, rollTraits, mk } from '../shared/util';
+import { makeField, b64, tkLess, mk } from '../shared/util';
 import * as K from '../shared/constants';
 import * as Gen from '../worldgen';
 const { TICK_HZ, DAY_TICKS, INF, TILE, COST, BT, BT_NAME, BUILD_SHIFTS, UPKEEP, STAFF, MAXM, JOBS, FOOD_PRICE, DRINK_PRICE, STOCK_CAP, ADULT, YEAR_DAYS, SEASON_DAYS, SEASONS, YIELD, RAIN_P, CON, C, TRAITS, TRAIT_W, DREAMS, DREAM_TXT } = K;
@@ -75,7 +75,7 @@ function doing(this: World, d) {
     case 'eat': if (--d.timer <= 0) { d.hunger = Math.max(0, d.hunger - 62); this.finish(d); } break;
     case 'work':
       if (--d.timer <= 0) {
-        if (d.job === 0) { d.carry = tkLess(this.tick, this.blight) ? 0 : Math.max(1, Math.round(4 * YIELD[this.season()])); if (!d.carry) this.out.push({ t: 'say', d: d.id, k: [C.FARM, C.BAD] }); }
+        if (d.job === 0) { d.carry = tkLess(this.tick, this.blight) || this.tick < (this.S[this.buildings[d.home].sid].drought || 0) ? 0 : Math.max(1, Math.round(4 * YIELD[this.season()])); if (!d.carry) this.out.push({ t: 'say', d: d.id, k: [C.FARM, C.BAD] }); }
         else { const wb = this.buildings[g.b], w = d.job === 1 && K.WAGE[wb.type] ? K.WAGE[wb.type] : d.job === 1 ? 9 : d.job === 2 ? 10 : 8; wb.visits++; if (wb.state === 'ok' && K.REV[wb.type]) this.exportIn(wb, K.REV[wb.type]); d.coin += this.payWage(wb, d, w); }
         this.finish(d);
       }

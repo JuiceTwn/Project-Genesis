@@ -1,5 +1,5 @@
 import { World } from './world';
-import { makeField, b64, tkLess, rollTraits, mk } from '../shared/util';
+import { makeField, b64, tkLess, mk } from '../shared/util';
 import * as K from '../shared/constants';
 import * as Gen from '../worldgen';
 const { TICK_HZ, DAY_TICKS, INF, TILE, COST, BT, BT_NAME, BUILD_SHIFTS, UPKEEP, STAFF, MAXM, JOBS, FOOD_PRICE, DRINK_PRICE, STOCK_CAP, ADULT, YEAR_DAYS, SEASON_DAYS, SEASONS, YIELD, RAIN_P, CON, C, TRAITS, TRAIT_W, DREAMS, DREAM_TXT } = K;
@@ -10,7 +10,7 @@ function initMsg(this: World) {
   return { t: 'init', W, H, hz: TICK_HZ, tiles: Array.from(this.tiles).join(''), wk: Array.from(m.wk).join(''), el: b64(el), tick: this.tick,
     setts: this.S.map(s => ({ i: s.id, n: s.name, t: s.tier, x: s.x, y: s.y })),
     blds: this.buildings.map(b => this.bldMsg(b)),
-    hist: this.hist.slice(-25), dots: this.dots.map(d => ({ n: d.name, f: d.fam, j: d.job, h: d.home, tr: d.traits })), lex: this.lex, jobs: JOBS, bt: BT_NAME };
+    hist: this.hist.slice(-25), chron: this.story.chron.slice(-60), arcs: this.arcsMsg(), dots: this.dots.map(d => ({ n: d.name, f: d.fam, j: d.job, h: d.home, tr: d.traits })), lex: this.lex, jobs: JOBS, bt: BT_NAME };
 }
 
 function actCode(this: World, d) {
@@ -90,7 +90,7 @@ function statsMsg(this: World) {
   let mood = 0, coin = 0; for (const d of alive) { mood += this.mood(d); coin += d.coin; }
   const top = (f, k = 3, desc = true) => alive.map(d => [d.id, Math.round(f(d))]).sort((a, b) => desc ? b[1] - a[1] : a[1] - b[1]).slice(0, k);
   const cdl = k => Math.max(0, (this.cd[k] + (k === 'festival' || k === 'blight' ? 225 : 100) - this.tick) / TICK_HZ | 0);
-  return { t: 'stats', day: this.day(), pop: alive.length, food: this.markets.map(m => m.stock), mk: this.markets.map(m => this.S[m.sid].name),
+  return { t: 'stats', arcs: this.arcsMsg(), tension: Math.round(this.story.tension * 10) / 10, day: this.day(), pop: alive.length, food: this.markets.map(m => m.stock), mk: this.markets.map(m => this.S[m.sid].name),
     towns: this.S.map(s => { const g = this.gov(s); return [s.name, s.tier, this.sPop[s.id] || 0, g.mayor, Math.round(g.treasury), g.tax, g.next]; }), biz: { open: this.buildings.filter(b => b.state === 'ok' && this.isBiz(b)).length, built: this.biz.built, closed: this.biz.closed, sold: this.biz.sold, fires: this.biz.fires, arrived: this.biz.arrived, unpaid: this.biz.unpaid, quit: this.biz.quit, benefits: this.biz.benefits, jobless: alive.filter(d => d.adult && d.job === 3 && d.work < 0).length, sites: this.sites.length, vacant: this.buildings.filter(b => b.state === 'vacant').length }, mood: Math.round(mood / n), coin: Math.round(coin / n),
     meals: this.stats.meals, chats: this.stats.chats, friends: this.stats.friends, births: this.stats.births, deaths: this.stats.deaths, thefts: this.stats.thefts, fights: this.stats.fights,
     couples: alive.filter(d => d.partner >= 0).length / 2,

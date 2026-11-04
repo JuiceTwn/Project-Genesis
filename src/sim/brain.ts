@@ -1,5 +1,5 @@
 import { World } from './world';
-import { makeField, b64, tkLess, rollTraits, mk } from '../shared/util';
+import { makeField, b64, tkLess, mk } from '../shared/util';
 import * as K from '../shared/constants';
 import * as Gen from '../worldgen';
 const { TICK_HZ, DAY_TICKS, INF, TILE, COST, BT, BT_NAME, BUILD_SHIFTS, UPKEEP, STAFF, MAXM, JOBS, FOOD_PRICE, DRINK_PRICE, STOCK_CAP, ADULT, YEAR_DAYS, SEASON_DAYS, SEASONS, YIELD, RAIN_P, CON, C, TRAITS, TRAIT_W, DREAMS, DREAM_TXT } = K;
@@ -23,7 +23,7 @@ function decide(this: World, d) {
   }
   const fest = tk < this.festival || tk < ((this.gov(this.S[this.buildings[d.home].sid])).festival || 0), inv = d.invite && tk < d.invite.until ? d.invite : null;
   c.push(['social', (100 - d.social) * d.soc * 0.95 + (fest ? 90 : 0) + (inv && inv.k === 'social' ? 60 : 0) - (night ? 45 : 0) - (this.weather ? 30 : 0)]);
-  if (d.adult && d.coin >= DRINK_PRICE * 2) c.push(['drink', (100 - d.social) * d.soc * 0.55 + (tod > 0.62 && tod < 0.92 ? 22 : -35) + (inv && inv.k === 'drink' ? 60 : 0) + (fest ? 30 : 0) + (this.weather ? 15 : 0)]);
+  if (d.adult && d.coin >= DRINK_PRICE * 2) c.push(['drink', d.fx.spend * (100 - d.social) * d.soc * 0.55 + (tod > 0.62 && tod < 0.92 ? 22 : -35) + (inv && inv.k === 'drink' ? 60 : 0) + (fest ? 30 : 0) + (this.weather ? 15 : 0)]);
   c.push(['wander', 18 + this.rnd() * 10]);
   let bk = 'wander', bs = -1e9;
   for (const [k, s] of c) { const v = s + (this.rnd() - 0.5) * 14; if (v > bs) { bs = v; bk = k; } }

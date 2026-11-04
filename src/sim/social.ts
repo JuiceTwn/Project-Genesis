@@ -1,5 +1,5 @@
 import { World } from './world';
-import { makeField, b64, tkLess, rollTraits, mk } from '../shared/util';
+import { makeField, b64, tkLess, mk } from '../shared/util';
 import * as K from '../shared/constants';
 import * as Gen from '../worldgen';
 const { TICK_HZ, DAY_TICKS, INF, TILE, COST, BT, BT_NAME, BUILD_SHIFTS, UPKEEP, STAFF, MAXM, JOBS, FOOD_PRICE, DRINK_PRICE, STOCK_CAP, ADULT, YEAR_DAYS, SEASON_DAYS, SEASONS, YIELD, RAIN_P, CON, C, TRAITS, TRAIT_W, DREAMS, DREAM_TXT } = K;
@@ -37,7 +37,7 @@ function breakup(this: World, a, b) {
 }
 
 function wedding(this: World, a, b) {
-  a.married = b.married = true;
+  a.married = b.married = true; for (const x of [a, b]) if (this.rnd() < 0.3) this.shiftTrait(x, 'loyal', 'after the wedding');
   const park = this.nearest(this.parks, a, 10), inv = { k: 'social', b: park.id, until: this.tick + 400 };
   const guests = this.friends(a).slice(0, 6).concat(this.friends(b).slice(0, 6)).map(f => this.dots[f[0]]);
   for (const g of guests.concat([a, b])) g.invite = Object.assign({}, inv);
@@ -48,15 +48,15 @@ function wedding(this: World, a, b) {
 function jealous(this: World, a, b) {
   if (a.partner < 0 || b.id === a.partner) return;
   const P = this.dots[a.partner]; if (P.dead || P.inside) return;
-  const dx = P.x - a.x, dy = P.y - a.y, jt = P.traits.includes('jealous');
-  if (dx * dx + dy * dy > 64 || this.rnd() > (jt ? 0.7 : 0.06)) return;
+  const dx = P.x - a.x, dy = P.y - a.y, jt = P.fx.jealousy;
+  if (dx * dx + dy * dy > 64 || this.rnd() > Math.min(0.85, 0.06 * jt * jt)) return;
   P.aff.set(b.id, Math.min(P.aff.get(b.id) || 0, 0) - 25); this.say(P, [C.ME, C.JEALOUS]);
   this.ev('jealous', `😠 ${P.name} saw ${a.name} chatting with ${b.name}.`, [P.id, a.id], 15, 3);
-  if (this.rnd() < (jt ? 0.4 : 0.1)) this.breakup(P, a);
+  if (this.rnd() < Math.min(0.6, 0.1 * jt)) this.breakup(P, a);
 }
 
 function kindness(this: World, a, b) {
-  if (a.traits.includes('kind') && b.coin < 15 && a.coin > 50 && this.rnd() < 0.5) { a.coin -= 15; b.coin += 15; this.addAff(b, a, 8); this.say(b, [C.THANKS]); this.ev('kind', `💖 ${a.name} gave ${b.name} 15 coins.`, [a.id, b.id], 40, 1); }
+  if (b.coin < 15 && a.coin > 50 && this.rnd() < 0.25 * a.fx.generosity) { a.coin -= 15; b.coin += 15; this.addAff(b, a, 8); this.say(b, [C.THANKS]); this.ev('kind', `💖 ${a.name} gave ${b.name} 15 coins.`, [a.id, b.id], 40, 1); }
 }
 
 function couples(this: World) {
@@ -87,15 +87,15 @@ function dialogue(this: World, a, b) {
     }
     for (const m of this.markets) { const bs = s.belief[m.mi]; if (bs >= 0 && tk - bs < 250 && !(l.belief[m.mi] >= 0 && tk - l.belief[m.mi] < 250)) { L.push([s, [2000 + m.id, C.NO, C.FOOD]]); L.push([l, [C.THANKS]]); fx.push(() => { l.belief[m.mi] = bs; }); return true; } }
     if (s.coin < 12) { L.push([s, [C.ME, C.BROKE]]); L.push([l, [C.YOU, C.GO, C.WORK]]); return true; }
-    if (s.adult && l.adult && s.partner < 0 && l.partner < 0 && s.home !== l.home && s.fam !== l.fam && s.rejectCd <= 0 && (s.aff.get(l.id) || 0) >= 22 && this.rnd() < (s.traits.includes('romantic') ? 0.5 : 0.2)) {
+    if (s.adult && l.adult && s.partner < 0 && l.partner < 0 && s.home !== l.home && s.fam !== l.fam && s.rejectCd <= 0 && (s.aff.get(l.id) || 0) >= 22 && this.rnd() < Math.min(0.8, 0.2 * s.fx.romance)) {
       L.push([s, [C.ME, C.LOVE, C.YOU]]);
-      if (this.rnd() < 0.3 + (l.aff.get(s.id) || 0) / 100 + (l.traits.includes('romantic') ? 0.15 : 0)) { L.push([l, [C.ME, C.LOVE, C.YOU]]); fx.push(() => this.couple(s, l)); }
+      if (this.rnd() < 0.3 + (l.aff.get(s.id) || 0) / 100 + Math.min(0.2, 0.075 * (l.fx.romance - 1))) { L.push([l, [C.ME, C.LOVE, C.YOU]]); fx.push(() => this.couple(s, l)); }
       else { L.push([l, [C.NO, C.SORRY]]); fx.push(() => this.reject(s, l)); }
       return true;
     }
     if (s.thieves.size) {
       const tid = [...s.thieves].find(x => x !== l.id && !this.dots[x].dead && !l.thieves.has(x));
-      if (tid !== undefined && this.rnd() < (s.traits.includes('gossip') ? 0.9 : 0.5)) { L.push([s, [1000 + tid, C.THIEF]]); L.push([l, [C.ANGRY]]); fx.push(() => { l.thieves.add(tid); this.addAff(l, this.dots[tid], -12); }); return true; }
+      if (tid !== undefined && this.rnd() < Math.min(0.95, 0.5 + 0.2 * (s.fx.gossip - 1))) { L.push([s, [1000 + tid, C.THIEF]]); L.push([l, [C.ANGRY]]); fx.push(() => { l.thieves.add(tid); this.addAff(l, this.dots[tid], -12); }); return true; }
     }
     if (s.social < 70 && this.rnd() < 0.55 && l.coin >= 4 && s.coin >= 4) {
       const tav = this.rnd() < 0.4, place = tav ? this.nearest(this.taverns, s, 0) : this.nearest(this.parks, s, 10);
@@ -106,7 +106,7 @@ function dialogue(this: World, a, b) {
       return true;
     }
     const fr = [...s.aff.keys()].filter(k => k !== l.id && !this.dots[k].dead);
-    if (fr.length && this.rnd() < (s.traits.includes('gossip') ? 0.8 : 0.4)) {
+    if (fr.length && this.rnd() < Math.min(0.9, 0.4 * Math.pow(s.fx.gossip, 0.8))) {
       const c = this.dots[this.pick(fr)], good = (s.aff.get(c.id) || 0) >= 10;
       L.push([s, [nm(c), good ? C.GOOD : C.BAD]]); L.push([l, [C.YES]]);
       fx.push(() => this.addAff(l, c, good ? 3 : -3)); return true;

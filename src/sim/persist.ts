@@ -1,6 +1,6 @@
 import { World } from './world';
 import type { Building } from '../shared/types';
-import { makeField, b64, tkLess, rollTraits, mk } from '../shared/util';
+import { makeField, b64, tkLess, mk } from '../shared/util';
 import * as K from '../shared/constants';
 import * as Gen from '../worldgen';
 const { TICK_HZ, DAY_TICKS, INF, TILE, COST, BT, BT_NAME, BUILD_SHIFTS, UPKEEP, STAFF, MAXM, JOBS, FOOD_PRICE, DRINK_PRICE, STOCK_CAP, ADULT, YEAR_DAYS, SEASON_DAYS, SEASONS, YIELD, RAIN_P, CON, C, TRAITS, TRAIT_W, DREAMS, DREAM_TXT } = K;
@@ -8,7 +8,7 @@ import { W, H } from "../shared/dims";
 
 function serialize(this: World) {
   const pl = this.map.plots;
-  return { v: 4, civ: { ledger: this.ledger, nation: this.nation.treasury, gov: this.S.map(s => { const g = this.gov(s); return [g.mayor, g.treasury, g.tax, g.next, g.festival]; }), weather: this.weather, mcount: this.mcount }, tick: this.tick, stats: this.stats, biz: this.biz, pairs: [...this.pairs],
+  return { v: 4, civ: { story: { ...this.story, chron: this.story.chron.slice(-300) }, ledger: this.ledger, nation: this.nation.treasury, gov: this.S.map(s => { const g = this.gov(s); return [g.mayor, g.treasury, g.tax, g.next, g.festival]; }), weather: this.weather, mcount: this.mcount }, tick: this.tick, stats: this.stats, biz: this.biz, pairs: [...this.pairs],
     tiles: Array.from(this.tiles).join(''),
     plots: pl.map(p => [p.x, p.y, p.dx, p.dy, p.sid, p.rural ? 1 : 0, p.used ? 1 : 0, p.bid, Math.round(p.dc * 10), Math.round(p.fert * 100), p.sq ? 1 : 0, p.quay ? 1 : 0]),
     blds: this.buildings.map(b => [b.type, b.x, b.y, b.door, b.open ? 1 : 0, b.sid, b.owner, b.cash, b.state, b.name, b.fam || '', b.stock, b.w, b.h, b.plot, b.mi, b.born, b.sqPark ? 1 : 0, b.need || 0, b.prog || 0, b.escrow || 0, b.vac, b.debt || 0]),
@@ -18,7 +18,7 @@ function serialize(this: World) {
 
 function load(this: World, s) {
   if (!s || s.v !== 4 || s.tiles.length !== W * H) return;
-  this.tick = s.tick; this.lastSeason = this.season(); const c = s.civ; this.nation.treasury = c.nation; if (c.ledger) this.ledger = c.ledger; c.gov.forEach((a, i) => { Object.assign(this.gov(this.S[i]), { mayor: a[0], treasury: a[1], tax: a[2], next: a[3], festival: a[4] }); }); this.weather = c.weather; this.mcount = c.mcount || 0;
+  this.tick = s.tick; this.lastSeason = this.season(); const c = s.civ; this.nation.treasury = c.nation; if (c.ledger) this.ledger = c.ledger; if (c.story) this.story = Object.assign(this.story, c.story); c.gov.forEach((a, i) => { Object.assign(this.gov(this.S[i]), { mayor: a[0], treasury: a[1], tax: a[2], next: a[3], festival: a[4] }); }); this.weather = c.weather; this.mcount = c.mcount || 0;
   this.stats = Object.assign(this.stats, s.stats); this.biz = Object.assign(this.biz, s.biz || {}); this.pairs = new Set(s.pairs);
   for (let i = 0; i < s.tiles.length; i++) this.tiles[i] = +s.tiles[i];
   const map = this.map; map.plots.length = 0; map.pm.fill(-1);

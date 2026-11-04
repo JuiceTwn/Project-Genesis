@@ -32,7 +32,7 @@ function election(this: World, s: any, first?: boolean, exclude?: number) {
     votes.set(bc.id, votes.get(bc.id) + 1);
   }
   const win = cands.slice().sort((a, b) => votes.get(b.id) - votes.get(a.id))[0], re = win.id === g.mayor;
-  g.mayor = win.id; g.tax = win.traits.includes('ambitious') ? 8 : win.traits.includes('kind') ? 3 : 5; g.next = this.day() + ELECTION_DAYS;
+  g.mayor = win.id; g.tax = Math.max(1, Math.min(10, Math.round(5 + win.fx.tax + (win.traits.includes('ambitious') ? 1 : 0)))); g.next = this.day() + ELECTION_DAYS;
   if (!first && cands.length > 1) {
     this.ev('elect' + s.id, `🗳️ ${s.name} votes! ${cands.map(c => `${c.name} (${votes.get(c.id)})`).join(' vs ')} — ${win.name} ${re ? 'is re-elected' : 'wins'} as mayor. Tax: ${g.tax}/day.`, [win.id], 0, 4);
     this.say(win, [C.ME, C.HAPPY]);

@@ -1,5 +1,5 @@
 import { World } from './world';
-import { makeField, b64, tkLess, rollTraits, mk } from '../shared/util';
+import { makeField, b64, tkLess, mk } from '../shared/util';
 import * as K from '../shared/constants';
 import * as Gen from '../worldgen';
 const { TICK_HZ, DAY_TICKS, INF, TILE, COST, BT, BT_NAME, BUILD_SHIFTS, UPKEEP, STAFF, MAXM, JOBS, FOOD_PRICE, DRINK_PRICE, STOCK_CAP, ADULT, YEAR_DAYS, SEASON_DAYS, SEASONS, YIELD, RAIN_P, CON, C, TRAITS, TRAIT_W, DREAMS, DREAM_TXT } = K;
@@ -63,7 +63,7 @@ function step(this: World) {
           if (dx * dx + dy * dy > 2.4) continue;
           if (a.thieves.has(b.id) || b.thieves.has(a.id)) {
             const kn = a.thieves.has(b.id) ? a : b, th = kn === a ? b : a;
-            if (!kn.traits.includes('coward') && this.rnd() < (kn.traits.includes('hothead') ? 0.004 : 0.001)) { this.fight(kn, th, null); done = true; break; }
+            if (kn.fx.courage > -0.3 && this.rnd() < 0.001 * kn.fx.temper * (kn.fx.forgive < 0.5 ? 2 : 1)) { this.fight(kn, th, null); done = true; break; }
             continue;
           }
           const fr = (a.aff.get(b.id) || 0) >= 25;
@@ -96,7 +96,7 @@ function dawn(this: World) {
   this.weather = this.rnd() < RAIN_P[se] ? (se === 3 ? 2 : 1) : 0;
   if (this.weather) this.ev('weather', this.weather === 2 ? '❄️ Snow falls on the town.' : '🌧️ It\'s raining today.', [], 0, 1);
   for (const s of this.S) this.mayorDawn(s);
-  this.nationDawn(); this.economyDawn();
+  this.nationDawn(); this.economyDawn(); this.storyDawn();
   let mood = 0; for (const d of alive) mood += this.mood(d);
   const top = alive.reduce((a, b) => (this.friends(a).length >= this.friends(b).length ? a : b));
   const s = this.stats;

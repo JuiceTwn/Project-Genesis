@@ -1,5 +1,5 @@
 import { World } from './world';
-import { makeField, b64, tkLess, rollTraits, mk } from '../shared/util';
+import { makeField, b64, tkLess, mk } from '../shared/util';
 import * as K from '../shared/constants';
 import * as Gen from '../worldgen';
 const { TICK_HZ, DAY_TICKS, INF, TILE, COST, BT, BT_NAME, BUILD_SHIFTS, UPKEEP, STAFF, MAXM, JOBS, FOOD_PRICE, DRINK_PRICE, STOCK_CAP, ADULT, YEAR_DAYS, SEASON_DAYS, SEASONS, YIELD, RAIN_P, CON, C, TRAITS, TRAIT_W, DREAMS, DREAM_TXT } = K;
@@ -7,7 +7,7 @@ import { W, H } from "../shared/dims";
 
 function stealTick(this: World) {
   for (const t of this.dots) {
-    if (!t.isThief || t.dead || t.inside || t.phase === 'chat' || t.theftCd > 0 || !t.adult || this.rnd() > 0.08) continue;
+    if (!t.isThief || t.dead || t.inside || t.phase === 'chat' || t.theftCd > 0 || !t.adult || this.rnd() > 0.08 * t.fx.crime / 3) continue;
     let vic = null;
     for (const v of this.dots) {
       if (v === t || v.dead || v.inside || v.coin < 15 || v.phase === 'chat') continue;
@@ -27,9 +27,10 @@ function steal(this: World, t, v) {
   const knowers = wit.slice(0, 4).concat(noticed ? [v] : []);
   for (const k of knowers) { k.thieves.add(t.id); k.aff.set(t.id, Math.min(k.aff.get(t.id) || 0, 0) - 30); }
   this.stats.thefts++;
+  if (this.scar(v, 'robbed', 3)) this.shiftTrait(v, v.fx.temper > 1.2 ? 'vengeful' : 'cautious', 'robbed once too often');
   this.ev('theft', `🚨 ${t.name} robbed ${v.name}${noticed ? '' : ' unnoticed'}!${wit[0] ? ` ${wit[0].name} saw it.` : ''}`, [t.id, v.id], 0, 3);
-  for (const k of knowers) { if (k.traits.includes('coward')) this.say(k, [C.AFRAID]); else if (k !== v) this.say(k, [1000 + t.id, C.THIEF]); }
-  if (noticed && !v.traits.includes('coward') && this.rnd() < (v.traits.includes('hothead') ? 0.95 : 0.6)) this.fight(v, t, { amt });
+  for (const k of knowers) { if (k.fx.courage < -0.3) this.say(k, [C.AFRAID]); else if (k !== v) this.say(k, [1000 + t.id, C.THIEF]); }
+  if (noticed && v.fx.courage > -0.3 && this.rnd() < Math.min(0.97, 0.45 + 0.2 * v.fx.temper)) this.fight(v, t, { amt });
   else if (noticed) this.say(v, [C.ME, C.ANGRY]);
 }
 
@@ -42,7 +43,7 @@ function fight(this: World, a, b, ctx) {
 
 function resolveFight(this: World, a, b, ctx) {
   if (a.dead || b.dead) return;
-  const pw = d => d.energy * 0.3 + (d.traits.includes('hothead') ? 25 : 0) + this.rnd() * 40 + (d.isThief ? 8 : 0);
+  const pw = d => d.energy * 0.3 + (d.fx.temper > 1.5 ? 25 : 0) + d.fx.courage * 15 + this.rnd() * 40 + (d.isThief ? 8 : 0);
   const aw = pw(a) >= pw(b), w = aw ? a : b, l = aw ? b : a;
   w.energy = Math.max(0, w.energy - 6); l.energy = Math.max(0, l.energy - 16);
   this.addAff(a, b, -15); this.addAff(b, a, -15); this.stats.fights++;

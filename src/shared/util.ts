@@ -1,18 +1,10 @@
-import { TRAITS, TRAIT_W, INF } from './constants';
+import { INF } from './constants';
 import { W, H } from './dims';
 import { COST } from './constants';
 
 /** Mulberry32 seeded PRNG. */
 export function mk(seed: number): () => number { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ t >>> 15, t | 1); t ^= t + Math.imul(t ^ t >>> 7, t | 61); return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 
-
-export function rollTraits(rf: () => number): string[] {
-  const n = rf() < 0.7 ? 1 : 2, out = [], tot = TRAIT_W.reduce((a, b) => a + b, 0);
-  let guard = 0;
-  while (out.length < n && guard++ < 20) { let r = rf() * tot, i = 0; for (; i < TRAITS.length - 1; i++) { r -= TRAIT_W[i]; if (r <= 0) break; } if (!out.includes(TRAITS[i])) out.push(TRAITS[i]); }
-  if (out.includes('lazy') && out.includes('ambitious')) out.splice(out.indexOf('lazy'), 1);
-  return out;
-}
 
 /** Heap keys pack (distance, tile index): KEY must exceed the tile count (up to ~4M tiles; distance <= 65535 keeps keys < 2^38, exact in a double). */
 const KEY = 1 << 22;

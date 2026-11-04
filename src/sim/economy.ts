@@ -1,5 +1,6 @@
 import { World } from './world';
-import { makeField, b64, tkLess, rollTraits, mk } from '../shared/util';
+import { rollTraits } from './personality';
+import { makeField, b64, tkLess, mk } from '../shared/util';
 import * as K from '../shared/constants';
 import * as Gen from '../worldgen';
 const { TICK_HZ, DAY_TICKS, INF, TILE, COST, BT, BT_NAME, BUILD_SHIFTS, UPKEEP, STAFF, MAXM, JOBS, FOOD_PRICE, DRINK_PRICE, STOCK_CAP, ADULT, YEAR_DAYS, SEASON_DAYS, SEASONS, YIELD, RAIN_P, CON, C, TRAITS, TRAIT_W, DREAMS, DREAM_TXT } = K;
@@ -56,7 +57,7 @@ function fail(this: World, b, visits) {
   const o = this.dots[b.owner], s = this.S[b.sid], rivals = this.sbl[b.sid].filter(x => x !== b && x.type === b.type).length;
   const why = b.type === BT.FARM && this.tick - this.blightAt < 4 * DAY_TICKS ? 'the blight wrecked the harvest' : (b.type === BT.FARM || b.type === BT.WORKSHOP || b.type === BT.TAVERN) && (b.staff || 0) === 0 ? 'nobody was working there' : rivals >= 2 ? 'too many rivals in town' : visits < 4 ? 'hardly any customers' : o.traits.includes('lazy') ? 'the owner never kept it up' : 'costs outran takings';
   this.ev('bankrupt', `📉 ${o.name}'s ${BT_NAME[b.type].toLowerCase()} ${b.name} in ${s.name} went bankrupt — ${why}.`, [o.id], 0, 4);
-  { const fee = Math.min(20, o.coin); o.coin -= fee; this.gov(s).treasury += fee; } o.social = Math.max(0, o.social - 25); this.say(o, [C.ME, C.BROKE]);   // court costs go to the town
+  { const fee = Math.min(20, o.coin); o.coin -= fee; this.gov(s).treasury += fee; } o.social = Math.max(0, o.social - 25); this.say(o, [C.ME, C.BROKE]); this.shiftTrait(o, this.rnd() < 0.55 ? 'frugal' : 'pessimist', 'burned by bankruptcy');   // court costs go to the town
   this.liquidate(b); b.state = 'vacant'; b.vac = 0; b.owner = -1; if (b.type === BT.MARKET) b.stock = 0;
   this.biz.closed++; this.unstaff(b); this.rebuild(); this.fgen++; this.pushBld(b, 'upd');
 }
@@ -76,7 +77,7 @@ function entrepreneurs(this: World) {
   if (this.sites.length >= 8) return; let made = 0;
   for (const d of this.dots) {
     if (d.dead || !d.adult || d.coin < 75 || made >= 2) continue;
-    let m = 0.004; if (d.traits.includes('ambitious')) m *= 3; if (d.dream === 'rich') m *= 2; if (d.job === 3) m *= 1.6; if (d.traits.includes('lazy')) m *= 0.3; if (d.coin > 200) m *= 2;
+    let m = 0.004 * d.fx.ambition * Math.min(2, d.fx.risk); if (d.dream === 'rich') m *= 2; if (d.job === 3) m *= 1.6; if (d.coin > 200) m *= 2;
     if (this.ownedBy(d.id).length >= 2 || this.sites.some(x => x.owner === d.id) || this.rnd() > m) continue;
     if (this.tryFound(d)) made++;
   }
