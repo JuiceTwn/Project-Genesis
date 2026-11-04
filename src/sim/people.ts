@@ -73,7 +73,7 @@ function makeDots(this: World) {
   }
   // ownership: house heads own their homes; about half of the businesses start in private hands
   for (const d of dots) { const h = this.buildings[d.home]; if (h.owner < 0) h.owner = d.id; }
-  for (const b of this.buildings) if (b.state === 'ok' && (b.type === BT.MARKET || b.type === BT.TAVERN || b.type === BT.WORKSHOP || b.type === BT.FARM || b.type === BT.DOCK) && R() < 0.55) {
+  for (const b of this.buildings) if (b.state === 'ok' && (b.type === BT.MARKET || b.type === BT.TAVERN || b.type === BT.WORKSHOP || b.type === BT.FARM || b.type === BT.DOCK || b.type === BT.OFFICE || b.type === BT.FACTORY || b.type === BT.STORE) && R() < 0.55) {
     const pool = dots.filter(d => d.adult && this.buildings[d.home].sid === b.sid && !this.ownedBy(d.id).length).sort((a, c) => (c.traits.includes('ambitious') ? 1 : 0) + R() * 0.8 - ((a.traits.includes('ambitious') ? 1 : 0) + R() * 0.8));
     if (pool.length) { b.owner = pool[0].id; b.cash = 40; pool[0].coin += 30; }
   }

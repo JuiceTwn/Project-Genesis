@@ -235,7 +235,7 @@ function buildStatic() {
   terrDirty = false;
 }
 const PAL = ['#d98f7a', '#d9b56e', '#8ec0d9', '#b49ad9', '#d97a9b', '#9ed99e'];
-const EMO = ['🏠', '🌾', '🧺', '🍺', '🔨', '🌳', '🏛️', '⚓'];
+const EMO = ['🏠', '🌾', '🧺', '🍺', '🔨', '🌳', '🏛️', '⚓', '🏢', '🏭', '🛍️'];
 function drawBld(b, s, now) {
   const [px, py] = toS(b.x, b.y), w = b.w * s, h = b.h * s;
   if (px > cssW + 4 || py > cssH + 4 || px + w < -4 || py + h < -4) return;
@@ -253,7 +253,7 @@ function drawBld(b, s, now) {
     for (let i = 0.3; i < b.h; i += 0.5) { ctx.beginPath(); ctx.moveTo(px, py + i * s); ctx.lineTo(px + w, py + i * s); ctx.stroke(); }
     ctx.fillStyle = '#3f3020'; ctx.fillRect(px, py, ex * 2, ex * 2); ctx.fillRect(px + w - ex * 2, py + h - ex * 2, ex * 2, ex * 2);
   } else {
-    const body = ty === 0 ? PAL[(r * PAL.length) | 0] : ty === 2 ? '#d98a3a' : ty === 3 ? '#b04a42' : ty === 6 ? '#c9c2b0' : '#6f86a6';
+    const body = ty === 0 ? PAL[(r * PAL.length) | 0] : ty === 2 ? '#d98a3a' : ty === 3 ? '#b04a42' : ty === 6 ? '#c9c2b0' : ty === 8 ? '#7e97b8' : ty === 9 ? '#8d8d92' : ty === 10 ? '#e0c25a' : '#6f86a6';
     ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.fillRect(px + s * .12, py + s * .18, w, h);
     ctx.fillStyle = st === 1 ? 'rgba(200,170,110,.35)' : body; ctx.fillRect(px, py, w, h);
     if (st !== 1) { ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.fillRect(px, py, w, h * .3); ctx.fillStyle = 'rgba(255,255,255,.2)'; ctx.fillRect(px, py, w, Math.max(1, h * .1));

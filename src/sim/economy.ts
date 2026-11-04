@@ -81,6 +81,9 @@ function tryFound(this: World, d) {
   const home = this.buildings[d.home], s = this.S[home.sid], P = this.sPop[s.id] || 1, L = this.sbl[s.id];
   const cnt = t => L.filter(b => b.type === t).length, nm = this.nearest(this.markets, d, 0), starved = nm && nm.stock < 60 ? 0.5 : 0;
   const opts = [[BT.MARKET, P / 85 - cnt(BT.MARKET) + starved + (s.tier <= 1 ? 0.1 : -0.25)], [BT.TAVERN, P / 60 - cnt(BT.TAVERN)], [BT.WORKSHOP, P / 40 - cnt(BT.WORKSHOP) + this.unemployed(s.id) / 12], [BT.FARM, P * 0.36 / 11 - this.farms.filter(f => f.sid === s.id).length + starved]];
+  const jobless = this.unemployed(s.id);
+  if (s.tier <= 1) { opts.push([BT.OFFICE, P / 60 - cnt(BT.OFFICE) + jobless / 25], [BT.FACTORY, P / 70 - cnt(BT.FACTORY) + jobless / 20]); }
+  if (s.tier <= 2 && P >= 20) opts.push([BT.STORE, P / 75 - cnt(BT.STORE) + jobless / 40]);
   if (s.quayAt !== undefined && cnt(BT.DOCK) < (s.tier === 0 ? 3 : 1)) opts.push([BT.DOCK, 0.55 - cnt(BT.DOCK) * 0.3 + s.trade * 0.5]);
   for (const o of opts) { o[1] += (this.rnd() - 0.5) * 0.9; if (o[0] === BT.MARKET && this.mcount >= MAXM) o[1] = -9; }   // overconfidence: people misjudge a market
   opts.sort((a, b) => b[1] - a[1]); const [type, score] = opts[0]; if (score < 0.15) return false;
@@ -95,7 +98,7 @@ function tryFound(this: World, d) {
     this.sites.push(vac); this.rebuild(); this.fgen++; this.pushBld(vac, 'upd');
     this.ev('refit', `♻️ ${d.name} (${why}) is turning the empty ${was} in ${s.name} into a ${BT_NAME[type].toLowerCase()}.`, [d.id], 0, 3); return true;
   }
-  const kind = type === BT.DOCK ? 'dock' : type === BT.FARM ? 'farm' : type === BT.WORKSHOP ? 'shop' : 'center', cost = BUILD_SHIFTS[type] * 10;
+  const kind = type === BT.DOCK ? 'dock' : type === BT.FARM ? 'farm' : (type === BT.WORKSHOP || type === BT.OFFICE || type === BT.FACTORY || type === BT.STORE) ? 'shop' : 'center', cost = BUILD_SHIFTS[type] * 10;
   if (d.coin < cost + 25) return false;
   const plot = this.plotFor(s, kind); if (!plot) return false;
   d.coin -= cost; this.startBuild(plot, type, d.id, cost);

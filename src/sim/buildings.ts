@@ -28,7 +28,7 @@ function rebuild(this: World) {
   for (const b of this.buildings) {
     if (b.state !== 'ok') continue;
     (this.sbl[b.sid] = this.sbl[b.sid] || []).push(b);
-    switch (b.type) { case BT.MARKET: this.markets.push(b); break; case BT.TAVERN: this.taverns.push(b); break; case BT.WORKSHOP: this.workshops.push(b); break; case BT.DOCK: this.workshops.push(b); this.docks.push(b); break; case BT.PARK: this.parks.push(b); break; case BT.FARM: this.farms.push(b); break; case BT.HOUSE: this.houses.push(b); break; case BT.HALL: this.halls.push(b); break; }
+    switch (b.type) { case BT.MARKET: this.markets.push(b); break; case BT.TAVERN: this.taverns.push(b); break; case BT.WORKSHOP: this.workshops.push(b); break; case BT.DOCK: this.workshops.push(b); this.docks.push(b); break; case BT.OFFICE: case BT.FACTORY: case BT.STORE: this.workshops.push(b); break; case BT.PARK: this.parks.push(b); break; case BT.FARM: this.farms.push(b); break; case BT.HOUSE: this.houses.push(b); break; case BT.HALL: this.halls.push(b); break; }
   }
 }
 
@@ -74,6 +74,9 @@ function buildMap(this: World) {
     for (let i = 0; i < nTavern; i++) put(BT.TAVERN, take(urban, p => p.sq) || take(urban));
     for (let i = 0; i < nDock; i++) put(BT.DOCK, take(urban, p => p.quay));
     for (let i = 0; i < nShop; i++) { const free = urban.filter(p => !p.used && !p.sq); put(BT.WORKSHOP, free.length ? free[Math.floor(free.length * (0.45 + 0.1 * i))] || free[free.length - 1] : take(urban)); }
+    // modern employers, sized to the town so there are jobs for most adults
+    const nOffice = tier === 0 ? Math.round(P / 55) : tier === 1 ? Math.max(1, Math.round(P / 60)) : 0, nFactory = tier <= 1 ? Math.max(1, Math.round(P / 65)) : 0, nStore = tier <= 2 && P >= 22 ? Math.max(1, Math.round(P / 75)) : 0;
+    for (const [type, n] of [[BT.OFFICE, nOffice], [BT.FACTORY, nFactory], [BT.STORE, nStore]]) for (let i = 0; i < n; i++) { const free = urban.filter(p => !p.used && !p.sq); put(type, free.length ? free[Math.floor(free.length * (0.2 + 0.6 * this.R()))] : take(urban)); }
     if (tier === 0) { const free = urban.filter(p => !p.used && !p.sq); put(BT.PARK, free[Math.floor(free.length * 0.3)]); }
     const nHouse = Math.ceil(P / 4);
     for (let i = 0; i < nHouse; i++) put(BT.HOUSE, take(urban, p => !p.sq) || take(urban) || take(rural));
@@ -155,7 +158,7 @@ function demolish(this: World, b) {
   this.sites = this.sites.filter(x => x !== b); this.rebuild(); this.fgen++; this.pushBld(b, 'del'); this.pushTiles(fp);
 }
 
-function isBiz(this: World, b) { return b.type === BT.MARKET || b.type === BT.TAVERN || b.type === BT.WORKSHOP || b.type === BT.FARM || b.type === BT.DOCK; }
+function isBiz(this: World, b) { return b.type === BT.OFFICE || b.type === BT.FACTORY || b.type === BT.STORE || b.type === BT.MARKET || b.type === BT.TAVERN || b.type === BT.WORKSHOP || b.type === BT.FARM || b.type === BT.DOCK; }
 
 function burn(this: World, b) {
   const o = b.owner >= 0 ? this.dots[b.owner] : null, s = this.S[b.sid]; let homeless = 0;

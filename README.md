@@ -42,7 +42,9 @@ is happening now. It's a window, not a game: slow, ambient and calming, closer t
 - **Government at every level:** each settlement elects its own mayor (own tax rate, treasury, feasts, relief,
   public works, scandals). A national treasury takes 15% of local taxes and pays for bridges and emergency grants
   to towns whose markets run dry.
-- **Self-growing economy:** businesses with owners, cash, wages and upkeep. They fail (bankruptcy, vacancy, fires),
+- **Self-growing economy:** farms, markets, taverns, workshops and docks plus offices, factories and stores sized to each
+  town's population. Employers pay wages out of their own till: a firm that can't cover payroll sends workers home
+  unpaid and loses them after three missed shifts, and towns pay unemployment benefit. Businesses with owners, cash, wages and upkeep. They fail (bankruptcy, vacancy, fires),
   get refit, sold or demolished. Entrepreneurs found new ones, builders construct on sites, people immigrate, and
   property is inherited.
 - **People:** traits (thief, hothead, gossip, kind, romantic, jealous, coward, ambitious, lazy), dreams, friendships,
