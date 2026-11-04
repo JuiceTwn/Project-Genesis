@@ -13,7 +13,7 @@ function step(this: World) {
   if (tIn === Math.floor(0.88 * DAY_TICKS)) this.ev('night', '🌙 Night falls over the town.', [], 0);
   if (tk === this.festival) this.ev('fest', '🎈 The festival is winding down.', [], 0);
   if (tk === this.blight) this.ev('blight', '🌱 The blight has passed — crops recover.', [], 0);
-  for (let q = 0; q < 2 && this.fq.length; q++) { const b = this.fq.shift(); b.fq = false; b.field = makeField(this.tiles, b.src); b.fgen = this.fgen; }
+  for (let q = 0; q < 2 && this.fq.length; q++) { const b = this.fq.shift(); b.fq = false; if (!b.field) continue; b.field = makeField(this.tiles, b.src); b.fgen = this.fgen; }
   // pending
   if (this.pending.length) {
     const rest = [];

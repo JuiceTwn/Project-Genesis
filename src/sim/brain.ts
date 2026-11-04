@@ -54,7 +54,7 @@ function setGoal(this: World, d, k, mk, inv) {
       if (inv && inv.k === 'drink') d.invite = null;
       g = { k, b: b.id, enter: true }; break;
     }
-    default: { const sb = this.sbl[this.buildings[d.home].sid] || [], far = this.rnd() < 0.04, b = far ? this.pick(this.parks) : (sb.length ? this.pick(sb) : this.buildings[d.home]); g = { k: 'wander', b: b.id, enter: false }; }
+    default: { const sb = this.sbl[this.buildings[d.home].sid] || [], far = this.rnd() < 0.04, b = far ? this.pick(this.parks.filter(p => Math.hypot(p.x - d.x, p.y - d.y) < 70).concat([this.buildings[d.home]])) : (sb.length ? this.pick(sb) : this.buildings[d.home]); g = { k: 'wander', b: b.id, enter: false }; }
   }
   d.goal = g; d.phase = 'walk'; d.nx = -1; d.prog = 0;
 }

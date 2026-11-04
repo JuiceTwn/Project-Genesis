@@ -14,13 +14,15 @@ export function rollTraits(rf: () => number): string[] {
   return out;
 }
 
+/** Heap keys pack (distance, tile index): KEY must exceed the tile count (up to ~4M tiles; distance <= 65535 keeps keys < 2^38, exact in a double). */
+const KEY = 1 << 22;
 export function makeField(tiles: ArrayLike<number>, sources: number[]): Uint16Array {
   const N = W * H, dist = new Uint16Array(N).fill(INF), heap = [];
   const push = k => { let i = heap.length; heap.push(k); while (i > 0) { const p = (i - 1) >> 1; if (heap[p] <= k) break; heap[i] = heap[p]; i = p; } heap[i] = k; };
   const pop = () => { const top = heap[0], last = heap.pop(); if (heap.length) { let i = 0; const n = heap.length; for (;;) { let c = 2 * i + 1; if (c >= n) break; if (c + 1 < n && heap[c + 1] < heap[c]) c++; if (heap[c] >= last) break; heap[i] = heap[c]; i = c; } heap[i] = last; } return top; };
   for (const s of sources) { dist[s] = 0; push(s); }
   while (heap.length) {
-    const k = pop(), d = Math.floor(k / 32768), i = k - d * 32768;
+    const k = pop(), d = Math.floor(k / KEY), i = k - d * KEY;
     if (d > dist[i]) continue;
     const x = i % W, y = (i / W) | 0;
     for (let q = 0; q < 4; q++) {
@@ -29,7 +31,7 @@ export function makeField(tiles: ArrayLike<number>, sources: number[]): Uint16Ar
       const ni = ny * W + nx, c = COST[tiles[ni]];
       if (c >= INF) continue;
       const nd = d + c;
-      if (nd < dist[ni]) { dist[ni] = nd; push(nd * 32768 + ni); }
+      if (nd < dist[ni]) { dist[ni] = nd; push(nd * KEY + ni); }
     }
   }
   return dist;

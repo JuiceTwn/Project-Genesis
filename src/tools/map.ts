@@ -4,7 +4,9 @@ import { writeFileSync } from 'node:fs';
 import * as Gen from '../worldgen';
 
 const seed = +(process.argv[2] || 1337), out = process.argv[3] || 'map.png', S = +(process.argv[4] || 6);
-const t0 = Date.now(), m = Gen.generate(seed, { pop: 480 });
+const opt: any = { pop: 480 };
+for (const a of process.argv.slice(5)) { const [k, v] = a.split('='); opt[k] = +v; }   // e.g. W=320 H=240 towns=8 villages=24 hamlets=40 spacing=2.5
+const t0 = Date.now(), m = Gen.generate(seed, opt);
 console.log(`gen ${Date.now() - t0} ms, ${m.W}x${m.H}, settlements: ${m.settlements.map((s: any) => `${Gen.TIERS[s.tier][0]}@${s.x},${s.y}`).join(' ')}`);
 
 const col: Record<number, number[]> = { 0: [120, 160, 80], 1: [110, 80, 50], 2: [150, 90, 70], 3: [60, 110, 170], 4: [170, 190, 100], 5: [50, 100, 50], 6: [140, 100, 60], 7: [110, 150, 190], 8: [225, 210, 160], 9: [120, 115, 110] };

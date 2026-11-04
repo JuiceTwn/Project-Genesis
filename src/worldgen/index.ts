@@ -19,14 +19,16 @@ export const SPACING = [0, 27, 15.6, 9.5];                      // Christaller: 
 
 export function generate(seed, opt = {}) {
   const W = opt.W || 144, H = opt.H || 108, N = W * H, R = mk(seed * 977 + 13);
+  const SP = SPACING.map(v => v * (opt.spacing || 1));   // settlement spacing in tiles (scale it up for a bigger, emptier country)
+  const FS = opt.feature || 34, WARP = opt.warp ?? 0.8;   // terrain feature size in tiles, domain-warp strength (bigger FS + lower WARP = broad continents)
   const nE = Noise(seed + 11), nW = Noise(seed + 23), nM = Noise(seed + 37), nF = Noise(seed + 51);
   const idx = (x, y) => y * W + x;
 
   /* ---- 1. terrain: warped fBm + island mask + a bay on a random side ---- */
   const ang = R() * Math.PI * 2, ox = Math.cos(ang), oy = Math.sin(ang), h = new Float32Array(N);
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-    const px = x / 34, py = y / 34;
-    const qx = px + 0.8 * nW(px * 0.6 + 5.2, py * 0.6), qy = py + 0.8 * nW(px * 0.6, py * 0.6 + 9.1);
+    const px = x / FS, py = y / FS;
+    const qx = px + WARP * nW(px * 0.6 + 5.2, py * 0.6), qy = py + WARP * nW(px * 0.6, py * 0.6 + 9.1);
     const e = fbm(nE, qx, qy, 6) * 0.5 + 0.5;
     const dx = (x / W - 0.5) * 2, dy = (y / H - 0.5) * 2;
     const d = Math.hypot(dx * 0.92, dy) + 0.2 * fbm(nW, px * 1.4 + 20, py * 1.4, 3);
@@ -46,7 +48,7 @@ export function generate(seed, opt = {}) {
   /* ---- 2. moisture (noise + proximity to the sea) ---- */
   const dSea = bfs(isSea, W, H);
   const moist = new Float32Array(N);
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const i = idx(x, y); moist[i] = Math.min(1, Math.max(0, (fbm(nM, x / 30, y / 30, 4) * 0.5 + 0.5) * 0.8 + 0.25 * Math.exp(-dSea[i] / 14) - eN[i] * 0.12)); }
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const i = idx(x, y); moist[i] = Math.min(1, Math.max(0, (fbm(nM, x / (30 * FS / 34), y / (30 * FS / 34), 4) * 0.5 + 0.5) * 0.8 + 0.25 * Math.exp(-dSea[i] / 14) - eN[i] * 0.12)); }
 
   /* ---- 3. hydrology: priority flood from the sea => flow tree => accumulation => rivers & lakes ---- */
   const fe = Float32Array.from(h), parent = new Int32Array(N).fill(-1), done = new Uint8Array(N), order = [], hp = new Heap();
@@ -65,7 +67,7 @@ export function generate(seed, opt = {}) {
   for (let k = order.length - 1; k >= 0; k--) { const c = order[k]; if (parent[c] >= 0 && !isSea[c]) acc[parent[c]] += acc[c]; }
   // lakes: filled basins deeper than a threshold, in clumps of 5+
   const lake = new Uint8Array(N);
-  { const cand = new Uint8Array(N), seen = new Uint8Array(N); for (let i = 0; i < N; i++) if (!isSea[i] && fe[i] - h[i] > 0.0045) cand[i] = 1;
+  { const cand = new Uint8Array(N), seen = new Uint8Array(N); for (let i = 0; i < N; i++) if (!isSea[i] && fe[i] - h[i] > (opt.lakeDepth || 0.0045)) cand[i] = 1;
     for (let i = 0; i < N; i++) if (cand[i] && !seen[i]) { const comp = [i]; seen[i] = 1; for (let qi = 0; qi < comp.length; qi++) { const c = comp[qi], x = c % W, y = (c / W) | 0; for (const [a, b] of D4) { const nx = x + a, ny = y + b; if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue; const ni = idx(nx, ny); if (cand[ni] && !seen[ni]) { seen[ni] = 1; comp.push(ni); } } } if (comp.length >= 6) for (const c of comp) lake[c] = 1; } }
   const landCells = []; for (let i = 0; i < N; i++) if (!isSea[i] && !lake[i]) landCells.push(i);
   const accSorted = landCells.map(i => acc[i]).sort((a, b) => b - a);
@@ -180,9 +182,9 @@ export function generate(seed, opt = {}) {
       let bi = -1, bv = 0;
       for (const i of cand) {
         if (site[i] < minScore) continue; const x = i % W, y = (i / W) | 0; let dmin = 1e9, ok = true;
-        for (const s of map.settlements) { const d = Math.hypot(s.x - x, s.y - y); if (s.tier <= tier ? d < SPACING[tier] : d < SPACING[tier] * 0.75) { ok = false; break; } if (d < dmin) dmin = d; }
+        for (const s of map.settlements) { const d = Math.hypot(s.x - x, s.y - y); if (s.tier <= tier ? d < SP[tier] : d < SP[tier] * 0.75) { ok = false; break; } if (d < dmin) dmin = d; }
         if (!ok) continue;
-        const v = site[i] * (0.3 + 0.7 * Math.min(1, dmin / (SPACING[tier] * 2.2))) * (0.5 + 0.5 * hint[i]);
+        const v = site[i] * (0.3 + 0.7 * Math.min(1, dmin / (SP[tier] * 2.2))) * (0.5 + 0.5 * hint[i]);
         if (v > bv && fitsSquare(x, y, tier)) { bv = v; bi = i; }
       }
       if (bi < 0) break; const s = place(bi % W, (bi / W) | 0, tier); s.trade = trade(bi);

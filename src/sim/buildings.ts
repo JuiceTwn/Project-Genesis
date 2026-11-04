@@ -1,5 +1,6 @@
 import { World } from './world';
 import type { Building } from '../shared/types';
+import { COUNTRY, FIELD_BUDGET } from './config';
 import { makeField, b64, tkLess, rollTraits, mk } from '../shared/util';
 import * as K from '../shared/constants';
 import * as Gen from '../worldgen';
@@ -31,16 +32,25 @@ function rebuild(this: World) {
   }
 }
 
-function F(this: World, b) {
-  if (!b.field) { b.field = makeField(this.tiles, b.src); b.fgen = this.fgen; }
-  else if (b.fgen !== this.fgen && !b.fq) { b.fq = true; this.fq.push(b); }
+function F(this: World, b) {   // distance field to a building: computed on demand, refreshed (a few per tick) when the map changes, evicted LRU
+  b.fuse = this.tick;
+  if (!b.field) {
+    b.field = makeField(this.tiles, b.src); b.fgen = this.fgen; this.fieldHolders.push(b);
+    if (this.fieldHolders.length > Math.max(48, Math.floor(FIELD_BUDGET / (W * H * 2)))) this.evictFields();
+  } else if (b.fgen !== this.fgen && !b.fq) { b.fq = true; this.fq.push(b); }
   return b.field;
+}
+function evictFields(this: World) {
+  const keep = this.fieldHolders.filter(b => b.field).sort((x, y) => y.fuse - x.fuse);
+  const n = Math.floor(keep.length * 0.7);
+  for (let i = n; i < keep.length; i++) { keep[i].field = undefined; keep[i].fq = false; }
+  this.fieldHolders = keep.slice(0, n);
 }
 
 function nameBuilding(this: World, b, owner) { if (b.type === BT.HOUSE) b.fam = owner ? owner.fam : this.word(2, 3, true); else if (!b.name) b.name = this.word(2, 2, true); }
 
 function buildMap(this: World) {
-  const map = this.map = Gen.generate(this.seed, { pop: this.pop });
+  const map = this.map = Gen.generate(this.seed, { pop: this.pop, ...COUNTRY });
   setDims(map.W, map.H); this.tiles = map.t;
   this.buildings = []; this.markets = []; this.taverns = []; this.workshops = []; this.parks = []; this.farms = []; this.houses = []; this.halls = []; this.docks = [];
   this.mcount = 0; this.S = map.settlements;
@@ -164,12 +174,13 @@ function vacancies(this: World) {
   }
 }
 
-Object.assign(World.prototype, { mkBuilding, placeOn, rebuild, F, nameBuilding, buildMap, bldMsg, pushBld, pushTiles, footprint, siteFor, freePlot, expandSettlement, plotFor, startBuild, buildStep, completeBuild, moveIn, demolish, isBiz, burn, vacancies });
+Object.assign(World.prototype, { evictFields, mkBuilding, placeOn, rebuild, F, nameBuilding, buildMap, bldMsg, pushBld, pushTiles, footprint, siteFor, freePlot, expandSettlement, plotFor, startBuild, buildStep, completeBuild, moveIn, demolish, isBiz, burn, vacancies });
 declare module './world' { interface World {
   mkBuilding: (...args: any[]) => any;
   placeOn: (...args: any[]) => any;
   rebuild: (...args: any[]) => any;
   F: (...args: any[]) => any;
+  evictFields: (...args: any[]) => any;
   nameBuilding: (...args: any[]) => any;
   buildMap: (...args: any[]) => any;
   bldMsg: (...args: any[]) => any;
