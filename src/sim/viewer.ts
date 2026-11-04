@@ -11,7 +11,7 @@ function act(this: World, name, id) {
   if (name === 'blight' && tk - this.cd.blight > 5 * 45) { this.cd.blight = tk; this.blightAt = tk; this.blight = tk + 5 * 40; this.ev('blight', '🥀 Blight strikes the fields. Farms produce nothing!', [], 0, 2); return true; }
   if (name === 'gift' || name === 'zap' || name === 'cupid') {
     const d = this.dots[id]; if (!d || d.dead || tk - this.cd[name] < CD) return false;
-    if (name === 'gift') { d.coin += 30; this.say(d, [C.THANKS]); this.ev('gift', `🎁 A viewer gifted ${d.name} 30 coins.`, [d.id], 0, 2); }
+    if (name === 'gift') { d.coin += 30; this.ledger.minted += 30; this.say(d, [C.THANKS]); this.ev('gift', `🎁 A viewer gifted ${d.name} 30 coins.`, [d.id], 0, 2); }
     else if (name === 'zap') { d.energy = 3; this.say(d, [C.AFRAID]); this.ev('zap', `⚡ A viewer zapped ${d.name}! They're completely drained.`, [d.id], 0, 3); }
     else {
       if (!d.adult || d.partner >= 0) return false;

@@ -37,6 +37,8 @@ def main():
     print(f"  births/deaths: {last['born']}/{last['died']}")
     if "jobless" in last:
         print(f"  jobless (end): {last['jobless']} ({100 * last['jobless'] / max(1, last['pop']):.1f}% of pop); missed payrolls {last['biz'].get('unpaid', 0)}, quits {last['biz'].get('quit', 0)}")
+    if "supply" in last:
+        print(f"  money supply {first['supply']} -> {last['supply']} (minted by government: {last.get('minted', 0)}); flows with abroad: {last.get('flow')}")
     tre = [r["treasury"] for r in rows]
     print(f"  treasury min/median/max: {min(tre)}/{int(st.median(tre))}/{max(tre)}")
     bad = 0

@@ -88,15 +88,15 @@ function die(this: World, d, cause) {
   const home = this.buildings[d.home]; d.x = home.door[0]; d.y = home.door[1];
   const fr = this.friends(d).map(f => this.dots[f[0]]);
   const heir = d.partner >= 0 && !this.dots[d.partner].dead ? this.dots[d.partner] : fr[0];
-  const est = Math.round(d.coin);
-  if (heir && est > 0) heir.coin += est;
+  const est = d.coin;
+  if (est > 0) { if (heir) heir.coin += est; else this.gov(this.S[this.buildings[d.home].sid]).treasury += est; }   // no heir: the estate goes to the town
   if (d.partner >= 0) { const p = this.dots[d.partner]; p.partner = -1; p.married = false; p.grief = this.tick + 900; p.social = Math.max(0, p.social - 30); }
   d.partner = -1; d.coin = 0;
   this.inherit(d);
   const mourners = fr.slice(0, 6), park = this.nearest(this.parks, mourners[0] || d, 0);
   for (const m of mourners) { m.grief = this.tick + 400; m.social = Math.max(0, m.social - 15); m.invite = { k: 'social', b: park.id, until: this.tick + 300 }; this.later(2 + ((this.rnd() * 10) | 0), { t: 'say', d: m.id, k: [1000 + d.id, C.DIE] }); }
   this.stats.deaths++;
-  this.ev('death', `🕯️ ${d.name} ${cause === 'hunger' ? 'starved' : 'died of old age'} at ${Math.round(d.age)}.${mourners.length ? ` ${mourners.length} friend${mourners.length > 1 ? 's' : ''} mourn.` : ''}${heir && est > 0 ? ` ${heir.name} inherits ${est} coins.` : ''}`, [d.id].concat(mourners.slice(0, 1).map(m => m.id)), 0, 4);
+  this.ev('death', `🕯️ ${d.name} ${cause === 'hunger' ? 'starved' : 'died of old age'} at ${Math.round(d.age)}.${mourners.length ? ` ${mourners.length} friend${mourners.length > 1 ? 's' : ''} mourn.` : ''}${heir && est > 0 ? ` ${heir.name} inherits ${Math.round(est)} coins.` : ''}`, [d.id].concat(mourners.slice(0, 1).map(m => m.id)), 0, 4);
 }
 
 function spawn(this: World, a, b) {

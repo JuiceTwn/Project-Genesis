@@ -34,7 +34,7 @@ function arrive(this: World, d) {
     case 'eat':
       {
         let pr = d.adult ? this.mprice(b) : 0; if (d.adult && d.hunger > 85 && d.coin < pr && b.stock > 20) pr = 0;   // the starving get charity
-        if (b.stock > 0 && d.coin >= pr) { b.stock--; d.coin -= pr; b.till = (b.till || 0) + pr; b.rev += pr; b.visits++; this.enter(d, b); d.timer = 14; this.stats.meals++; d.meals++; if (b.stock === 0) this.checkStock(b); }
+        if (b.stock > 0 && d.coin >= pr) { b.stock--; d.coin -= pr; this.credit(b, pr); b.rev += pr; b.visits++; this.enter(d, b); d.timer = 14; this.stats.meals++; d.meals++; if (b.stock === 0) this.checkStock(b); }
         else if (b.stock > 0) { this.sayDelayed(d, [C.ME, C.BROKE]); d.phase = 'walk'; d.goal = null; d.shortAt = this.tick; }
         else { d.belief[b.mi] = this.tick; this.sayDelayed(d, [2000 + b.id, C.NO, C.FOOD]); this.checkStock(b); d.phase = 'walk'; d.goal = null; }
       }
@@ -47,13 +47,17 @@ function arrive(this: World, d) {
       this.enter(d, b);
       const room = STOCK_CAP - b.stock, add = Math.min(room, d.carry);
       const rate = this.mprice(b) * 0.9 / 1.6;
-      b.stock += add; d.coin += Math.round(d.carry * rate * 1.6);
-      { const fb = this.buildings[d.work]; if (fb && fb.owner >= 0 && fb.state === 'ok' && fb.type === BT.FARM) { fb.rev += Math.round(d.carry * rate * 1.6 * 0.15); fb.visits++; } } this.stats.deliveries++; this.stats.wasted += d.carry - add; d.carry = 0; d.timer = 8; this.checkStock(b); break;
+      b.stock += add;
+      {   // the market pays for the crops out of its own till (or the town treasury, for a public market); the farm owner takes a 15% share
+        const due = d.carry * rate * 1.6, [mo, mk] = this.till(b), paid = this.takeUpTo(mo, mk, due); b.cost = (b.cost || 0) + paid;
+        const fb = this.buildings[d.work], owned = fb && fb.owner >= 0 && fb.state === 'ok' && fb.type === BT.FARM;
+        if (owned) { fb.cash += paid * 0.15; fb.rev += paid * 0.15; fb.visits++; d.coin += paid * 0.85; } else d.coin += paid;
+      } this.stats.deliveries++; this.stats.wasted += d.carry - add; d.carry = 0; d.timer = 8; this.checkStock(b); break;
     }
     case 'build': if (b.state !== 'build') { d.phase = 'walk'; d.goal = null; } else d.timer = 70; break;
     case 'social': d.timer = 70 + ((this.rnd() * 70) | 0); break;
     case 'drink':
-      if (d.coin >= DRINK_PRICE) { d.coin -= DRINK_PRICE; b.rev += DRINK_PRICE; b.visits++; this.enter(d, b); d.timer = 60 + ((this.rnd() * 50) | 0); }
+      if (d.coin >= DRINK_PRICE) { d.coin -= DRINK_PRICE; this.credit(b, DRINK_PRICE); b.rev += DRINK_PRICE; b.visits++; this.enter(d, b); d.timer = 60 + ((this.rnd() * 50) | 0); }
       else { d.phase = 'walk'; d.goal = null; }
       break;
     default: d.timer = 12 + ((this.rnd() * 25) | 0);
@@ -72,7 +76,7 @@ function doing(this: World, d) {
     case 'work':
       if (--d.timer <= 0) {
         if (d.job === 0) { d.carry = tkLess(this.tick, this.blight) ? 0 : Math.max(1, Math.round(4 * YIELD[this.season()])); if (!d.carry) this.out.push({ t: 'say', d: d.id, k: [C.FARM, C.BAD] }); }
-        else { const wb = this.buildings[g.b], w = d.job === 1 && K.WAGE[wb.type] ? K.WAGE[wb.type] : d.job === 1 ? 9 : d.job === 2 ? 10 : 8; wb.visits++; if (wb.owner >= 0 && wb.state === 'ok') wb.rev += K.REV[wb.type] || 0; d.coin += this.payWage(wb, d, w); }
+        else { const wb = this.buildings[g.b], w = d.job === 1 && K.WAGE[wb.type] ? K.WAGE[wb.type] : d.job === 1 ? 9 : d.job === 2 ? 10 : 8; wb.visits++; if (wb.state === 'ok' && K.REV[wb.type]) this.exportIn(wb, K.REV[wb.type]); d.coin += this.payWage(wb, d, w); }
         this.finish(d);
       }
       break;

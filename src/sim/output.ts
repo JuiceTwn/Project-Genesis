@@ -97,7 +97,7 @@ function statsMsg(this: World) {
     lead: { rich: top(d => d.coin), loved: top(d => this.rep[d.id]), hated: top(d => this.rep[d.id], 3, false), old: top(d => d.age) },
     cd: { festival: cdl('festival'), blight: cdl('blight'), gift: cdl('gift'), zap: cdl('zap'), cupid: cdl('cupid') },
     fest: this.tick < this.festival, blight: this.tick < this.blight,
-    season: this.season(), year: this.year(), weather: this.weather, nation: Math.round(this.nation.treasury), treasury: Math.round(this.townTreasury()) };
+    season: this.season(), year: this.year(), weather: this.weather, money: { supply: Math.round(this.moneySupply()), minted: Math.round(this.ledger.minted), inflow: Math.round(this.ledger.inflow), outflow: Math.round(this.ledger.outflow), flow: Object.fromEntries(Object.entries(this.ledger.flow).map(([k, v]) => [k, Math.round(v as number)])) }, nation: Math.round(this.nation.treasury), treasury: Math.round(this.townTreasury()) };
 }
 
 function doingText(this: World, d) {

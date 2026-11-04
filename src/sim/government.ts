@@ -73,7 +73,7 @@ function mayorDawn(this: World, s: any) {
   const mk = local.filter(b => b.type === BT.MARKET);
   const low = mk.length ? mk.reduce((a, b) => (a.stock < b.stock ? a : b)) : null;
   if (low && low.stock < 150 && g.treasury >= R * 0.25) {
-    const spend = Math.min(Math.round(R * 0.7), Math.floor(g.treasury)); g.treasury -= spend; low.stock = Math.min(STOCK_CAP, low.stock + Math.round(spend * 1.6));
+    const spend = this.toAbroad(g, 'treasury', Math.min(Math.round(R * 0.7), Math.floor(g.treasury)), 'imports'); low.stock = Math.min(STOCK_CAP, low.stock + Math.round(spend * 1.6));   // emergency grain is imported
     this.ev('grain' + s.id, `🏛️ Mayor ${m.name} spent ${spend} coins on emergency grain for ${low.name} Market.`, [m.id], 0, 3);
   }
   // relief payments
@@ -83,11 +83,11 @@ function mayorDawn(this: World, s: any) {
     if (poor.length) this.ev('welfare' + s.id, `🏛️ Mayor ${m.name} handed relief payments to the ${poor.length} poorest households of ${s.name}.`, [m.id], 0, 2);
   }
   // a town feast
-  if (g.treasury > R * 2.2) { g.treasury -= R * 0.6; g.festival = this.tick + 5 * 50; this.ev('feast' + s.id, `🎪 Mayor ${m.name} funded a feast in ${s.name}!`, [m.id], 0, 3); }
+  if (g.treasury > R * 2.2) { g.treasury -= R * 0.6; this.spendLocal(s.id, R * 0.6); g.festival = this.tick + 5 * 50; this.ev('feast' + s.id, `🎪 Mayor ${m.name} funded a feast in ${s.name}!`, [m.id], 0, 3); }
   // public works, then grander projects
   if (g.treasury > R * 0.6 && this.civicBuild(s, m)) { /* real public works */ }
   else if (g.treasury > R * 3) {
-    const what = this.pick(['a new well', 'a clock tower', 'a town library', 'a bigger granary', 'a fountain in the square']), cost = Math.round(g.treasury * 0.5); g.treasury -= cost;
+    const what = this.pick(['a new well', 'a clock tower', 'a town library', 'a bigger granary', 'a fountain in the square']), cost = Math.round(g.treasury * 0.5); g.treasury -= cost; this.spendLocal(s.id, cost);
     this.ev('project' + s.id, `🏗️ Mayor ${m.name} funded ${what} in ${s.name} (${cost} coins).`, [m.id], 0, 3);
     for (const o of this.townAdults(s.id)) if (this.rnd() < 0.5) o.aff.set(m.id, Math.min(100, (o.aff.get(m.id) || 0) + 4));
   }
@@ -109,14 +109,14 @@ function nationDawn(this: World) {
   const n = this.nation;
   for (const s of this.S) {   // regional grant for a struggling town with empty markets
     const g = this.gov(s), P = this.sPop[s.id] || 0, R = reserve(P);
-    if (P >= 12 && g.treasury < R * 0.1 && n.treasury > R) {
+    if (P >= 12 && g.treasury < R * 0.1) {
       const mk = (this.sbl[s.id] || []).filter(b => b.type === BT.MARKET);
-      if (mk.some(b => b.stock < 60)) { const grant = Math.round(R * 0.6); n.treasury -= grant; g.treasury += grant; this.ev('grant' + s.id, `🏦 The national government granted ${s.name} ${grant} coins after its markets ran low.`, [], 0, 3); break; }
+      if (mk.some(b => b.stock < 60)) { const grant = Math.round(R * 0.6); if (n.treasury < grant) this.mint(grant - n.treasury, `regional grant to ${s.name}`); n.treasury -= grant; g.treasury += grant; this.ev('grant' + s.id, `🏦 The national government granted ${s.name} ${grant} coins after its markets ran low.`, [], 0, 3); break; }
     }
   }
   if (n.treasury > 2500 && this.tick - (this.lastEv.bridge || -1e9) > 3 * K.DAY_TICKS) {
     const fords: number[] = []; for (let i = 0; i < this.tiles.length; i++) if (this.tiles[i] === TILE.FORD) fords.push(i);
-    if (fords.length) { const i = this.pick(fords); this.tiles[i] = TILE.BRIDGE; n.treasury -= 800; this.fgen++; this.pushTiles([i]); this.ev('bridge', `🌉 The national highway agency replaced a river ford with a stone bridge.`, [], 0, 3); }
+    if (fords.length) { const i = this.pick(fords); this.tiles[i] = TILE.BRIDGE; n.treasury -= 800; { const towns = this.S.filter(t => (this.sPop[t.id] || 0) > 0); if (towns.length) this.spendLocal(this.pick(towns).id, 800); else n.treasury += 800; } this.fgen++; this.pushTiles([i]); this.ev('bridge', `🌉 The national highway agency replaced a river ford with a stone bridge.`, [], 0, 3); }
   }
 }
 

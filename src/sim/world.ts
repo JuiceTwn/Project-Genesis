@@ -1,6 +1,7 @@
 import { mk } from '../shared/util';
 import { DAY_TICKS } from '../shared/constants';
 import { DEFAULT_POP } from './config';
+import { newLedger, type Ledger } from './ledger';
 import type { Building, Dot, Msg } from '../shared/types';
 
 export interface WorldOptions { seed?: number; pop?: number; maxPop?: number; state?: any; deterministic?: boolean; }
@@ -9,7 +10,7 @@ export interface WorldOptions { seed?: number; pop?: number; maxPop?: number; st
 export class World {
   rnd: () => number; pick = <T>(a: T[]): T => a[(this.rnd() * a.length) | 0];
   seed: number; R: () => number; pop: number; maxPop: number;
-  idxTick = -1; buckets: number[][] = []; dens: Uint8Array = new Uint8Array(0); denseW = 0; denseH = 0;
+  ledger: Ledger = newLedger(); idxTick = -1; buckets: number[][] = []; dens: Uint8Array = new Uint8Array(0); denseW = 0; denseH = 0;
   fieldHolders: Building[] = []; sites: Building[] = []; fq: Building[] = []; fgen = 0; biz: any; blightAt = -1e9; lastTheftTick = -1e9; sPop: number[] = []; sbl: Building[][] = [];
   tick = 0; out: Msg[] = []; pending: { at: number; m: any }[] = []; stats: any; pairs = new Set<number>(); festival = 0; blight = 0;
   weather = 0; nation = { treasury: 0 }; cd: any; rep: Float32Array | null = null; lastEv: Record<string, number> = {};

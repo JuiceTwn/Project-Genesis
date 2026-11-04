@@ -138,9 +138,9 @@ function buildStep(this: World, d, b) {
 function completeBuild(this: World, b) {
   b.state = 'ok'; b.born = this.tick; this.sites = this.sites.filter(x => x !== b); this.biz.built++; this.rebuild(); this.fgen++; this.pushBld(b, 'upd');
   const o = b.owner >= 0 ? this.dots[b.owner] : null, s = this.S[b.sid], nm = BT_NAME[b.type].toLowerCase();
-  if (b.type === BT.MARKET) { b.stock = 40; b.cash = 20; }
+  this.liquidateEscrow(b);
+  if (b.type === BT.MARKET) b.stock = 40;
   if (b.type === BT.HOUSE) { this.moveIn(b); this.ev('house', `🏠 ${o ? o.name + "'s" : 'A'} new house is finished in ${s.name}.`, o ? [o.id] : [], 20, 1); return; }
-  if (o && b.owner >= 0) b.cash = Math.max(b.cash, 15);
   this.ev('opened', `${o ? '🏪' : '🏛️'} ${b.name} ${BT_NAME[b.type]} opens in ${s.name}${o ? ` — owner ${o.name}` : ' — a public works project'}!`, o ? [o.id] : [], 0, 3);
 }
 
@@ -152,6 +152,7 @@ function moveIn(this: World, b) {
 }
 
 function demolish(this: World, b) {
+  this.liquidate(b);
   for (const d of b.inside.slice()) { d.inside = false; d.phase = 'walk'; d.goal = null; } b.inside.length = 0; b.occ = 0;
   b.state = 'gone'; b.stock = 0; const p = this.map.plots[b.plot]; if (p) { p.used = false; p.bid = -1; }
   const fp = this.footprint(b); for (const i of fp) this.tiles[i] = TILE.GRASS;
@@ -164,7 +165,7 @@ function burn(this: World, b) {
   const o = b.owner >= 0 ? this.dots[b.owner] : null, s = this.S[b.sid]; let homeless = 0;
   if (b.type === BT.HOUSE) {
     const alt = this.sbl[b.sid].filter(x => x.type === BT.HOUSE && x !== b).sort((x, y) => this.residents(x.id) - this.residents(y.id))[0];
-    for (const d of this.dots) if (!d.dead && d.home === b.id) { d.home = alt ? alt.id : this.houses.find(x => x !== b).id; d.coin = Math.max(0, d.coin - 10); d.social = Math.max(0, d.social - 20); homeless++; }
+    for (const d of this.dots) if (!d.dead && d.home === b.id) { d.home = alt ? alt.id : this.houses.find(x => x !== b).id; this.toAbroad(d, 'coin', 10, 'repairs'); d.social = Math.max(0, d.social - 20); homeless++; }
   } else this.unstaff(b);
   this.ev('fire', `🔥 Fire in ${s.name}! ${b.name} ${BT_NAME[b.type]} burned to the ground${o ? ` — ${o.name} loses everything in it` : ''}${homeless ? `, ${homeless} left homeless` : ''}.`, o ? [o.id] : [], 0, 4);
   this.biz.fires++; this.demolish(b);
@@ -203,3 +204,11 @@ declare module './world' { interface World {
   burn: (...args: any[]) => any;
   vacancies: (...args: any[]) => any;
 } }
+
+/** Pay back whatever is left of a finished building's construction budget. */
+function liquidateEscrow(this: World, b) {
+  const left = Math.max(0, b.escrow || 0); b.escrow = 0; if (left <= 0) return;
+  const o = b.owner >= 0 ? this.dots[b.owner] : null; if (o && !o.dead) o.coin += left; else this.gov(this.S[b.sid]).treasury += left;
+}
+Object.assign(World.prototype, { liquidateEscrow });
+declare module './world' { interface World { liquidateEscrow: typeof liquidateEscrow } }

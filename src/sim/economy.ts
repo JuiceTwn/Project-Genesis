@@ -14,10 +14,9 @@ function economyDawn(this: World) {
     A private firm that cannot cover payroll misses it; after three missed shifts in a row the worker quits.
     Publicly run buildings are paid for by the town treasury (and, when that is dry, the wage is still honoured). */
 function payWage(this: World, b, d, w: number): number {
-  if (b.state !== 'ok' || !this.isBiz(b)) return w;
-  if (b.owner < 0) { const g = this.gov(this.S[b.sid]); if (g.treasury >= w) g.treasury -= w; return w; }
-  const avail = b.cash + (b.type === BT.MARKET ? 0.3 : 1) * b.rev;
-  if (avail >= w) { b.cash -= w; b.wage += w; d.unpaid = 0; return w; }
+  if (b.state !== 'ok' || !this.isBiz(b)) return w;   // odd jobs on a site etc.: the site's escrow pays elsewhere
+  const [o, k] = this.till(b);
+  if (o[k] >= w) { o[k] -= w; b.wage += w; d.unpaid = 0; return w; }
   d.unpaid = (d.unpaid || 0) + 1; this.biz.unpaid++;
   this.ev('unpaid' + b.id, `💸 ${b.name} ${BT_NAME[b.type]} in ${this.S[b.sid].name} missed payroll — ${d.name} went home unpaid.`, [d.id, b.owner], 2 * DAY_TICKS, 2);
   if (d.unpaid >= 3 && d.job !== 3 && d.work === b.id) {
@@ -28,22 +27,28 @@ function payWage(this: World, b, d, w: number): number {
 }
 
 function settle(this: World) {
-  const day = this.day();
   for (const b of this.buildings) {
     if (b.state !== 'ok' || !this.isBiz(b)) continue;
-    if (b.type === BT.DOCK && this.rnd() < 0.45) {                       // a ship comes in: trade, and sometimes grain
-      const mk = this.sbl[b.sid].find(x => x.type === BT.MARKET), tr = this.S[b.sid].trade + 0.5; b.rev += Math.round(40 + this.rnd() * 70 * tr);
-      if (mk && mk.stock < 300 && this.rnd() < 0.6) { const q = 70 + ((this.rnd() * 90) | 0); mk.stock = Math.min(STOCK_CAP, mk.stock + q); this.ev('ship', `⚓ A trading ship docked at ${this.S[b.sid].name} and unloaded ${q} sacks of grain at ${b.name} Dock.`, [], 30, 2); }
+    const town = this.S[b.sid];
+    if (b.type === BT.DOCK && this.rnd() < 0.45) {                       // a ship comes in: foreign trade pays the dock, and sometimes brings grain
+      this.exportIn(b, Math.round(40 + this.rnd() * 70 * (town.trade + 0.5)));
+      const mk = this.sbl[b.sid].find(x => x.type === BT.MARKET);
+      if (mk && mk.stock < 300 && this.rnd() < 0.6) {
+        const q = 70 + ((this.rnd() * 90) | 0), [mo, mkey] = this.till(mk); this.toAbroad(mo, mkey, q * 1.2, 'imports');   // the market pays the importer what it can
+        mk.stock = Math.min(STOCK_CAP, mk.stock + q); this.ev('ship', `⚓ A trading ship docked at ${town.name} and unloaded ${q} sacks of grain at ${b.name} Dock.`, [], 30, 2);
+      }
     }
-    if (b.owner < 0) { b.rev = 0; b.wage = 0; b.visits = 0; continue; }
-    const o = this.dots[b.owner]; if (!o || o.dead) { b.owner = -1; continue; }
-    const up = UPKEEP[b.type], inc = b.type === BT.MARKET ? b.rev * 0.3 : b.rev, profit = inc - up - b.wage;
+    const up = UPKEEP[b.type], [to, tk] = this.till(b);
+    if (b.owner < 0) { this.toAbroad(to, tk, up, 'upkeep'); b.rev = 0; b.wage = 0; b.cost = 0; b.visits = 0; continue; }   // public building: the town pays the bills
+    const o = this.dots[b.owner]; if (!o || o.dead) { b.owner = -1; this.liquidate(b); continue; }
+    // utilities and supplies are bought from outside; unpaid bills accumulate as debt (debt is not money)
+    b.debt = (b.debt || 0) + up; b.debt -= this.toAbroad(b, 'cash', b.debt, 'upkeep');
+    const profit = b.rev - (b.cost || 0) - up - b.wage;
     b.hist.push(Math.round(profit)); if (b.hist.length > 6) b.hist.shift();
-    b.cash += inc - up;   // wages were already paid out of the till during the day (see payWage)
-    if (b.cash > 70) { const dv = Math.round((b.cash - 40) * 0.6); b.cash -= dv; o.coin += dv; }
-    if (b.cash < -25 && o.coin > 45) { const inj = Math.min(40, o.coin - 20); o.coin -= inj; b.cash += inj; }
-    const young = this.tick - b.born < 3 * DAY_TICKS, v = b.visits; b.rev = 0; b.wage = 0; b.visits = 0;
-    if (b.cash < -80 && !young) this.fail(b, v);
+    if (b.cash > 70) { const dv = Math.round((b.cash - 40) * 0.6); b.cash -= dv; o.coin += dv; }                          // dividends
+    if ((b.debt || 0) > 25 && o.coin > 45) { const inj = Math.min(40, o.coin - 20); o.coin -= inj; b.cash += inj; }         // the owner bails the firm out
+    const young = this.tick - b.born < 3 * DAY_TICKS, v = b.visits; b.rev = 0; b.wage = 0; b.cost = 0; b.visits = 0;
+    if ((b.debt || 0) > 80 && !young) this.fail(b, v);
   }
 }
 
@@ -51,8 +56,8 @@ function fail(this: World, b, visits) {
   const o = this.dots[b.owner], s = this.S[b.sid], rivals = this.sbl[b.sid].filter(x => x !== b && x.type === b.type).length;
   const why = b.type === BT.FARM && this.tick - this.blightAt < 4 * DAY_TICKS ? 'the blight wrecked the harvest' : (b.type === BT.FARM || b.type === BT.WORKSHOP || b.type === BT.TAVERN) && (b.staff || 0) === 0 ? 'nobody was working there' : rivals >= 2 ? 'too many rivals in town' : visits < 4 ? 'hardly any customers' : o.traits.includes('lazy') ? 'the owner never kept it up' : 'costs outran takings';
   this.ev('bankrupt', `📉 ${o.name}'s ${BT_NAME[b.type].toLowerCase()} ${b.name} in ${s.name} went bankrupt — ${why}.`, [o.id], 0, 4);
-  o.coin = Math.max(0, o.coin - 20); o.social = Math.max(0, o.social - 25); this.say(o, [C.ME, C.BROKE]);
-  b.state = 'vacant'; b.vac = 0; b.owner = -1; b.cash = 0; if (b.type === BT.MARKET) b.stock = 0;
+  { const fee = Math.min(20, o.coin); o.coin -= fee; this.gov(s).treasury += fee; } o.social = Math.max(0, o.social - 25); this.say(o, [C.ME, C.BROKE]);   // court costs go to the town
+  this.liquidate(b); b.state = 'vacant'; b.vac = 0; b.owner = -1; if (b.type === BT.MARKET) b.stock = 0;
   this.biz.closed++; this.unstaff(b); this.rebuild(); this.fgen++; this.pushBld(b, 'upd');
 }
 
@@ -92,16 +97,16 @@ function tryFound(this: World, d) {
   const vac = this.buildings.find(b => b.state === 'vacant' && b.sid === s.id && this.isBiz(b) && (type === BT.FARM ? b.type === BT.FARM : (!b.open && type !== BT.DOCK) || b.type === type));
   if (vac) {
     const cost = Math.round(BUILD_SHIFTS[type] * 10 * 0.35); if (d.coin < cost + 30) return false;
-    d.coin -= cost; const was = BT_NAME[vac.type].toLowerCase();
+    d.coin -= cost; const cap0 = Math.max(0, Math.min(50, d.coin - 10)); d.coin -= cap0; vac.cash = (vac.cash || 0) + cap0; const was = BT_NAME[vac.type].toLowerCase();
     vac.type = type; vac.open = type === BT.FARM; vac.state = 'build'; vac.need = Math.max(2, Math.ceil(BUILD_SHIFTS[type] * 0.4)); vac.prog = 0; vac.escrow = cost; vac.owner = d.id; vac.vac = 0; vac.name = this.word(2, 2, true); vac.hist = [];
     if (type === BT.MARKET && vac.mi < 0) vac.mi = this.mcount++;
     this.sites.push(vac); this.rebuild(); this.fgen++; this.pushBld(vac, 'upd');
     this.ev('refit', `♻️ ${d.name} (${why}) is turning the empty ${was} in ${s.name} into a ${BT_NAME[type].toLowerCase()}.`, [d.id], 0, 3); return true;
   }
   const kind = type === BT.DOCK ? 'dock' : type === BT.FARM ? 'farm' : (type === BT.WORKSHOP || type === BT.OFFICE || type === BT.FACTORY || type === BT.STORE) ? 'shop' : 'center', cost = BUILD_SHIFTS[type] * 10;
-  if (d.coin < cost + 25) return false;
+  if (d.coin < cost + 40) return false;
   const plot = this.plotFor(s, kind); if (!plot) return false;
-  d.coin -= cost; this.startBuild(plot, type, d.id, cost);
+  d.coin -= cost; const nb = this.startBuild(plot, type, d.id, cost); { const cap = Math.max(0, Math.min(50, d.coin - 10)); d.coin -= cap; nb.cash += cap; }
   this.ev('found', `🏗️ ${d.name} (${why}) is building a ${BT_NAME[type].toLowerCase()} in ${s.name}.`, [d.id], 0, 3); return true;
 }
 
@@ -128,7 +133,7 @@ function immigration(this: World) {
   let r = this.rnd() * w.reduce((a, b) => a + b, 0), s = this.S[0]; for (let i = 0; i < w.length; i++) { r -= w[i]; if (r <= 0) { s = this.S[i]; break; } }
   const houses = this.sbl[s.id].filter(b => b.type === BT.HOUSE).sort((a, b) => this.residents(a.id) - this.residents(b.id)); if (!houses.length) return;
   const home = houses[0], n = 1 + ((this.rnd() * 3) | 0), fam = this.famGen(), made = [];
-  for (let i = 0; i < n; i++) { const d = this.addDot({ name: this.newName(), fam, job: 3, home: home.id, work: -1, traits: rollTraits(this.rnd), age: ADULT + 2 + this.rnd() * 14, life: 45 + this.rnd() * 25, coin: 50 + this.rnd() * 90 }); if (d) made.push(d); }
+  for (let i = 0; i < n; i++) { const d = this.addDot({ name: this.newName(), fam, job: 3, home: home.id, work: -1, traits: rollTraits(this.rnd), age: ADULT + 2 + this.rnd() * 14, life: 45 + this.rnd() * 25, coin: 50 + this.rnd() * 90 }); if (d) { made.push(d); this.ledger.inflow += d.coin; this.ledger.flow.migrants = (this.ledger.flow.migrants || 0) + d.coin; } }
   for (const a of made) for (const b of made) if (a !== b) a.aff.set(b.id, 40);
   if (made.length) { this.biz.arrived += made.length; this.ev('arrive', `🚶 ${made.length === 1 ? made[0].name + ' arrives' : made.map(m => m.name).join(' & ') + ' arrive'} in ${s.name} looking for work and a home.`, made.map(m => m.id), 0, 3); }
 }
