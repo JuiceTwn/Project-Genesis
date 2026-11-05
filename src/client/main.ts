@@ -1,6 +1,7 @@
 // @ts-nocheck -- TODO: type the client incrementally (state shapes are in src/shared/protocol.ts once written)
 import { CATALOG, TRAIT } from '../sim/personality';
 import { renderIssue, GAZETTE_CSS } from '../shared/gazette';
+import { rollKey } from '../shared/feed';
 declare const Sim: any;   // provided by demo.ts when running without a server
 (() => {
 'use strict';
@@ -116,7 +117,6 @@ function hud() {
 /* Feed rollup: events that differ only by names/amounts ("X gave Y $521") merge into one row
    with a count. Matches within the newest ROLL_WINDOW rows; important events (weight >= 4) never merge. */
 const ROLL_WINDOW = 14;
-function rollKey(x) { return x.replace(/ promising .*$/, '').replace(/\([^)]*\)/g, '').replace(/\$[\d.,]+[kKmM]?/g, '$').replace(/\b[A-Z][\w'-]*\b/g, '_').replace(/\d+/g, '#'); }
 function ticker(m, live) {
   if (live !== false) director(m);
   const w = m.w || 1, t = $('#ticker'), key = w >= 4 ? null : rollKey(m.x);
@@ -125,7 +125,7 @@ function ticker(m, live) {
     const kids = t.children;
     for (let i = 0; i < kids.length && i < ROLL_WINDOW; i++) {
       const el = kids[i]; if (el._key !== key) continue;
-      el._n = (el._n || 1) + 1;
+      el._n = (el._n || 1) + (m.n || 1);
       el.innerHTML = body + (el._n > 1 ? ` <b class="x">×${el._n}</b>` : '') + `<small>${stamp}</small>`;
       el.onclick = m.ids && m.ids.length ? () => select(m.ids[0]) : null;
       if ((w >= 3) && !el.classList.contains('hot')) el.classList.add('hot');
@@ -134,8 +134,8 @@ function ticker(m, live) {
     }
   }
   const el = document.createElement('div'); el.className = w >= 4 ? 'big' : w >= 3 ? 'hot' : '';
-  el._key = key; el._n = 1;
-  el.innerHTML = body + `<small>${stamp}</small>`;
+  el._key = key; el._n = m.n || 1;
+  el.innerHTML = body + (el._n > 1 ? ` <b class="x">×${el._n}</b>` : '') + `<small>${stamp}</small>`;
   if (m.ids && m.ids.length) el.onclick = () => select(m.ids[0]);
   t.prepend(el); while (t.children.length > 60) t.lastChild.remove();
 }

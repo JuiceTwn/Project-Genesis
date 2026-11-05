@@ -4,13 +4,14 @@ import * as K from '../shared/constants';
 import * as Gen from '../worldgen';
 const { TS, YEAR_TICKS, HOUR_TICKS, KB, MEAL_UNIT, TICK_HZ, DAY_TICKS, INF, TILE, COST, BT, BT_NAME, BUILD_SHIFTS, UPKEEP, STAFF, MAXM, JOBS, FOOD_PRICE, DRINK_PRICE, STOCK_CAP, ADULT, YEAR_DAYS, SEASON_DAYS, SEASONS, YIELD, RAIN_P, CON, C, TRAITS, TRAIT_W, DREAMS, DREAM_TXT } = K;
 import { W, H } from "../shared/dims";
+import { coalesce } from '../shared/feed';
 
 function initMsg(this: World) {
   const m = this.map, el = new Uint8Array(W * H); for (let i = 0; i < el.length; i++) el[i] = Math.round(Math.min(1, m.h[i]) * 255);
   return { t: 'init', W, H, hz: TICK_HZ, tiles: Array.from(this.tiles).join(''), wk: Array.from(m.wk).join(''), el: b64(el), tick: this.tick,
     setts: this.S.map(s => ({ i: s.id, n: s.name, t: s.tier, x: s.x, y: s.y })),
     blds: this.buildings.map(b => this.bldMsg(b)),
-    hist: this.hist.slice(-25), chron: this.story.chron.slice(-60), issue: this.issues[this.issues.length - 1] || null, arcs: this.arcsMsg(), dots: this.dots.map(d => ({ n: d.name, f: d.fam, j: d.job, h: d.home, tr: d.traits })), lex: this.lex, jobs: JOBS, bt: BT_NAME };
+    hist: coalesce(this.hist.slice(-40)), chron: this.story.chron.slice(-60), issue: this.issues[this.issues.length - 1] || null, arcs: this.arcsMsg(), dots: this.dots.map(d => ({ n: d.name, f: d.fam, j: d.job, h: d.home, tr: d.traits })), lex: this.lex, jobs: JOBS, bt: BT_NAME };
 }
 
 function actCode(this: World, d) {

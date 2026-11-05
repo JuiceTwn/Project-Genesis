@@ -3,10 +3,11 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { WebSocketServer, WebSocket } from 'ws';
-import { World, TICK_HZ } from '../sim';
+import { World, TICK_HZ, DAY_TICKS } from '../sim';
 import type { View } from '../sim/output';
 import { Archive } from './archive';
 import { route } from './pages';
+import { coalesce } from '../shared/feed';
 
 const PORT = +(process.env.PORT || 3000);
 const MAX_CLIENTS = +(process.env.MAX_CLIENTS || 400);
@@ -18,6 +19,14 @@ let state: any = null;
 try { state = JSON.parse(fs.readFileSync(STATE, 'utf8')); } catch { /* fresh world */ }
 const archive = new Archive(path.join(ROOT, 'data', 'archive'));
 const world = new World({ seed: 1337, state });
+/* A brand-new world is warmed up headless so no viewer ever watches the day-1 start-up flood (elections, gifts, trait shifts). */
+const WARMUP_DAYS = +(process.env.WARMUP_DAYS ?? 3);
+if (!state && WARMUP_DAYS > 0) {
+  const t0 = Date.now();
+  for (let i = 0, n = WARMUP_DAYS * DAY_TICKS; i < n; i++) { world.step(); world.drain(); if (world.archive.length) for (const a of world.archive.splice(0)) archive.put(a.kind as 'issue' | 'story', a.id, a.data); }
+  world.hist = [];
+  console.log(`warmed up ${WARMUP_DAYS} days in ${Date.now() - t0} ms`);
+}
 console.log(`world ready: day ${world.day()}, ${world.dots.length} dots, ${world.buildings.length} buildings`);
 
 const MIME: Record<string, string> = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8' };
@@ -44,12 +53,14 @@ function origin(req: http.IncomingMessage): string { if (process.env.PUBLIC_URL)
 
 type Client = WebSocket & { sel: number; budget: number; view: View | null; watch: Set<number> };
 const wss = new WebSocketServer({ server, perMessageDeflate: false, maxPayload: 512 });
-const initJson = JSON.stringify(world.initMsg());
+/* Built fresh for each joiner (cached a few seconds): the feed, chronicle, buildings and dots all change as the world lives. */
+let initJson = '', initAt = 0;
+function getInit() { if (!initJson || Date.now() - initAt > 5000) { initJson = JSON.stringify(world.initMsg()); initAt = Date.now(); } return initJson; }
 wss.on('connection', (raw: WebSocket) => {
   const ws = raw as Client;
   if (wss.clients.size > MAX_CLIENTS) { ws.close(1013); return; }
   ws.sel = -1; ws.budget = 20; ws.view = null; ws.watch = new Set();   // null = zoomed-out overview until the client reports its viewport
-  ws.send(initJson);
+  ws.send(getInit());
   ws.on('message', data => {
     if (ws.budget-- <= 0) return;             // flood guard
     let m: any; try { m = JSON.parse(data.toString()); } catch { return; }
@@ -73,7 +84,7 @@ function loop() {
     for (const c of wss.clients) if (c.readyState === 1) { const ws = c as Client; c.send(Buffer.from(world.frameFor(ws.view, world.relatedIds(ws.sel))), { binary: true }); }
     const msgs = world.drain();
     if (msgs.length) {
-      broadcast(JSON.stringify({ t: 'batch', m: msgs }), false);
+      broadcast(JSON.stringify({ t: 'batch', m: coalesce(msgs) }), false);
       for (const c of wss.clients) { const ws = c as Client; if (!ws.watch.size || ws.readyState !== 1) continue; const notes = msgs.filter(m => m.t === 'ev' && (m.w || 0) >= 2 && m.ids && m.ids.some((i: number) => ws.watch.has(i))).map(m => ({ id: m.ids.find((i: number) => ws.watch.has(i)), text: m.x })); if (notes.length) ws.send(JSON.stringify({ t: 'note', notes: notes.slice(0, 6) })); }   // followed characters: push their news
     }
     if (world.tick % TICK_HZ === 0) {
