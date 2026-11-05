@@ -86,3 +86,10 @@ aggregate shortcuts with individual agents and objects wherever the speed budget
 - `npm run loadtest -- 200 15 ws://localhost:3000`: 200 viewers held 5.00 Hz, ~3.6 MB/s out, ~50% of one core.
 - Full suite: 48/48 pass. The two earlier failures were (a) a real bank bug: the same-day dividend stripped capital to ~80x leverage (now keeps equity >= deposits/6), and unpaid claims were wiped when the vault ran short (now only the paid part is deducted); (b) a test that was a coin flip on the RNG stream (the break could be 'quit' instead of 'drink'). Viral bank rumours can still cause runs, which is intended.
 - Next: fix those two tests, smaller test world for faster suite (it takes ~10 min), type the sim interfaces and un-`@ts-nocheck` the client, then deploy for real.
+
+## Typing (done in part)
+- `src/shared/protocol.ts` is the wire protocol: every server and client message, plus `parseClientMsg` which validates untrusted client JSON. The sim's init/stats/detail/cast/ev builders are checked against it.
+- The client is type-checked (no more `@ts-nocheck`). Worldgen is still `@ts-nocheck` on purpose (it is being rewritten for the larger map).
+- `npm run typecheck` = `tsc -p .` plus a ratchet (`scripts/typing-ratchet.mjs`, baseline in `typing-baseline.json`): implicit-any spots per file may only go down. 541 left (370 in `client/main.ts`). After cleaning some, run `node scripts/typing-ratchet.mjs --update` to lock it in.
+- `Dot` and `Building` still have `[k: string]: any` escape hatches (systems attach fields lazily); a wrong label (e.g. a dot marked Building) will not error, so review annotations by hand.
+- Remaining next steps: smaller test world for a faster suite, clean the 541 implicit-any spots, long-run re-measure after the bank fix, then deploy.
