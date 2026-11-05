@@ -141,8 +141,8 @@ function buildStep(this: World, d, b) {
 function contractors(this: World) {
   for (const b of this.sites.slice()) {
     if (b.state !== 'build' || this.tick - (b.lastProg || b.started || 0) < K.DAY_TICKS) continue;
-    const w = Math.min(K.DAY_WAGE, Math.max(0, b.escrow)); if (w > 0) this.toAbroad(b, 'escrow', w, 'contractors');
-    b.prog++; b.lastProg = this.tick; if (b.prog >= b.need) this.completeBuild(b);
+    const crew = Math.max(1, Math.min(6, b.need - b.prog)), w = Math.min(crew * K.DAY_WAGE, Math.max(0, b.escrow)); if (w > 0) this.toAbroad(b, 'escrow', w, 'contractors');
+    b.prog += crew; b.lastProg = this.tick; if (b.prog >= b.need) this.completeBuild(b);
   }
 }
 
