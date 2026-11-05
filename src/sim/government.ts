@@ -6,7 +6,7 @@ import type { Dot } from '../shared/types';
 import * as RL from '../shared/reality';
 const { BT, MAXM, STOCK_CAP, TILE, C } = K;
 
-export interface Gov { mayor: number; treasury: number; tax: number; next: number; festival: number }
+export interface Gov { mayor: number; treasury: number; tax: number; next: number; festival: number; party?: string; police?: number; benefitMult?: number; skim?: number; unrest?: number; crime?: number }
 export const ELECTION_DAYS = 6;
 
 /** Rough yearly-budget scale for a town: spending thresholds are multiples of this, so a hamlet and the capital behave alike. */
@@ -27,11 +27,12 @@ function election(this: World, s: any, first?: boolean, exclude?: number) {
   const votes = new Map(cands.map(c => [c.id, 0]));
   for (const v of adults) {
     let bc = cands[0], bs = -1e9;
-    for (const c of cands) { const sc = (v.aff.get(c.id) || 0) + this.rnd() * 25 + (v.thieves.has(c.id) ? -60 : 0); if (sc > bs) { bs = sc; bc = c; } }
+    for (const c of cands) { const sc = (v.aff.get(c.id) || 0) + this.rnd() * 25 + (v.thieves.has(c.id) ? -60 : 0) + this.voteBias(v, c, g); if (sc > bs) { bs = sc; bc = c; } }
     votes.set(bc.id, votes.get(bc.id) + 1);
   }
   const win = cands.slice().sort((a, b) => votes.get(b.id) - votes.get(a.id))[0], re = win.id === g.mayor;
-  g.mayor = win.id; g.tax = Math.max(1, Math.min(8, Math.round(RL.LOCAL_TAX_DEFAULT + win.fx.tax * 0.5 + (win.traits.includes('ambitious') ? 0.5 : 0))));   // local income tax, % of wages g.next = this.day() + ELECTION_DAYS;
+  g.mayor = win.id; g.tax = Math.max(1, Math.min(8, Math.round(RL.LOCAL_TAX_DEFAULT + win.fx.tax * 0.5 + (win.traits.includes('ambitious') ? 0.5 : 0))));
+  this.applyPlatform(s, win);   // local income tax, % of wages g.next = this.day() + ELECTION_DAYS;
   if (!first && cands.length > 1) {
     this.ev('elect' + s.id, `🗳️ ${s.name} votes! ${cands.map(c => `${c.name} (${votes.get(c.id)})`).join(' vs ')} — ${win.name} ${re ? 'is re-elected' : 'wins'} as mayor. Local income tax: ${g.tax}%.`, [win.id], 0, 4);
     this.say(win, [C.ME, C.HAPPY]);
@@ -42,9 +43,9 @@ function electAll(this: World, first?: boolean) { this.computeRep(); for (const 
 /** Unemployment benefit at dawn (taxes themselves are withheld from wages, see payWage). */
 function collectTaxes(this: World) {
   for (const d of this.dots) {
-    if (d.dead || !d.adult || d.job !== 3 || d.work >= 0 || d.age >= d.life * RL.RETIRE_FRAC || d.coin >= 40 * RL.KB) continue;
+    if (d.dead || !d.adult || d.job !== 3 || d.work >= 0 || d.age >= d.life * RL.RETIRE_FRAC || d.coin >= 40 * RL.KB || d.cop) continue;
     const g = this.gov(this.S[this.buildings[d.home].sid]);
-    if (g.treasury >= RL.BENEFIT) { d.coin += RL.BENEFIT; g.treasury -= RL.BENEFIT; this.biz.benefits++; }
+    const ben = RL.BENEFIT * (g.benefitMult || 1); if (g.treasury >= ben) { d.coin += ben; g.treasury -= ben; this.biz.benefits++; }
   }
 }
 

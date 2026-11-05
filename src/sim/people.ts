@@ -84,7 +84,7 @@ function makeDots(this: World) {
 
 function ownedBy(this: World, id, types) { return this.buildings.filter(b => b.owner === id && b.state === 'ok' && b.type !== BT.HOUSE); }
 
-const CAUSES: Record<string, string[]> = { hunger: ['starved'], age: ['died of old age', 'passed away peacefully in their sleep', 'died of old age'], illness: ['died of pneumonia', 'died after a long illness', 'succumbed to a winter fever', 'died of a sudden fever'], accident: ['was killed in a farming accident', 'died after a fall at work', 'died in a workplace accident', 'was lost in a cart accident'] };
+const CAUSES: Record<string, string[]> = { hunger: ['starved'], age: ['died of old age', 'passed away peacefully in their sleep', 'died of old age'], illness: ['died of pneumonia', 'died after a long illness', 'succumbed to a winter fever', 'died of a sudden fever'], violence: ['was killed in a gang shooting', 'was stabbed in a street fight', 'was found dead after a gang feud'], accident: ['was killed in a farming accident', 'died after a fall at work', 'died in a workplace accident', 'was lost in a cart accident'] };
 function causeText(w: World, cause: string) { return w.pick(CAUSES[cause] || CAUSES.age); }
 
 function die(this: World, d, cause) {

@@ -7,6 +7,7 @@ import { W, H } from "../shared/dims";
 
 function decide(this: World, d) {
   const tk = this.tick, tod = this.tod(), night = this.isNight(d), hours = tod > 0.27 && tod < 0.80;
+  if ((d.jailUntil || 0) > tk) { const h = this.nearest(this.halls, d, 0) || this.buildings[d.home]; this.setGoal(d, 'sleep', h.id, null); return; }   // in prison
   const c = [];
   c.push(['sleep', (100 - d.energy) * 1.15 + (night ? 75 : 0) - (d.hunger > 88 ? 60 : 0)]);
   const mk = d.hunger > 35 ? this.pickMarket(d) : -1;

@@ -16,7 +16,7 @@ test('mortgage: purchase, repayment, price crash, foreclosure; money conserved; 
   const ml = w.bank.loans.find((l: any) => l.kind === 'm'); assert.ok(ml);
   const left0 = ml.left; w.mortgageMonth();
   assert.ok(ml.left < left0 || ml.late > 0, 'a payment was processed');
-  w.hpi = 0.5; d.coin = 0;                             // crash and job loss
+  w.hpi = 0.5; w.nation.treasury += d.coin; d.coin = 0;                             // crash and job loss
   for (let i = 0; i < 4; i++) w.mortgageMonth();
   assert.ok(!w.bank.loans.includes(ml), 'the mortgage was foreclosed');
   assert.ok((w.stats.foreclosures || 0) >= 1);

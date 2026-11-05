@@ -8,7 +8,7 @@ import { W, H } from "../shared/dims";
 
 function stealTick(this: World) {
   for (const t of this.dots) {
-    if (!t.isThief || t.dead || t.inside || t.phase === 'chat' || t.theftCd > 0 || !t.adult || this.rnd() > 0.08 * t.fx.crime / 3) continue;
+    if (!t.isThief || t.dead || t.inside || (t.jailUntil || 0) > this.tick || t.phase === 'chat' || t.theftCd > 0 || !t.adult || this.rnd() > 0.08 * t.fx.crime / 3) continue;
     let vic = null;
     for (const v of this.dots) {
       if (v === t || v.dead || v.inside || v.coin < 15 * KB || v.phase === 'chat') continue;
