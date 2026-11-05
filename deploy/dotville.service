@@ -1,0 +1,22 @@
+# /etc/systemd/system/dotville.service  (adjust User and paths)
+[Unit]
+Description=Dotville world
+After=network.target
+
+[Service]
+User=dotville
+WorkingDirectory=/opt/dotville
+Environment=PORT=3000
+Environment=DOTVILLE_ROOT=/opt/dotville
+Environment=PUBLIC_URL=https://YOUR.DOMAIN
+Environment=TRUST_PROXY=1
+ExecStart=/usr/bin/node dist/server.js
+Restart=always
+RestartSec=3
+# Give the 60 s autosave / SIGTERM save time to finish
+TimeoutStopSec=30
+# Memory ceiling: the world uses ~300 MB; restart rather than swap
+MemoryMax=1G
+
+[Install]
+WantedBy=multi-user.target

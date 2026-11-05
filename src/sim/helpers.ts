@@ -23,7 +23,7 @@ function sayB(this: World, b, k) { this.out.push({ t: 'say', b: b.id, k }); }
 
 function ev(this: World, kind, text, ids, gap = 0, w = 1) {
   if (gap && this.tick - (this.lastEv[kind] || -1e9) < gap) return;
-  this.lastEv[kind] = this.tick; if (this.dayLog.length < 600) this.dayLog.push({ k: kind, x: text, ids: ids || [], w, tick: this.tick }); if (this.story) this.story.heat += w >= 4 ? 1 : w === 3 ? 0.15 : 0; const m = { t: 'ev', k: kind, x: text, ids: ids || [], w }; this.out.push(m); this.hist.push(m); if (this.hist.length > 40) this.hist.shift();
+  this.lastEv[kind] = this.tick; if (this.dayLog.length < 600) this.dayLog.push({ k: kind, x: text, ids: ids || [], w, tick: this.tick }); if (this.story) this.story.heat += w >= 4 ? 1 : w === 3 ? 0.15 : 0; const m = { t: 'ev', k: kind, x: text, ids: ids || [], w, tk: this.tick }; this.out.push(m); this.hist.push(m); if (this.hist.length > 40) this.hist.shift();
   if (this.mediaHook) this.mediaHook(kind, text, ids || [], w);
   if (this.thoughtHook) this.thoughtHook(kind, text, ids || [], w);
   if (this.legendHook) this.legendHook(kind, text, ids || [], w);

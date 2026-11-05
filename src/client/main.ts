@@ -2,6 +2,7 @@
 import { CATALOG, TRAIT } from '../sim/personality';
 import { renderIssue, GAZETTE_CSS } from '../shared/gazette';
 import { rollKey } from '../shared/feed';
+import { DAY_TICKS } from '../shared/reality';
 declare const Sim: any;   // provided by demo.ts when running without a server
 (() => {
 'use strict';
@@ -25,7 +26,14 @@ function send(m) { if (LOCAL) localSend(m); else if (ws && ws.readyState === 1) 
 function connect() {
   ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host);
   ws.binaryType = 'arraybuffer';
-  ws.onmessage = e => { if (typeof e.data === 'string') handle(JSON.parse(e.data)); else frame(e.data); };
+  /* Binary frames start with a type byte: 1 = world frame, 2 = gzip-compressed JSON message (the big init). */
+  let chain = null;   // keeps messages in order while the compressed init is still being unzipped
+  const process = d => { if (typeof d === 'string') handle(JSON.parse(d)); else frame(d); };
+  ws.onmessage = e => {
+    const d = e.data;
+    if (typeof d !== 'string' && new Uint8Array(d, 0, 1)[0] === 2) { chain = gunzip(d.slice(1)).then(t => { handle(JSON.parse(t)); chain = null; }); return; }
+    if (chain) chain = chain.then(() => process(d)); else process(d);
+  };
   ws.onclose = () => { $('#live').textContent = 'reconnecting…'; setTimeout(connect, 1500); };
   ws.onopen = () => { if (sel >= 0) send({ t: 'sel', id: sel }); for (const id of watched) send({ t: 'watch', id, on: true }); };
 }
@@ -105,7 +113,8 @@ function reportView(now) {
   const m = { t: 'view', x0: Math.floor(cam.x - vw / 2 - mx), y0: Math.floor(cam.y - vh / 2 - my), x1: Math.ceil(cam.x + vw / 2 + mx), y1: Math.ceil(cam.y + vh / 2 + my) };
   const key = m.x0 + ',' + m.y0 + ',' + m.x1 + ',' + m.y1; if (key === sentView) return; sentView = key; curView = m; send(m);
 }
-const clk = () => { const h = tod * 24, hh = Math.floor(h), mm = Math.floor((h - hh) * 60); return (hh < 10 ? '0' : '') + hh + ':' + (mm < 10 ? '0' : '') + mm + (h < 6 || h >= 20 ? ' 🌙' : h < 8 ? ' 🌅' : h >= 18 ? ' 🌇' : ' ☀️'); };
+async function gunzip(buf) { const r = new Response(new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'))); return r.text(); }
+const clk = (t = tod) => { const h = t * 24, hh = Math.floor(h), mm = Math.floor((h - hh) * 60); return (hh < 10 ? '0' : '') + hh + ':' + (mm < 10 ? '0' : '') + mm + (h < 6 || h >= 20 ? ' 🌙' : h < 8 ? ' 🌅' : h >= 18 ? ' 🌇' : ' ☀️'); };
 function hud() {
   $('#pop').textContent = stat.pop; $('#mood').textContent = stat.mood; $('#fr').textContent = stat.couples; if (tab === 'town') town(); if (tab === 'story') storyTab(); $('#viewers').textContent = stat.viewers;
   const fa = stat.food; $('#food').textContent = fa.length ? Math.round(fa.reduce((a, b) => a + b, 0) / fa.length) + ' avg · ' + Math.min(...fa) + ' min' : '–';
@@ -120,7 +129,7 @@ const ROLL_WINDOW = 14;
 function ticker(m, live) {
   if (live !== false) director(m);
   const w = m.w || 1, t = $('#ticker'), key = w >= 4 ? null : rollKey(m.x);
-  const body = m.x.replace(/</g, '&lt;'), stamp = `${clk()} · day ${day}`;
+  const body = m.x.replace(/</g, '&lt;'), stamp = m.tk !== undefined ? `${clk((m.tk % DAY_TICKS) / DAY_TICKS)} · day ${Math.floor(m.tk / DAY_TICKS) + 1}` : `${clk()} · day ${day}`;
   if (key) {
     const kids = t.children;
     for (let i = 0; i < kids.length && i < ROLL_WINDOW; i++) {

@@ -14,7 +14,7 @@ for (let i = 0; i < n; i++) {
   });
   ws.on('message', (d: Buffer, bin: boolean) => {
     bytes += d.length;
-    if (!bin && initBytes === 0) initBytes = d.length;
+    if (initBytes === 0 && (bin ? d[0] === 2 : true)) initBytes = d.length;
     if (bin && d[0] === 1 && i === 0) { frames++; lastTick = d.readUInt32LE(1); lastAt = Date.now(); if (firstTick < 0) { firstTick = lastTick; firstAt = lastAt; } }
   });
   ws.on('close', () => closed++);
