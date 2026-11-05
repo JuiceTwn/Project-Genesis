@@ -22,6 +22,7 @@ test('thoughts: a collapsed mood causes a break with real consequences; money co
   const s0 = base(w);
   const d = w.dots.find((x: any) => x.adult && !x.dead && x.coin > 5000 && w.taverns.length);
   d.fx.temper = 1; d.traits = d.traits.filter((t: string) => !['hothead', 'thief', 'lazy', 'romantic'].includes(t)); d.isThief = false; d.partner = -1;
+  if (d.work >= 0) w.unstaffDot(d);   // no job to walk out of: the break must take the 'drink' path (otherwise it is a coin flip on the RNG stream)
   d.th = [{ k: 'x', v: -60, until: w.tick + 10 * DAY_TICKS, from: w.tick, txt: 'Everything is falling apart.' }];
   const c0 = d.coin; w.mentalBreak(d, 10);
   assert.ok(d.coin < c0, 'they drank their sorrows away');

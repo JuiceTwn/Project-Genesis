@@ -13,6 +13,8 @@ export interface Bank {
   failedAt: number; runs: number; gen: number;
 }
 
+/** Deposits may reach this multiple of equity. */
+const K_LEVERAGE = 8;
 export const SAVE_RATE = 0.02, LOAN_RATE = 0.09, RESERVE = 0.15, LOAN_DAYS = 120;
 const N1 = ['Dot', 'Thrift', 'First', 'Mutual', 'Ledger', 'Crown', 'Hearth', 'Anchor'], N2 = ['Savings', 'Bank', 'Trust', 'Credit', 'Building Society'];
 
@@ -50,7 +52,7 @@ function bankDawn(this: World) {
   bk.fear *= 0.9;
   // savers: interest accrues on claims; the careful put surplus cash in; those short of cash take it out
   const eq0 = Math.max(0, this.bankEquity());
-  let room = 8 * eq0 - this.deposits();   // leverage limit: the bank only takes in what its capital can stand behind
+  let room = K_LEVERAGE * eq0 - this.deposits();   // leverage limit: the bank only takes in what its capital can stand behind
   for (const d of this.dots) {
     if (d.dead || !d.adult) continue;
     if (d.dep) d.dep *= 1 + dayRate;
@@ -58,7 +60,7 @@ function bankDawn(this: World) {
     if (d.coin > 3 * buffer && bk.fear < 0.3 && room > 0) { const amt = Math.min(room, (d.coin - 1.5 * buffer) * (d.traits.includes('frugal') ? 0.7 : 0.3)); room -= amt; d.coin -= amt; bk.cash += amt; d.dep = (d.dep || 0) + amt; }
     else if (d.dep && (d.coin < 2 * R.DAY_WAGE || (bk.fear > 0.3 && this.rnd() < bk.fear * 0.5))) {
       const want = bk.fear > 0.3 ? d.dep : Math.min(d.dep, 8 * R.DAY_WAGE), pay = Math.min(want, bk.cash);
-      d.coin += pay; bk.cash -= pay; d.dep -= want; if (d.dep < 0.01) d.dep = 0;
+      d.coin += pay; bk.cash -= pay; d.dep -= pay; if (d.dep < 0.01) d.dep = 0;   // an unpaid part of the claim stays a claim (it is only wiped if the bank fails)
       if (pay < want - 1) { bk.fear = Math.min(2, bk.fear + 0.4); }   // the teller says no
     }
   }
@@ -92,7 +94,8 @@ function bankDawn(this: World) {
   const eq = this.bankEquity(), cap0 = 200 * KB;
   if (eq < 0) { this.bankFail('its losses exceed its capital'); return; }
   if (bk.fear > 1.2 && bk.cash < 0.02 * Math.max(dep, 1) && dep > 20 * KB) { bk.runs++; this.stats.runs = (this.stats.runs || 0) + 1; this.ev('run', `🏃 A run on ${bk.name}: crowds at the door, and the tellers are out of cash.`, [bk.owner], 0, 4); if (eq < 0.1 * dep) { this.bankFail('a run drained its vaults'); return; } }
-  if (eq > 2 * cap0 && bk.cash > RESERVE * dep + (eq - cap0)) { const div = eq - cap0, o = this.dots[bk.owner]; if (o && !o.dead) { bk.cash -= div; o.coin += div; } }
+  const keep = Math.max(cap0, dep / (K_LEVERAGE - 2));   // never pay out the capital that backs today's deposits (keeps real leverage under the limit)
+  if (eq > 2 * keep && bk.cash > RESERVE * dep + (eq - keep)) { const div = eq - keep, o = this.dots[bk.owner]; if (o && !o.dead) { bk.cash -= div; o.coin += div; } }
 }
 
 /** One-line status for the gazette. */
