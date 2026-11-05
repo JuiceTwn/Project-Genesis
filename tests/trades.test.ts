@@ -31,12 +31,14 @@ test('trades: businesses specialise; modern trades need a big enough town; gear 
   const sid = w.S.findIndex((s: any, i: number) => (w.sPop[i] || 0) >= 25 && w.sbl[i].some((b: any) => b.type === K.BT.OFFICE));
   assert.ok(sid >= 0);
   const clinic = w.sbl[sid].find((b: any) => b.type === K.BT.OFFICE && b.state === 'ok'); clinic.spec = 'clinic'; clinic.owner = clinic.owner >= 0 ? clinic.owner : w.dots.find((d: any) => d.adult).id; clinic.staff = 2; clinic.perf = 1.4;
-  const s0 = base(w), pat = w.townAdults(sid)[0]; pat.coin = 50000; pat.hp = []; w.hurt(pat, 'injury', 0.7, 'test'); const c0 = clinic.cash;
+  let tamperTotal = 0;
+  const pat = w.townAdults(sid)[0]; pat.coin = 50000; pat.hp = []; const s0 = base(w);   // baseline after the test hands out money
+  w.hurt(pat, 'injury', 0.7, 'test'); const c0 = clinic.cash;
   for (let i = 0; i < 20 && !(pat.hp[0] && pat.hp[0].treated); i++) w.healthDay();
   assert.ok(clinic.cash > c0 || !pat.hp.length, 'the clinic was paid');
   const law = w.sbl[sid].find((b: any) => b !== clinic && b.type === K.BT.OFFICE && b.state === 'ok');
-  if (law) { law.spec = 'law'; law.staff = 2; law.perf = 1.4; law.owner = law.owner >= 0 ? law.owner : clinic.owner; const cl = w.townAdults(sid).find((d: any) => d !== pat); cl.coin = 50000; cl.jailUntil = 0; w.sentence(cl, 'test', 100); assert.ok(cl.jailUntil - w.tick < 100 * DAY_TICKS, 'a lawyer shortened the sentence'); }
-  assert.ok(Math.abs(base(w) - s0) < 1e-3, 'conserved');
+  if (law) { law.spec = 'law'; law.staff = 2; law.perf = 1.4; law.owner = law.owner >= 0 ? law.owner : clinic.owner; const cl = w.townAdults(sid).find((d: any) => d !== pat); const tamper = 50000 - cl.coin; cl.coin = 50000; cl.jailUntil = 0; w.sentence(cl, 'test', 100); assert.ok(cl.jailUntil - w.tick < 100 * DAY_TICKS, 'a lawyer shortened the sentence'); tamperTotal = tamper; }
+  assert.ok(Math.abs(base(w) - s0 - tamperTotal) < 1e-3, 'conserved');
   const b: any = new World({ seed: 132, deterministic: true, pop: 400, state: JSON.parse(JSON.stringify(w.serialize())) });
   assert.equal(b.buildings[clinic.id].spec, 'clinic');
   const d0 = w.dots.find((d: any) => d.at && d.sk); assert.deepEqual(b.dots[d0.id].at.map((v: number) => +v.toFixed(2)), d0.at.map((v: number) => +v.toFixed(2)));

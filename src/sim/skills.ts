@@ -59,7 +59,7 @@ function pickSpec(this: World, type: number, sid: number, founder): Spec {
   let tot = 0; const ws = list.map(s => {
     if (s.minPop && P < s.minPop) return 0;
     const have = town.filter(b => b.type === type && b.spec === s.id).length;
-    let w = (s.w || 1) * Math.max(0.15, 1.5 - 0.7 * have) * (1 + (founder ? this.skillLevel(founder, s.skill) / 6 : 0));
+    let w = (s.w || 1) * Math.max(0.15, 1.5 - 0.7 * have) * (1 + (founder && founder.sk ? (founder.sk[s.skill] || 0) / 6 : 0))   /* read-only: computing skills here could recurse back into this building's spec */;
     if (s.id === 'clinic' && !town.some(b => b.spec === 'clinic')) w *= 2.5;   // a town without a doctor wants one
     tot += w; return w;
   });

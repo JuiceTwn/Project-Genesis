@@ -15,7 +15,7 @@ test('skills: seeded from age and work, improve with practice, rust, masters mak
   farmer.sk.craft = 14.99; farmer.masters = []; const seen: string[] = []; w.trainSkill(farmer, 'craft', 0.5);
   assert.ok(farmer.masters.includes('craft'), 'became a master');
   const b: any = new World({ seed: 111, deterministic: true, pop: 300, state: JSON.parse(JSON.stringify(w.serialize())) });
-  assert.ok(Math.abs(b.skillLevel(b.dots[farmer.id], 'craft') - w.skillLevel(farmer, 'craft')) < 1e-9);
+  assert.ok(Math.abs(b.skillLevel(b.dots[farmer.id], 'craft') - w.skillLevel(farmer, 'craft')) < 5e-3);   // saved to 3 decimals
   assert.deepEqual(b.dots[farmer.id].masters, farmer.masters);
 });
 
