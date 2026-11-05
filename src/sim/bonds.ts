@@ -194,7 +194,7 @@ function bondDay(this: World) {
     // crowded under one roof
     if ((homes.get(d.home) || 0) >= 6) this.addThought(d, 'crowd', -4, 3, 'Too many people under one roof.');
     // envy: someone close does much better
-    if ((d.fx.ambition > 1.8 || d.fx.jealousy > 1.4 || d.traits.includes('greedy')) && this.rnd() < 0.5) {
+    if ((d.fx.ambition > 1.8 || d.fx.jealousy > 1.4 || d.traits.includes('greedy')) && this.rnd() < 0.2) {
       const fr = this.friends(d).slice(0, 6).map((f: number[]) => this.dots[f[0]]).find((x: Dot) => x && !x.dead && x.coin > Math.max(8 * R.DAY_WAGE, 6 * d.coin));
       if (fr) { this.bondAdd(d, fr.id, 'envy'); this.addThought(d, 'envy:' + fr.id, -3, 4, `Envious of ${first(this, fr.id)}'s money.`, fr.id); }
     }
