@@ -3,6 +3,7 @@ import { CATALOG, TRAIT } from '../sim/personality';
 import { renderIssue, GAZETTE_CSS } from '../shared/gazette';
 import { rollKey } from '../shared/feed';
 import { DAY_TICKS } from '../shared/reality';
+import type { World } from '../sim';
 import type { ServerMsg, ClientMsg, EvMsg, InitMsg, BldView, SettView, StatsMsg, DetailMsg, ArcView } from '../shared/protocol';
 declare const Sim: any;   // provided by demo.ts when running without a server
 (() => {
@@ -28,7 +29,7 @@ const viewCX = () => (cssW - insetCur.r) / 2, viewCY = () => insetCur.t + (cssH 
 const viewW = () => cssW - insetCur.r, viewH = () => cssH - insetCur.t - insetCur.b;
 
 /* ---------- transport ---------- */
-let ws = null, localWorld = null, localSpeed = 1, localIv = null;
+let ws: WebSocket | null = null, localWorld: World | null = null, localSpeed = 1, localIv: ReturnType<typeof setInterval> | null = null;
 function send(m: ClientMsg) { if (LOCAL) localSend(m); else if (ws && ws.readyState === 1) ws.send(JSON.stringify(m)); }
 function connect() {
   ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host);
