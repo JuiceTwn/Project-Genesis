@@ -131,14 +131,14 @@ function card() {
   const dt = detail, bar = (n, v, col) => `<div class="bar"><span>${n}</span><div><i style="width:${v}%;background:${col}"></i></div></div>`;
   const cd = a => (stat && stat.cd[a] > 0) ? ` ${stat.cd[a]}s` : '';
   const dis = a => (stat && stat.cd[a] > 0) || dt.dead ? 'disabled' : '';
-  c.innerHTML = `<h3>${dt.name} ${dt.fam || ''} <small>${dt.job} · age ${dt.age} · ${dt.coin} coins · mood ${dt.mood}</small></h3>
+  c.innerHTML = `<h3>${dt.name} ${dt.fam || ''} <small>${dt.job} · age ${dt.age} · ${money(dt.coin)} · mood ${dt.mood}</small></h3>
     <div class="trs">${dt.mayor ? '<span class="tr" style="background:#6b5a1f">🏛️ mayor</span>' : ''}${dt.traits.map(t => `<span class="tr" title="${TRAIT[t] ? TRAIT[t].blurb : ''}">${TRI[t] || ''} ${t}</span>`).join('')}</div>
     <div class="do">${dt.doing}${dt.partner ? ` · ${dt.married ? '💍' : '💘'} <a data-i="${dt.pid}" style="text-decoration:underline;cursor:pointer">${dt.partner}</a>` : ''}</div>
     ${bar('hunger', dt.hunger, '#e0775a')}${bar('energy', dt.energy, '#e6c65a')}${bar('social', dt.social, '#7fb0f0')}
     <div class="th">“${dt.thought}”</div>
     <div class="do">✨ Dream: ${dt.dream}${dt.thieves.length ? ` · 🥷 distrusts ${dt.thieves.map(i => names[i]).join(', ')}` : ''}</div>
     <div class="fr">${dt.friends.length ? dt.friends.map(f => `<a data-i="${f[0]}">${names[f[0]]}</a>`).join('') : '<span class="hint" style="color:#7d8ba1">no close friends yet</span>'}</div>
-    <div class="act"><button data-a="gift" ${dis('gift')}>🎁 +30${cd('gift')}</button><button data-a="cupid" ${dis('cupid')}>💘 Cupid${cd('cupid')}</button><button data-a="zap" ${dis('zap')}>⚡ Zap${cd('zap')}</button></div>`;
+    <div class="act"><button data-a="gift" ${dis('gift')}>🎁 +$2.5k${cd('gift')}</button><button data-a="cupid" ${dis('cupid')}>💘 Cupid${cd('cupid')}</button><button data-a="zap" ${dis('zap')}>⚡ Zap${cd('zap')}</button></div>`;
   c.querySelectorAll('a[data-i]').forEach(a => a.onclick = () => select(+a.dataset.i));
   c.querySelectorAll('button[data-a]').forEach(b => b.onclick = () => send({ t: 'act', n: b.dataset.a, id: sel }));
   if (dt.dead && !deadTimer) deadTimer = setTimeout(() => { deadTimer = null; if (sel === dt.id) select(-1); }, 4000);
@@ -149,13 +149,13 @@ function town() {
   const ICON = ['👑', '🏘️', '🏡', '🛖'], fmt = n => n >= 10000 ? (n / 1000).toFixed(0) + 'k' : n >= 1000 ? (n / 1000).toFixed(1) + 'k' : '' + n;
   const B = stat.biz || {};
   const rows = (stat.towns || []).map((t, i) => ({ n: t[0], tier: t[1], pop: t[2], mayor: t[3], tre: t[4], tax: t[5], next: t[6], i })).sort((a, b) => a.tier - b.tier || b.pop - a.pop);
-  const tw = rows.map(t => `<div class="row" ${t.mayor >= 0 ? `data-i="${t.mayor}"` : ''}><span>${ICON[t.tier]} ${t.n} <small style="opacity:.6">· ${t.pop} · ${t.mayor >= 0 ? '🏛️ ' + names[t.mayor] : 'no mayor'}</small></span><i>💰 ${fmt(t.tre)} · tax ${t.tax}</i></div>`).join('');
-  const mayor = `<div class="tstats" style="margin:4px 0 6px">🏦 National treasury ${fmt(stat.nation || 0)} coins · local treasuries ${fmt(stat.treasury || 0)} · each town elects its own mayor</div>`;
-  const M = stat.money, fl = M ? M.flow : {}, sg = v => (v >= 0 ? '+' : '−') + fmt(Math.abs(v || 0));
-  const mny = M ? `<div class="tstats" style="margin:4px 0 6px">💵 Money supply ${fmt(M.supply)} coins · printed by the government ${fmt(M.minted)}<br>🌍 Trade with abroad: exports ${sg(fl.exports)} · imports ${sg(fl.imports)} · utilities ${sg(fl.upkeep)} · migrants ${sg(fl.migrants)}${fl.repairs ? ' · repairs ' + sg(fl.repairs) : ''}</div>` : '';
+  const tw = rows.map(t => `<div class="row" ${t.mayor >= 0 ? `data-i="${t.mayor}"` : ''}><span>${ICON[t.tier]} ${t.n} <small style="opacity:.6">· ${t.pop} · ${t.mayor >= 0 ? '🏛️ ' + names[t.mayor] : 'no mayor'}</small></span><i>💰 ${money(t.tre)} · tax ${t.tax}%</i></div>`).join('');
+  const mayor = `<div class="tstats" style="margin:4px 0 6px">🏦 National treasury ${money(stat.nation || 0)} · local treasuries ${money(stat.treasury || 0)} · each town elects its own mayor</div>`;
+  const M = stat.money, fl = M ? M.flow : {}, sg = v => (v >= 0 ? '+' : '−') + money(Math.abs(v || 0));
+  const mny = M ? `<div class="tstats" style="margin:4px 0 6px">💵 Money supply ${money(M.supply)} · printed by the government ${money(M.minted)}<br>🌍 Trade with abroad: exports ${sg(fl.exports)} · imports ${sg(fl.imports)} · utilities ${sg(fl.upkeep)} · migrants ${sg(fl.migrants)}${fl.repairs ? ' · repairs ' + sg(fl.repairs) : ''}</div>` : '';
   const eco = `<div class="tstats" style="margin:6px 0">🏪 ${B.open} businesses open · 🏗️ ${B.sites} building sites · 🚪 ${B.vacant} vacant<br>📈 ${B.built} built · 📉 ${B.closed} failed · 🤝 ${B.sold} sold · 🔥 ${B.fires} fires · 🧳 ${B.arrived} arrived<br>💸 ${B.unpaid} missed payrolls · 🚪 ${B.quit} quit · 🧑‍💼 ${B.jobless} jobless · 🏦 ${B.benefits} benefit payments</div>`;
   $('#town').innerHTML = mayor + mny + `<h4>Settlements</h4>` + tw + eco + `<div class="tstats">💑 ${stat.couples} couples · 👶 ${stat.births} born · 🕯️ ${stat.deaths} died<br>🚨 ${stat.thefts} robberies · 🥊 ${stat.fights} brawls · 🍞 ${stat.food.join(' / ')}</div>`
-    + row('💰 Richest', L.rich, v => v + ' coins') + row('❤️ Most loved', L.loved, v => v) + row('😡 Most hated', L.hated, v => v) + row('🧓 Oldest', L.old, v => v + ' yrs');
+    + row('💰 Richest', L.rich, v => money(v)) + row('❤️ Most loved', L.loved, v => v) + row('😡 Most hated', L.hated, v => v) + row('🧓 Oldest', L.old, v => v + ' yrs');
   $('#town').querySelectorAll('.row').forEach(r => r.onclick = () => select(+r.dataset.i));
 }
 /* ---------- stories: active arcs + the chronicle ---------- */
@@ -319,6 +319,8 @@ const toS = (x, y) => [(x - cam.x) * sc() + cssW / 2, (y - cam.y) * sc() + cssH 
 function clampCam() { const s = sc(), vw = cssW / s, vh = cssH / s; cam.x = vw >= W ? W / 2 : Math.max(vw / 2, Math.min(W - vw / 2, cam.x)); cam.y = vh >= H ? H / 2 : Math.max(vh / 2, Math.min(H - vh / 2, cam.y)); }
 function dark() { const h = tod * 24; if (h < 5 || h >= 21) return 0.52; if (h < 7.5) return 0.52 * (7.5 - h) / 2.5; if (h >= 18.5) return 0.52 * (h - 18.5) / 2.5; return 0; }
 function rr(x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+/** dollars, compact: $1.2M, $48k, $812 */
+const money = n => { n = Math.round(n || 0); const a = Math.abs(n), sg = n < 0 ? '−' : ''; return sg + '$' + (a >= 1e9 ? (a / 1e9).toFixed(1) + 'B' : a >= 1e6 ? (a / 1e6).toFixed(1) + 'M' : a >= 1e4 ? Math.round(a / 1e3) + 'k' : a >= 1e3 ? (a / 1e3).toFixed(1) + 'k' : a); };
 const clamp01 = v => v < 0 ? 0 : v > 1 ? 1 : v;
 
 function draw(now) {
