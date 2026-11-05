@@ -23,7 +23,7 @@ function decide(this: World, d) {
     c.push(['work', s]);
   }
   if (d.adult && !retired && (d.job === 1 || d.job === 3) && this.sites.length && hours && d.energy > 22) {
-    const st = this.siteFor(d); if (st) c.push(['build', 38 + d.dil * 18 + (d.coin < 30 * KB ? 28 : 0) + (d.job === 3 ? 12 : 0)]);
+    const st = this.siteFor(d); if (st) c.push(['build', 38 + d.dil * 18 + (d.coin < 30 * KB ? 28 : 0) + (d.job === 3 ? 12 : 0) + (d.work >= 0 && this.buildings[d.work] && this.buildings[d.work].state === 'build' ? 70 : 0)]);
   }
   const fest = tk < this.festival || tk < ((this.gov(this.S[this.buildings[d.home].sid])).festival || 0), inv = d.invite && tk < d.invite.until ? d.invite : null;
   c.push(['social', (100 - d.social) * d.soc * 0.95 + (fest ? 90 : 0) + (inv && inv.k === 'social' ? 60 : 0) - (night ? 45 : 0) - (this.weather ? 30 : 0)]);
@@ -42,6 +42,7 @@ function setGoal(this: World, d, k, mk, inv) {
     case 'eat': g = { k, b: mk, enter: true }; break;
     case 'work': {
       let b = d.job === 3 ? this.nearest(this.workshops, d, 10) : this.buildings[d.work];
+      if (b && b.state === 'build') { g = { k: 'build', b: b.id, enter: false }; break; }
       if (!b || b.state !== 'ok') { b = this.nearest(this.workshops, d, 10) || this.buildings[d.home]; }
       g = { k, b: b.id, enter: !b.open }; break;
     }

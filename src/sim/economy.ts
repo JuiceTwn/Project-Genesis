@@ -8,7 +8,7 @@ import { W, H } from "../shared/dims";
 
 function economyDawn(this: World) {
   this.sPop = []; for (const d of this.dots) if (!d.dead) { const sid = this.buildings[d.home].sid; this.sPop[sid] = (this.sPop[sid] || 0) + 1; }
-  this.settle(); this.hire(); this.disasters(); this.housing(); this.contractors(); this.entrepreneurs(); this.sales(); this.immigration(); this.vacancies();
+  this.settle(); this.hire(); this.disasters(); this.housing(); this.entrepreneurs(); this.sales(); this.immigration(); this.vacancies();
 }
 
 /** Pay a shift's wage out of the employer's pocket. Returns what the worker actually received.
@@ -95,6 +95,17 @@ function hire(this: World) {
         if (best < 0) break; pool = pools[best];
       }
       const d = pool.splice((this.rnd() * pool.length) | 0, 1)[0]; d.job = job; d.work = b.id; need--; b.staff++;
+    }
+  }
+  // construction is a job too: every building site hires a crew of builders from the same labour pool, paid a day's wage per shift out of the site's escrow
+  for (const b of this.sites) {
+    if (b.state !== 'build') continue;
+    const crew = Math.max(2, Math.min(6, Math.ceil((b.need - b.prog) / 12)));
+    let have = this.dots.filter(d => !d.dead && d.work === b.id && d.job === 1).length;
+    while (have < crew) {
+      let pool = pools[b.sid];
+      if (!pool || !pool.length) { let best = -1, bd = 45; for (const k of Object.keys(pools)) { const o = this.S[+k], t = this.S[b.sid]; if (!pools[+k].length) continue; const dd = Math.hypot(o.x - t.x, o.y - t.y); if (dd < bd) { bd = dd; best = +k; } } if (best < 0) break; pool = pools[best]; }
+      const d = pool.splice((this.rnd() * pool.length) | 0, 1)[0]; d.job = 1; d.work = b.id; have++;
     }
   }
 }

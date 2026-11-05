@@ -97,6 +97,7 @@ function pushTiles(this: World, list) { if (list.length) this.out.push({ t: 'til
 function footprint(this: World, b) { const r = []; for (let dy = 0; dy < b.h; dy++) for (let dx = 0; dx < b.w; dx++) r.push((b.y + dy) * W + b.x + dx); return r; }
 
 function siteFor(this: World, d) {
+  { const mine = d.work >= 0 && this.buildings[d.work]; if (mine && mine.state === 'build') return mine; }   // a hired builder goes to their own site
   const sid = this.buildings[d.home].sid; let best = null, bv = 1e9;
   for (const st of this.sites) { const v = (st.sid === sid ? 0 : 30) + Math.hypot(st.x - d.x, st.y - d.y); if (v < bv && v < 60) { bv = v; best = st; } }
   return best;
@@ -133,20 +134,12 @@ function startBuild(this: World, plot, type, owner, cost) {
 
 function buildStep(this: World, d, b) {
   if (!b || b.state !== 'build') return;
-  const w = Math.min(K.DAY_WAGE, Math.max(0, b.escrow)); b.escrow -= w; d.coin += w; b.prog++; b.lastProg = this.tick;
+  const w = Math.min(K.DAY_WAGE, Math.max(0, b.escrow)); b.escrow -= w; d.coin += this.withhold(b, w); b.prog++;
   if (b.prog >= b.need) this.completeBuild(b);
 }
 
-/** At dawn: a site nobody local worked on for a day gets a crew from abroad for a shift (their wage leaves the country), so a full labour market cannot stall construction. */
-function contractors(this: World) {
-  for (const b of this.sites.slice()) {
-    if (b.state !== 'build' || this.tick - (b.lastProg || b.started || 0) < K.DAY_TICKS) continue;
-    const crew = Math.max(1, Math.min(6, b.need - b.prog)), w = Math.min(crew * K.DAY_WAGE, Math.max(0, b.escrow)); if (w > 0) this.toAbroad(b, 'escrow', w, 'contractors');
-    b.prog += crew; b.lastProg = this.tick; if (b.prog >= b.need) this.completeBuild(b);
-  }
-}
-
 function completeBuild(this: World, b) {
+  for (const x of this.dots) if (!x.dead && x.work === b.id && x.job === 1) { x.job = 3; x.work = -1; }   // the crew is released
   b.state = 'ok'; b.born = this.tick; this.sites = this.sites.filter(x => x !== b); this.biz.built++; this.rebuild(); this.fgen++; this.pushBld(b, 'upd');
   const o = b.owner >= 0 ? this.dots[b.owner] : null, s = this.S[b.sid], nm = BT_NAME[b.type].toLowerCase();
   this.liquidateEscrow(b);
@@ -189,7 +182,7 @@ function vacancies(this: World) {
   }
 }
 
-Object.assign(World.prototype, { contractors, evictFields, mkBuilding, placeOn, rebuild, F, nameBuilding, buildMap, bldMsg, pushBld, pushTiles, footprint, siteFor, freePlot, expandSettlement, plotFor, startBuild, buildStep, completeBuild, moveIn, demolish, isBiz, burn, vacancies });
+Object.assign(World.prototype, { evictFields, mkBuilding, placeOn, rebuild, F, nameBuilding, buildMap, bldMsg, pushBld, pushTiles, footprint, siteFor, freePlot, expandSettlement, plotFor, startBuild, buildStep, completeBuild, moveIn, demolish, isBiz, burn, vacancies });
 declare module './world' { interface World {
   mkBuilding: (...args: any[]) => any;
   placeOn: (...args: any[]) => any;
@@ -209,7 +202,6 @@ declare module './world' { interface World {
   startBuild: (...args: any[]) => any;
   buildStep: (...args: any[]) => any;
   completeBuild: (...args: any[]) => any;
-  contractors: (...args: any[]) => any;
   moveIn: (...args: any[]) => any;
   demolish: (...args: any[]) => any;
   isBiz: (...args: any[]) => any;
