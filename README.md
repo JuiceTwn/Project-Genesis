@@ -47,7 +47,7 @@ is happening now. It's a window, not a game: slow, ambient and calming, closer t
   property is inherited.
 - **People:** traits (thief, hothead, gossip, kind, romantic, jealous, coward, ambitious, lazy), dreams, friendships,
   marriage, births, aging and death. Seasons, weather, floating market prices.
-- **Language:** English, no LLM. Systems say what they mean as a dialogue act; `src/sim/speech.ts` turns it into a sentence using variants picked by time of day, weather, mood, age, traits and how well speaker and listener know each other, plus a per-person verbal tic and no recent repeats. Chats are about something true: a fresh thought ("It's over between us"), a shared memory, work, family, a mutual acquaintance, the mayor's tax, the weather.
+- **Language:** English, no LLM (`src/sim/speech/`, with its own README). Systems say what they mean as an act; the engine picks a phrasing by what is true right now (time, weather, mood, age, traits, relationship, illness, fame), then adds a settlement **dialect**, the speaker's **persona** (a verbal tic, an oath, a sign-off, sometimes a quirk like speaking in the third person) and conditional **flourishes** (a hothead SHOUTS, a cough when ill, a yawn for a new parent, "As mayor,"). Chats are about something true: a fresh thought, a shared memory, work, family, a mutual acquaintance, the real news from the feed, banter between friends, a row between rivals. Listeners answer in character, and friends take turns. `npm run speech` lints the content and prints real conversations.
 - **Viewer layer:** feed, auto-camera, followable dots, Town tab with per-settlement mayors and budgets.
 
 ## Roadmap
@@ -80,6 +80,6 @@ TypeScript for the sim, worldgen, server and client; Python for offline tuning a
     ml/            Python: balance_report.py now; imitation/PPO training and ONNX export later
     tests/         node:test regression tests (determinism, invariants, save/load)
 
-Commands: `npm run build` (client + demo.html + server bundle), `npm start`, `npm run dev`, `npm test`,
+Commands: `npm run speech` (lint + sample conversations), `npm run build` (client + demo.html + server bundle), `npm start`, `npm run dev`, `npm test`,
 `npm run typecheck`, `npm run bench -- 40 --seed 7 --json ml/out/run.jsonl`, `npm run report ml/out/run.jsonl`,
 `npm run map -- 1337 map.png`.
