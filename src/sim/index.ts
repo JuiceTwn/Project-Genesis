@@ -8,3 +8,4 @@ export type { View } from './output';
 export * from '../shared/constants';
 import './thoughts';
 import './skills';
+import './health';

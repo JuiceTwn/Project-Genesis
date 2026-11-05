@@ -94,7 +94,7 @@ function dawn(this: World) {
     () => { if (day % K.MONTH_DAYS === 0) { this.politicsMonth(); this.policeMonth(); } },
     () => { this.budgetDawn(); this.gearDawn(); this.brandDawn(); },
     () => { this.bankDawn(); this.mortgageDawn(); },
-    () => { this.crimeDawn(); this.mediaDay(); this.thoughtDay(); this.skillDay(); },
+    () => { this.crimeDawn(); this.mediaDay(); this.thoughtDay(); this.skillDay(); this.healthDay(); },
     () => this.gazetteDawn(),   // the paper goes to press with yesterday's news
     () => {
       this.sPop = []; for (const d of this.dots) if (!d.dead) { const sid = this.buildings[d.home].sid; this.sPop[sid] = (this.sPop[sid] || 0) + 1; }

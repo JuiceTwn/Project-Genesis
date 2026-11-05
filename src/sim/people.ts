@@ -84,7 +84,7 @@ function makeDots(this: World) {
 
 function ownedBy(this: World, id, types) { return this.buildings.filter(b => b.owner === id && b.state === 'ok' && b.type !== BT.HOUSE); }
 
-const CAUSES: Record<string, string[]> = { hunger: ['starved'], age: ['died of old age', 'passed away peacefully in their sleep', 'died of old age'], illness: ['died of pneumonia', 'died after a long illness', 'succumbed to a winter fever', 'died of a sudden fever'], violence: ['was killed in a gang shooting', 'was stabbed in a street fight', 'was found dead after a gang feud'], accident: ['was killed in a farming accident', 'died after a fall at work', 'died in a workplace accident', 'was lost in a cart accident'] };
+const CAUSES: Record<string, string[]> = { hunger: ['starved'], age: ['died of old age', 'passed away peacefully in their sleep', 'died of old age'], illness: ['died of pneumonia', 'died after a long illness', 'succumbed to a winter fever', 'died of a sudden fever'], violence: ['was killed in a gang shooting', 'was stabbed in a street fight', 'was found dead after a gang feud'], infection: ['died of an untreated infection', 'died after a wound turned septic', 'was lost to blood poisoning'], accident: ['was killed in a farming accident', 'died after a fall at work', 'died in a workplace accident', 'was lost in a cart accident'] };
 function causeText(w: World, cause: string) { return w.pick(CAUSES[cause] || CAUSES.age); }
 
 function die(this: World, d, cause) {
@@ -175,7 +175,7 @@ function mortality(this: World) {
     const old = d.age > d.life * 0.8 ? 1 + (d.age / d.life - 0.8) * 25 : 1;
     const p = 0.000025 * old * winter * (winter > 1 ? 1 - 0.5 * eff(d, 'coat') : 1) * (d.hunger > 85 ? 3 : 1) * (d.age < 2 ? 2.5 : 1) * (d.fx.risk > 1.6 ? 1.2 : 1);
     if (this.rnd() < p) { this.die(d, 'illness'); continue; }
-    if (d.adult && (d.job === 0 || d.job === 1) && this.rnd() < 0.000002 * d.fx.risk) this.die(d, 'accident');
+    if (d.adult && (d.job === 0 || d.job === 1) && this.rnd() < 0.0000006 * d.fx.risk) this.die(d, 'accident');   // the rest of the accident risk is injuries (see health.ts)
   }
 }
 
