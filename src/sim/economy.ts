@@ -17,7 +17,7 @@ function economyDawn(this: World) {
 /** Taxes come out of every paycheque: a local income tax set by the mayor and a national one. Returns the take-home pay. */
 function withhold(this: World, b, w: number): number {
   const g = this.gov(this.S[b.sid]), local = w * g.tax / 100, nat = w * K.NATION_TAX;
-  g.treasury += local; this.nation.treasury += nat; return w - local - nat;
+  g.treasury += local; this.nation.treasury += nat; this.stats.taxLocal = (this.stats.taxLocal || 0) + local; this.stats.taxNation = (this.stats.taxNation || 0) + nat; return w - local - nat;
 }
 
 /** Wholesale imports: a market that runs low orders grain from abroad. It pays from its own till, else the town treasury, else the national

@@ -42,8 +42,10 @@ test('every populated settlement has its own mayor, and taxes fill local treasur
   for (const s of populated) assert.ok(w.gov(s).mayor >= 0, `${s.name} has a mayor`);
   assert.equal(new Set(populated.map((s: any) => w.gov(s).mayor)).size, populated.length, 'mayors are distinct people');
   run(w, 2 * DAY_TICKS);
-  assert.ok(w.townTreasury() > 0, 'local treasuries collect tax');
-  assert.ok(w.nation.treasury > 0, 'the nation takes its cut');
+  // taxes are withheld from paycheques: towns and the nation both collect (treasuries may be spent down, e.g. restocking public markets)
+  assert.ok(w.stats.taxLocal > 0, 'towns collect local income tax');
+  assert.ok(w.stats.taxNation > 0, 'the nation collects its income tax');
+  assert.ok(w.stats.taxNation > w.stats.taxLocal * 3, 'the national rate is several times the local rate');
 });
 
 test('interest-based frames: overview and zoomed views are far smaller than the full population frame', () => {
