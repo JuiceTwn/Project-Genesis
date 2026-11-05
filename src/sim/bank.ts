@@ -7,7 +7,7 @@ import * as K from '../shared/constants';
 import * as R from '../shared/reality';
 const { KB, BT } = K;
 
-export interface Loan { id: number; b: number; owner: number; left: number; rate: number; days: number; late: number; installment: number }
+export interface Loan { id: number; b: number; owner: number; left: number; rate: number; days: number; late: number; installment: number; kind?: string }
 export interface Bank {
   name: string; owner: number; born: number; cash: number; loans: Loan[]; fear: number; nextLoan: number; paid: number; lost: number; interestIn: number;
   failedAt: number; runs: number; gen: number;
@@ -21,7 +21,7 @@ function deposits(this: World): number { let t = 0; for (const d of this.dots) i
 /** What the loan book is worth (a stressed bank sells at a discount). */
 function loanBook(this: World): number { return this.bank ? this.bank.loans.reduce((a, l) => a + l.left, 0) : 0; }
 /** Equity: cash plus loans minus what is owed to depositors. */
-function bankEquity(this: World): number { return this.bank ? this.bank.cash + this.loanBook() - this.deposits() : 0; }
+function bankEquity(this: World): number { return this.bank ? this.bank.cash + this.loanBook() + (this.bank.reo ? this.bank.reo.length * 0.6 * R.HOUSE_VALUE * this.hpi : 0) - this.deposits() : 0; }
 
 /** Found a bank: the richest adult puts up the capital. */
 function foundBank(this: World, gen = 1) {
@@ -76,6 +76,7 @@ function bankDawn(this: World) {
   }
   // repayments, interest, defaults
   for (const l of bk.loans.slice()) {
+    if (l.kind === 'm') continue;   // mortgages are handled monthly in mortgage.ts
     const b = this.buildings[l.b], o = this.dots[l.owner];
     l.days++; const interest = l.left * l.rate / K.YEAR_DAYS;
     const gone = !b || b.state !== 'ok' || b.owner !== l.owner || !o || o.dead;
