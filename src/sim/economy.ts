@@ -20,6 +20,19 @@ function withhold(this: World, b, w: number): number {
   g.treasury += local; this.nation.treasury += nat; return w - local - nat;
 }
 
+/** Wholesale imports: a market that runs low orders grain from abroad. It pays from its own till, else the town treasury, else the national
+    treasury (a strategic reserve), so a remote village can never simply run dry while its people hold money. Runs four times a day. */
+function restockMarkets(this: World) {
+  for (const b of this.buildings) {
+    if (b.state !== 'ok' || b.type !== BT.MARKET || b.stock >= 80) continue;
+    const qty = Math.min(STOCK_CAP - b.stock, 160), cost = qty * MEAL_UNIT, [o, k] = this.till(b);
+    let paid = this.toAbroad(o, k, cost, 'imports');
+    if (paid < cost) paid += this.toAbroad(this.gov(this.S[b.sid]), 'treasury', cost - paid, 'imports');
+    if (paid < cost) paid += this.toAbroad(this.nation, 'treasury', cost - paid, 'imports');
+    b.stock += Math.round(paid / MEAL_UNIT); this.checkStock(b);
+  }
+}
+
 function payWage(this: World, b, d, w: number): number {
   if (b.state !== 'ok' || !this.isBiz(b)) return w;   // odd jobs on a site etc.: the site's escrow pays elsewhere
   const [o, k] = this.till(b);
@@ -173,8 +186,9 @@ function mprice(this: World, b) { return MEAL_UNIT * (b.stock < 25 ? 8 : b.stock
 
 function price(this: World, d) { return d.adult ? 2 * MEAL_UNIT : 0; }
 
-Object.assign(World.prototype, { withhold, payWage, economyDawn, settle, fail, hire, entrepreneurs, tryFound, housing, immigration, sales, disasters, mprice, price });
+Object.assign(World.prototype, { restockMarkets, withhold, payWage, economyDawn, settle, fail, hire, entrepreneurs, tryFound, housing, immigration, sales, disasters, mprice, price });
 declare module './world' { interface World {
+  restockMarkets: (...args: any[]) => any;
   withhold: (...args: any[]) => any;
   payWage: (...args: any[]) => any;
   economyDawn: (...args: any[]) => any;

@@ -76,6 +76,7 @@ function step(this: World) {
   }
   this.stealTick();
   if (tk % Math.round(50 * TS) === 0) this.couples();
+  if (tk % Math.round(DAY_TICKS / 4) === 0) this.restockMarkets();
   // tavern chatter
   for (const b of this.taverns) if (b.occ > 0 && tk % 25 === b.id % 25) {
     const o = this.pick(b.inside), lines = [[C.ME, C.WANT, C.DRINK], [C.HELLO], [C.ME, C.HAPPY], [C.YOU, C.GOOD], [C.DRINK, C.GOOD], [C.ME, C.LIKE, C.FRIEND]];
