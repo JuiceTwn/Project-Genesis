@@ -65,12 +65,12 @@ function makeDots(this: World) {
     const o = dots[(R() * n) | 0];
     if (o !== d && !d.aff.has(o.id) && (this.buildings[o.home].sid === this.buildings[d.home].sid) && (o.job === d.job || R() < 0.3)) link(d, o, 28 + R() * 10);
   }
-  let made = 0, tries = 0; const wantC = Math.round(n * 0.07);
-  while (made < wantC && tries++ < 1500) {
+  let made = 0, tries = 0; const wantC = Math.round(dots.filter(d => d.adult).length * 0.28);
+  while (made < wantC && tries++ < 30000) {
     const a = dots[(R() * n) | 0], b = dots[(R() * n) | 0];
-    if (a === b || !a.adult || !b.adult || a.partner >= 0 || b.partner >= 0 || a.home === b.home || a.fam === b.fam || this.buildings[a.home].sid !== this.buildings[b.home].sid) continue;
+    if (a === b || !a.adult || !b.adult || Math.abs(a.age - b.age) > 9 || a.partner >= 0 || b.partner >= 0 || a.home === b.home || a.fam === b.fam || this.buildings[a.home].sid !== this.buildings[b.home].sid) continue;
     link(a, b, 45 + R() * 20); a.partner = b.id; b.partner = a.id; a.since = b.since = -Math.floor(R() * 1.2 * DAY_TICKS);
-    a.married = b.married = made < wantC * 0.36; made++;
+    a.married = b.married = made < wantC * 0.75; made++;
     for (const d of [a, b]) { d.done.add('love'); if (d.dream === 'love') d.dream = this.pickDream(d, R, 'love'); }
   }
   // ownership: house heads own their homes; about half of the businesses start in private hands

@@ -24,7 +24,7 @@ function payWage(this: World, b, d, w: number): number {
   if (b.state !== 'ok' || !this.isBiz(b)) return w;   // odd jobs on a site etc.: the site's escrow pays elsewhere
   const [o, k] = this.till(b);
   if (o[k] >= w) { o[k] -= w; b.wage += w; d.unpaid = 0; return this.withhold(b, w); }
-  d.unpaid = (d.unpaid || 0) + 1; this.biz.unpaid++;
+  const frac = w / (K.WAGE[b.type] || K.DAY_WAGE); d.unpaid = (d.unpaid || 0) + frac; this.biz.unpaid += frac;
   this.ev('unpaid' + b.id, `💸 ${b.name} ${BT_NAME[b.type]} in ${this.S[b.sid].name} missed payroll — ${d.name} went home unpaid.`, [d.id, b.owner], 2 * DAY_TICKS, 2);
   if (d.unpaid >= 3 && d.job !== 3 && d.work === b.id) {
     d.job = 3; d.work = -1; d.unpaid = 0; b.staff = Math.max(0, (b.staff || 1) - 1); this.biz.quit++;

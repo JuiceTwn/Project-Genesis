@@ -41,7 +41,7 @@ function arrive(this: World, d) {
       break;
     case 'work': {
       const t = d.job === 0 ? Math.round(55 * TS) : d.job === 3 ? Math.round(60 * TS) : HOUR_TICKS * 8;   // a farm cycle; or an 8-hour shift for everyone else
-      if (g.enter) this.enter(d, b); d.timer = t; break;
+      if (g.enter) this.enter(d, b); d.timer = t; d.shiftTicks = t; d.paidH = 0; break;
     }
     case 'deliver': {
       this.enter(d, b);
@@ -74,9 +74,10 @@ function doing(this: World, d) {
     }
     case 'eat': if (--d.timer <= 0) { d.hunger = Math.max(0, d.hunger - 62); this.finish(d); } break;
     case 'work':
+      if (d.job !== 0) this.payShiftHours(d, g, false);   // paid by the hour, so an interrupted shift still earns what was worked
       if (--d.timer <= 0) {
         if (d.job === 0) { d.carry = tkLess(this.tick, this.blight) || this.tick < (this.S[this.buildings[d.home].sid].drought || 0) ? 0 : Math.max(1, Math.round(4 * YIELD[this.season()] * K.FARM_PRODUCTIVITY)); if (!d.carry) this.out.push({ t: 'say', d: d.id, k: [C.FARM, C.BAD] }); else if (d.carry > 1) { d.carry--; d.hunger = Math.max(0, d.hunger - 30); } }   // farm hands eat a share of the harvest on the spot
-        else { const wb = this.buildings[g.b], w = K.WAGE[wb.type] || K.DAY_WAGE * 0.6; /* the workplace sets the wage (odd jobs and keepers too) */ wb.visits++; if (wb.state === 'ok' && K.REV[wb.type]) this.exportIn(wb, K.REV[wb.type]); d.coin += this.payWage(wb, d, w); }
+        else { this.buildings[g.b].visits++; this.payShiftHours(d, g, true); }
         this.finish(d);
       }
       break;
@@ -111,8 +112,19 @@ function leave(this: World, d) { if (!d.inside) return; const b = this.buildings
 
 function sayDelayed(this: World, d, k) { this.later(1, { t: 'say', d: d.id, k }); }
 
-Object.assign(World.prototype, { move, arrive, doing, finish, checkStock, enter, leave, sayDelayed });
+/** Pay (and book export revenue for) the hours worked so far in this shift; `final` settles the remainder. A shift is 8 hours = one day's wage. */
+function payShiftHours(this: World, d, g, final: boolean) {
+  const wb = this.buildings[g.b], total = (d.shiftTicks || HOUR_TICKS * 8) / HOUR_TICKS, done = final ? total : Math.floor(((d.shiftTicks || 0) - d.timer) / HOUR_TICKS), n = done - (d.paidH || 0);
+  if (n <= 0.001) return;
+  d.paidH = (d.paidH || 0) + n;
+  const day = K.WAGE[wb.type] || K.DAY_WAGE * 0.6;
+  if (wb.state === 'ok' && K.REV[wb.type]) this.exportIn(wb, K.REV[wb.type] * n / 8);
+  d.coin += this.payWage(wb, d, day * n / 8);
+}
+
+Object.assign(World.prototype, { payShiftHours, move, arrive, doing, finish, checkStock, enter, leave, sayDelayed });
 declare module './world' { interface World {
+  payShiftHours: (...args: any[]) => any;
   move: (...args: any[]) => any;
   arrive: (...args: any[]) => any;
   doing: (...args: any[]) => any;
