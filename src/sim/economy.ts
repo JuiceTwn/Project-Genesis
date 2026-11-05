@@ -103,7 +103,7 @@ function entrepreneurs(this: World) {
   if (this.sites.length >= 8) return; let made = 0;
   for (const d of this.dots) {
     if (d.dead || !d.adult || d.coin < 40_000 || made >= 2) continue;
-    let m = 0.0006 * d.fx.ambition * Math.min(2, d.fx.risk); if (d.dream === 'rich') m *= 2; if (d.job === 3) m *= 1.6; if (d.coin > 200 * KB) m *= 2;
+    let m = 0.006 * d.fx.ambition * Math.min(2, d.fx.risk); if (d.dream === 'rich') m *= 2; if (d.job === 3) m *= 1.6; if (d.coin > 200 * KB) m *= 2;
     if (this.ownedBy(d.id).length >= 2 || this.sites.some(x => x.owner === d.id) || this.rnd() > m) continue;
     if (this.tryFound(d)) made++;
   }
