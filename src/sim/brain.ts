@@ -42,6 +42,7 @@ function setGoal(this: World, d, k, mk, inv) {
     case 'eat': g = { k, b: mk, enter: true }; break;
     case 'work': {
       let b = d.job === 3 ? this.nearest(this.workshops, d, 10) : this.buildings[d.work];
+      if (b && b.type === BT.BUILDER && b.state === 'ok') { const st = this.siteOfFirm(b); if (st) { g = { k: 'build', b: st.id, enter: false }; break; } }
       if (b && b.state === 'build') { g = { k: 'build', b: b.id, enter: false }; break; }
       if (!b || b.state !== 'ok') { b = this.nearest(this.workshops, d, 10) || this.buildings[d.home]; }
       g = { k, b: b.id, enter: !b.open }; break;

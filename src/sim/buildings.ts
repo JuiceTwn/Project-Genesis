@@ -1,4 +1,5 @@
 import { World } from './world';
+import * as R from '../shared/reality';
 import type { Building } from '../shared/types';
 import { COUNTRY, FIELD_BUDGET } from './config';
 import { makeField, b64, tkLess, mk } from '../shared/util';
@@ -28,7 +29,7 @@ function rebuild(this: World) {
   for (const b of this.buildings) {
     if (b.state !== 'ok') continue;
     (this.sbl[b.sid] = this.sbl[b.sid] || []).push(b);
-    switch (b.type) { case BT.MARKET: this.markets.push(b); break; case BT.TAVERN: this.taverns.push(b); break; case BT.WORKSHOP: this.workshops.push(b); break; case BT.DOCK: this.workshops.push(b); this.docks.push(b); break; case BT.OFFICE: case BT.FACTORY: this.workshops.push(b); break; case BT.STORE: this.workshops.push(b); this.stores.push(b); break; case BT.PARK: this.parks.push(b); break; case BT.FARM: this.farms.push(b); break; case BT.HOUSE: this.houses.push(b); break; case BT.HALL: this.halls.push(b); break; }
+    switch (b.type) { case BT.MARKET: this.markets.push(b); break; case BT.TAVERN: this.taverns.push(b); break; case BT.WORKSHOP: this.workshops.push(b); break; case BT.DOCK: this.workshops.push(b); this.docks.push(b); break; case BT.OFFICE: case BT.FACTORY: this.workshops.push(b); break; case BT.STORE: this.workshops.push(b); this.stores.push(b); break; case BT.BUILDER: this.workshops.push(b); break; case BT.PARK: this.parks.push(b); break; case BT.FARM: this.farms.push(b); break; case BT.HOUSE: this.houses.push(b); break; case BT.HALL: this.halls.push(b); break; }
   }
 }
 
@@ -97,9 +98,9 @@ function pushTiles(this: World, list) { if (list.length) this.out.push({ t: 'til
 function footprint(this: World, b) { const r = []; for (let dy = 0; dy < b.h; dy++) for (let dx = 0; dx < b.w; dx++) r.push((b.y + dy) * W + b.x + dx); return r; }
 
 function siteFor(this: World, d) {
-  { const mine = d.work >= 0 && this.buildings[d.work]; if (mine && mine.state === 'build') return mine; }   // a hired builder goes to their own site
+  { const mine = d.work >= 0 && this.buildings[d.work]; if (mine && mine.state === 'build') return mine; if (mine && mine.type === BT.BUILDER && mine.state === 'ok') return this.siteOfFirm(mine); }   // a hired builder goes to their own site
   const sid = this.buildings[d.home].sid; let best = null, bv = 1e9;
-  for (const st of this.sites) { const v = (st.sid === sid ? 0 : 30) + Math.hypot(st.x - d.x, st.y - d.y); if (v < bv && v < 60) { bv = v; best = st; } }
+  for (const st of this.sites) { if (st.contractor >= 0 && this.buildings[st.contractor] && this.buildings[st.contractor].state === 'ok') continue; const v = (st.sid === sid ? 0 : 30) + Math.hypot(st.x - d.x, st.y - d.y); if (v < bv && v < 60) { bv = v; best = st; } }
   return best;
 }
 
@@ -125,15 +126,33 @@ function expandSettlement(this: World, s) {
 function plotFor(this: World, s, kind) { return this.freePlot(s, kind) || (this.expandSettlement(s) ? this.freePlot(s, kind) : null); }
 
 function startBuild(this: World, plot, type, owner, cost) {
-  const b = this.placeOn(plot, type, 'build'); b.owner = owner; b.need = BUILD_SHIFTS[type]; b.prog = 0; b.escrow = cost * K.LABOUR_SHARE;   // wages are held in escrow; the materials are imported
-  this.ledger.outflow += cost * (1 - K.LABOUR_SHARE); this.ledger.flow.materials = (this.ledger.flow.materials || 0) - cost * (1 - K.LABOUR_SHARE);
+  const b = this.placeOn(plot, type, 'build'); b.owner = owner; b.need = BUILD_SHIFTS[type]; b.prog = 0;
+  const con = type === BT.BUILDER ? null : this.contractorFor(b), ls = K.LABOUR_SHARE * (con ? 1 + R.CONTRACT_MARGIN : 1);   // a builder firm bills a margin over wages
+  b.contractor = con ? con.id : -1; b.escrow = cost * ls;   // the contract money is held in escrow; the materials are imported
+  this.ledger.outflow += cost * (1 - ls); this.ledger.flow.materials = (this.ledger.flow.materials || 0) - cost * (1 - ls);
   b.started = this.tick;
   this.nameBuilding(b, owner >= 0 ? this.dots[owner] : null);
   this.sites.push(b); this.fgen++; this.pushBld(b, 'add'); this.pushTiles(this.footprint(b)); return b;
 }
 
+/** The builders' firm that will take a job at this site: the nearest open one within a long walk. */
+function contractorFor(this: World, site) {
+  let best = null, bd = 60; const s = this.S[site.sid];
+  for (const f of this.buildings) { if (f.type !== BT.BUILDER || f.state !== 'ok' || f.owner < 0) continue; const o = this.S[f.sid], dd = Math.hypot(o.x - s.x, o.y - s.y); if (dd < bd) { bd = dd; best = f; } }
+  return best;
+}
+
+/** The site a builders' firm is working on right now (the oldest open contract). */
+function siteOfFirm(this: World, f) { return this.sites.find(x => x.state === 'build' && x.contractor === f.id) || null; }
+
 function buildStep(this: World, d, b) {
   if (!b || b.state !== 'build') return;
+  const firm = b.contractor >= 0 ? this.buildings[b.contractor] : null;
+  if (firm && firm.state === 'ok' && d.work === firm.id) {   // a firm's employee: the client pays the firm from escrow, the firm pays its worker through normal payroll
+    const r = Math.min(K.DAY_WAGE * (1 + R.CONTRACT_MARGIN), Math.max(0, b.escrow)); b.escrow -= r; firm.cash += r; firm.rev += r; firm.visits++;
+    const net = this.payWage(firm, d, K.DAY_WAGE); d.coin += net; d.earn = (d.earn || 0) + net; b.prog++;
+    if (b.prog >= b.need) this.completeBuild(b); return;
+  }
   const w = Math.min(K.DAY_WAGE, Math.max(0, b.escrow)); b.escrow -= w; d.coin += this.withhold(b, w); b.prog++;
   if (b.prog >= b.need) this.completeBuild(b);
 }
@@ -163,7 +182,7 @@ function demolish(this: World, b) {
   this.sites = this.sites.filter(x => x !== b); this.rebuild(); this.fgen++; this.pushBld(b, 'del'); this.pushTiles(fp);
 }
 
-function isBiz(this: World, b) { return b.type === BT.OFFICE || b.type === BT.FACTORY || b.type === BT.STORE || b.type === BT.MARKET || b.type === BT.TAVERN || b.type === BT.WORKSHOP || b.type === BT.FARM || b.type === BT.DOCK; }
+function isBiz(this: World, b) { return b.type === BT.OFFICE || b.type === BT.FACTORY || b.type === BT.STORE || b.type === BT.MARKET || b.type === BT.TAVERN || b.type === BT.WORKSHOP || b.type === BT.FARM || b.type === BT.DOCK || b.type === BT.BUILDER; }
 
 function burn(this: World, b) {
   const o = b.owner >= 0 ? this.dots[b.owner] : null, s = this.S[b.sid]; let homeless = 0;
@@ -182,7 +201,7 @@ function vacancies(this: World) {
   }
 }
 
-Object.assign(World.prototype, { evictFields, mkBuilding, placeOn, rebuild, F, nameBuilding, buildMap, bldMsg, pushBld, pushTiles, footprint, siteFor, freePlot, expandSettlement, plotFor, startBuild, buildStep, completeBuild, moveIn, demolish, isBiz, burn, vacancies });
+Object.assign(World.prototype, { contractorFor, siteOfFirm, evictFields, mkBuilding, placeOn, rebuild, F, nameBuilding, buildMap, bldMsg, pushBld, pushTiles, footprint, siteFor, freePlot, expandSettlement, plotFor, startBuild, buildStep, completeBuild, moveIn, demolish, isBiz, burn, vacancies });
 declare module './world' { interface World {
   mkBuilding: (...args: any[]) => any;
   placeOn: (...args: any[]) => any;
@@ -201,6 +220,8 @@ declare module './world' { interface World {
   plotFor: (...args: any[]) => any;
   startBuild: (...args: any[]) => any;
   buildStep: (...args: any[]) => any;
+  contractorFor: (...args: any[]) => any;
+  siteOfFirm: (...args: any[]) => any;
   completeBuild: (...args: any[]) => any;
   moveIn: (...args: any[]) => any;
   demolish: (...args: any[]) => any;

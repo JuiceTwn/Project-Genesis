@@ -45,16 +45,18 @@ export function drawWealth(rf: () => number, age: number): number {
   return 9000 * lifeStage * Math.exp(1.7 * z);
 }
 /** Workplace wage per 8-hour shift (= a day's pay) and export revenue per shift, by building type (see BT). Revenue is ~1.45x the wage. */
-export const WAGE_BY_TYPE = [0, 0, 0, 700, 760, 0, 0, 800, 1000, 780, 620];
+export const WAGE_BY_TYPE = [0, 0, 0, 700, 760, 0, 0, 800, 1000, 780, 620, 800];
 export const REV_BY_TYPE = WAGE_BY_TYPE.map(w => Math.round(w * 1.45));
-REV_BY_TYPE[10] = 0;                                       // stores live on customers, not exports
+REV_BY_TYPE[10] = 0; REV_BY_TYPE[11] = 0;   // builders live on contracts and repairs, not exports
+export const CONTRACT_MARGIN = 0.2;   // a builder bills 20% over the wages it pays per shift
+//                                       // stores live on customers, not exports
 REV_BY_TYPE[3] = Math.round(WAGE_BY_TYPE[3] * 0.6);        // taverns: some trade from outside, the rest from customers
-export const STAFF_BY_TYPE = [0, 6, 0, 5, 8, 0, 0, 8, 16, 20, 5];
+export const STAFF_BY_TYPE = [0, 6, 0, 5, 8, 0, 0, 8, 16, 20, 5, 8];
 /** Upkeep (utilities, supplies, insurance) per day: a quarter of the payroll the building carries when fully staffed. */
 export const UPKEEP_BY_TYPE = WAGE_BY_TYPE.map((w, i) => Math.round(w * STAFF_BY_TYPE[i] * 0.25));
 UPKEEP_BY_TYPE[1] = 450; UPKEEP_BY_TYPE[2] = 300;
 /** What it costs to build, in dollars (labour is LABOUR_SHARE of it). */
-export const BUILD_COST = [275_000, 600_000, 1_200_000, 350_000, 250_000, 150_000, 1_200_000, 3_000_000, 600_000, 3_000_000, 450_000];
+export const BUILD_COST = [275_000, 600_000, 1_200_000, 350_000, 250_000, 150_000, 1_200_000, 3_000_000, 600_000, 3_000_000, 450_000, 400_000];
 /** Worker-days of labour a building needs (one dot builds for one 8-hour shift per step). */
 export const BUILD_DAYS = BUILD_COST.map(c => Math.max(2, Math.round(c * LABOUR_SHARE / DAY_WAGE)));
 /** Farms: far more productive than before, and far fewer of them. */

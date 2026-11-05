@@ -99,7 +99,7 @@ function hire(this: World) {
   }
   // construction is a job too: every building site hires a crew of builders from the same labour pool, paid a day's wage per shift out of the site's escrow
   for (const b of this.sites) {
-    if (b.state !== 'build') continue;
+    if (b.state !== 'build' || (b.contractor >= 0 && this.buildings[b.contractor] && this.buildings[b.contractor].state === 'ok')) continue;
     const crew = Math.max(2, Math.min(6, Math.ceil((b.need - b.prog) / 12)));
     let have = this.dots.filter(d => !d.dead && d.work === b.id && d.job === 1).length;
     while (have < crew) {
@@ -126,6 +126,7 @@ function tryFound(this: World, d) {
   const opts = [[BT.MARKET, P / 85 - cnt(BT.MARKET) + starved + (s.tier <= 1 ? 0.1 : -0.25)], [BT.TAVERN, P / 60 - cnt(BT.TAVERN)], [BT.WORKSHOP, P / 40 - cnt(BT.WORKSHOP) + this.unemployed(s.id) / 12], [BT.FARM, P * K.FARMERS_SHARE / 4 - this.farms.filter(f => f.sid === s.id).length + starved]];
   const jobless = this.unemployed(s.id);
   if (s.tier <= 1) { opts.push([BT.OFFICE, P / 60 - cnt(BT.OFFICE) + jobless / 25], [BT.FACTORY, P / 70 - cnt(BT.FACTORY) + jobless / 20]); }
+  { const have = this.buildings.filter(x => x.type === BT.BUILDER && (x.state === 'ok' || x.state === 'build')).length, want = Math.max(1, Math.round(this.dots.length / 220)); if (s.tier <= 1 && P >= 30) opts.push([BT.BUILDER, 0.7 * (want - have) + this.sites.length / 8]); }
   if (s.tier <= 2 && P >= 20) opts.push([BT.STORE, P / 50 - cnt(BT.STORE) + jobless / 40]);
   if (s.quayAt !== undefined && cnt(BT.DOCK) < (s.tier === 0 ? 3 : 1)) opts.push([BT.DOCK, 0.55 - cnt(BT.DOCK) * 0.3 + s.trade * 0.5]);
   for (const o of opts) { o[1] += (this.rnd() - 0.5) * 0.9; if (o[0] === BT.MARKET && this.mcount >= MAXM) o[1] = -9; }   // overconfidence: people misjudge a market
@@ -141,7 +142,7 @@ function tryFound(this: World, d) {
     this.sites.push(vac); this.rebuild(); this.fgen++; this.pushBld(vac, 'upd');
     this.ev('refit', `♻️ ${d.name} (${why}) is turning the empty ${was} in ${s.name} into a ${BT_NAME[type].toLowerCase()}.`, [d.id], 0, 3); return true;
   }
-  const kind = type === BT.DOCK ? 'dock' : type === BT.FARM ? 'farm' : (type === BT.WORKSHOP || type === BT.OFFICE || type === BT.FACTORY || type === BT.STORE) ? 'shop' : 'center', cost = K.BUILD_COST[type];
+  const kind = type === BT.DOCK ? 'dock' : type === BT.FARM ? 'farm' : (type === BT.WORKSHOP || type === BT.BUILDER || type === BT.OFFICE || type === BT.FACTORY || type === BT.STORE) ? 'shop' : 'center', cost = K.BUILD_COST[type];
   if (d.coin < cost + 40 * KB) return false;
   const plot = this.plotFor(s, kind); if (!plot) return false;
   d.coin -= cost; const nb = this.startBuild(plot, type, d.id, cost); { const cap = Math.max(0, Math.min(50 * KB, d.coin - 10 * KB)); d.coin -= cap; nb.cash += cap; }

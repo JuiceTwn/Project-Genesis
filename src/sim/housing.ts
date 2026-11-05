@@ -42,7 +42,9 @@ function monthlyHousing(this: World) {
     // costs of owning: property tax to the town, maintenance to outside suppliers
     if (payer && occ.length) {
       const t = Math.min(tax, payer.coin); payer.coin -= t; town.treasury += t;
-      this.toAbroad(payer, 'coin', upkeep, 'maintenance');
+      let fix = null, bd = 1e9; for (const f of this.buildings) if (f.type === 11 && f.state === 'ok' && f.owner >= 0) { const dd = Math.abs(this.S[f.sid].x - this.S[b.sid].x) + Math.abs(this.S[f.sid].y - this.S[b.sid].y); if (dd < bd) { bd = dd; fix = f; } }
+      if (fix && bd < 80) { const p = Math.min(upkeep, payer.coin); payer.coin -= p; fix.cash += p; fix.rev += p; fix.visits++; const [fo, fk] = this.till(fix); this.toAbroad(fo, fk, p * 0.35, 'materials'); }   // a local repair crew does the maintenance
+      else this.toAbroad(payer, 'coin', upkeep, 'maintenance');
     }
   }
 }
