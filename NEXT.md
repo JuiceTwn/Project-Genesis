@@ -1,7 +1,7 @@
 # Dotville: what's next (handoff)
 
 Read this first in a fresh session. It is the state of the project, the decisions made, what is verified, and the next steps in order.
-Repo: `juicetwn/project-genesis`, branch `main` (the work was developed on `next-work` and fast-forwarded). 16 test files; every system has its own tests.
+Repo: `juicetwn/project-genesis`, branch `main` (the work was developed on `next-work` and fast-forwarded). 18 test files; every system has its own tests.
 The full suite was re-run after the last merge only partly: re-run `npm test` first thing and fix anything it finds (see "Known gaps").
 
 ## The vision (from the owner)
@@ -29,10 +29,11 @@ aggregate shortcuts with individual agents and objects wherever the speed budget
   - items and commerce: `gear` (clothes/coat/tool/bag with quality and wear; only clothiers, hardware and general stores sell gear), `brand` (brands as entities: awareness, quality, price, word of mouth, ads, acquisitions, scandals, collapse; store choice by appeal).
   - finance: `bank` (savings, firm loans, reserve ratio, leverage limit 8x equity, defaults, runs, failure, embezzlement), `mortgage` (house price index with bubble and crash, mortgages, foreclosure, repossession feeding bank losses).
   - society: `politics` (3 parties, platforms, corruption, recalls), `crime2` (burglary, gangs, extortion, arson, gang wars, police, prison, lawyers), `media` (fame and infamy, posts and rumours that spread, pile-ons, influencer sponsorships; rumours move bank fear, brand reputation and town unrest).
+  - characters: `legend` (funnier pronounceable names from `lexicon`, nicknames earned from events and shown in the name itself, memories that come back as thoughts, procedural faces, the cast list; sends a `rename` message to clients).
   - the person: `thoughts` (dated thoughts feed mood; mental breaks driven by traits and willpower), `skills` (6 attributes, 18 skills with an exponential mastery curve, trait-driven learning, ~25 specialised firm types such as smithy, tailor, clinic, law firm, software studio, newspaper, clothier), `health` (flu spreads in chats, injuries, septic wounds, clinic treatment, bed rest, epidemics, deaths).
 - `src/sim/tick.ts`: the **daily "dawn" jobs run one per tick** over the next ~12 ticks (a queue in `World.dawnQ`) so no single tick does a whole day's work.
 - `src/server/`: websocket server, `archive.ts` (issues/stories on disk), `pages.ts` (permalinks, JSON, sitemap), `cards.ts` (PNG share cards via resvg + bundled fonts).
-- `src/client/`: canvas client (`@ts-nocheck`) with Feed / Town / Stories / Gazette tabs; `demo.ts` bundles the sim for the no-server demo.
+- `src/client/`: canvas client (`@ts-nocheck`) with Feed / Town / Stories / Gazette / **Cast** tabs (procedural faces, memories, thoughts, skills and attributes on the character card, a bell button to follow a character: the server pushes their news as notifications, and the watch list is kept in localStorage); `demo.ts` bundles the sim for the no-server demo.
 - `src/tools/`: `bench`, `map`, `gazette` (preview issues), `reality` (scorecard vs real benchmarks), `longrun` (multi-year sampler).
 - `ml/`: `balance_report.py`, `long_report.py` (Python trend checks); later the imitation/PPO training pipeline. `tests/`: node:test suites.
 
@@ -48,21 +49,22 @@ aggregate shortcuts with individual agents and objects wherever the speed budget
 - **Long run** (2 sim years, 1,000 people, all systems up to health/thoughts, before skills v2): population +1.3%/yr, money supply +8.0%/yr with none minted, firm failures 8.5%/yr
   (real 8-12%), firms 205 -> 179 -> 183 (stabilising), Gini 0.85 -> 0.75, top 1% 45% -> 31%, unemployment ~0%.
 - Reality scorecard (earlier, at the dollar-economy merge): 15 of 18 metrics in real-world ranges. Real-world benchmark figures are **from memory**: verify before trusting.
-- Tests: bank, brand, builders, emergent (crime + politics), gazette, gear, health, media, money, mortgage, personality, sim, skills, story, thoughts, trades.
+- Tests: arcs, bank, brand, builders, emergent (crime + politics), gazette, gear, health, legend, media, money, mortgage, personality, sim, skills, story, thoughts, trades.
+- **Step 5 (lovable characters) is done**: names, nicknames, memories and callbacks, faces, cast tab, follow with notifications, and four new story arcs fed by the newer systems (comeback, run on the bank, gang rise and fall, public disgrace), all tested. The Gazette-style share cards do not yet show faces.
 
 ## Known gaps
 - **Re-run `npm test` cleanly.** The last full run was polluted (a branch switch during the run broke one file's import; that file passes on its own). Nothing else is known to fail.
 - **Re-measure speed** with skills v2, health and thoughts included, and re-run the long run (the one above predates skills v2).
 - **Balance:** unemployment ~0% (target 3-7%; a labour shortage), firm founding only ~2.9%/yr, births 5.5 and deaths 2.5 per 1,000/yr (young population; real ~10 and ~9). 3 starvation deaths in the long run (cause not confirmed: may be the new malnutrition death path).
 - Construction is a real job now: sites with a builders' firm pay it from escrow with a 20% margin; without one, sites hire a generic local crew. Check that builders' firms actually get founded and survive.
-- Not built: mortgage-backed securities, evictions beyond foreclosure, internal migration, taxes on crop income and dividends, superheroes, stream hooks, a UI for fame/thoughts/skills/health (data exists in the frames only as `thought` text).
+- Not built: mortgage-backed securities, evictions beyond foreclosure, internal migration, taxes on crop income and dividends, superheroes, stream hooks, a fuller UI for fame and health (the character card shows thoughts, skills, attributes, conditions and memories; the Cast tab shows fame).
 - Client and worldgen are `@ts-nocheck`; sim method types are loose (`any`). Persistence is positional arrays (brittle). The server has only been tested with one viewer; not deployed.
 
 ## Next steps, in order
 1. **Verify**: clean `npm test`, speed check, 2-year long run on the final code; fix the balance gaps above (unemployment, founding, births).
 2. **Scale prep** (before adding more per-dot depth): index dots by town and by building once per dawn (many dawn jobs filter all dots); typed events instead of string-kind lookups (`EVENT_POST`, `MAP` in thoughts); versioned save records instead of positional arrays; type the sim.
 3. **Micro layers, DF/RimWorld style** (the owner's priority): (a) **information held in individual heads** (rumours as items people carry, believe, doubt, distort and pass on; replaces the "share of the country reached" maths in `media.ts`), (b) **real goods and inventories** (stores stock items, factories turn inputs into outputs, prices follow supply and demand; replaces "stores pay abroad for abstract goods"), (c) **households and families** (kids, inheritance, shared budgets, feuds), (d) **relationships with history** (memories of specific events, debts, grudges, crushes), (e) body and needs depth.
-4. **Superhero births** (extremely rare, announced nationally, 18 years to grow up; power plus personality gives hero or villain; ties into fame, crime, politics). Also in-world memes and a "cast" page, follow/adopt a dot.
+4. **Superhero births** (the next unbuilt item from the original plan) (extremely rare, announced nationally, 18 years to grow up; power plus personality gives hero or villain; ties into fame, crime, politics). Also in-world memes.
 5. **Stream hooks**: Twitch/YouTube chat commands to name, vote, sponsor, nudge. Clips of key moments, time-lapse and history/graphs. Storyteller **crisis detector**: promote several systems going wrong at once into a front-page arc.
 6. **World size and scale**: hierarchical pathing (a graph of routes between towns plus small local fields; full-map distance fields do not scale past ~320x240), then a larger country. Language is not the bottleneck (JS has ~100x headroom at 1,000 dots); if ever needed, put Rust/WASM behind a hot loop, not a rewrite.
 7. **Deploy** at a real URL (needed for share cards): process manager plus reverse proxy on a cheap VPS. Then watch recorded sessions and critique them as a viewer would. (The owner asked to leave deploy for last.)
