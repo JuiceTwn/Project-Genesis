@@ -13,7 +13,7 @@ function serialize(this: World) {
     plots: pl.map(p => [p.x, p.y, p.dx, p.dy, p.sid, p.rural ? 1 : 0, p.used ? 1 : 0, p.bid, Math.round(p.dc * 10), Math.round(p.fert * 100), p.sq ? 1 : 0, p.quay ? 1 : 0]),
     blds: this.buildings.map(b => [b.type, b.x, b.y, b.door, b.open ? 1 : 0, b.sid, b.owner, b.cash, b.state, b.name, b.fam || '', b.stock, b.w, b.h, b.plot, b.mi, b.born, b.sqPark ? 1 : 0, b.need || 0, b.prog || 0, b.escrow || 0, b.vac, b.debt || 0, b.brand === undefined ? -1 : b.brand]),
     dots: this.dots.map(d => ({ n: d.name, fm: d.fam, j: d.job, h: d.home, w: d.work, f: d.future, tr: d.traits, dr: d.dream, a: d.age, l: d.life, p: d.partner, m: d.married ? 1 : 0, x: d.dead ? 1 : 0, s: d.since,
-      e: [d.hunger, d.energy, d.social, d.coin], af: [...d.aff], th: [...d.thieves], kd: d.kids, fv: d.fav, fm2: d.fame, ir: d.ire, en: d.endorses, cp: d.cop ? 1 : undefined, ju: d.jailUntil, gn: d.gang, pt: d.party, dp: d.dep, g: d.gear ? Object.fromEntries(Object.entries(d.gear).map(([k, v]: any) => [k, [v.q, v.w, v.brand]])) : undefined, drs: d.dreams, dn: [...d.done] })) };
+      e: [d.hunger, d.energy, d.social, d.coin], af: [...d.aff], th: [...d.thieves], kd: d.kids, fv: d.fav, tg: d.th && d.th.length ? d.th.map((t: any) => [t.k, t.v, t.until, t.from, t.txt]) : undefined, bc: d.breakCd, fm2: d.fame, ir: d.ire, en: d.endorses, cp: d.cop ? 1 : undefined, ju: d.jailUntil, gn: d.gang, pt: d.party, dp: d.dep, g: d.gear ? Object.fromEntries(Object.entries(d.gear).map(([k, v]: any) => [k, [v.q, v.w, v.brand]])) : undefined, drs: d.dreams, dn: [...d.done] })) };
 }
 
 function load(this: World, s) {
@@ -31,7 +31,7 @@ function load(this: World, s) {
   this.dots = []; this.names = [];
   s.dots.forEach((o, i) => {
     const d = this.makeDot(i, { name: o.n, fam: o.fm, job: o.j, home: o.h, work: o.w, future: o.f, traits: o.tr, age: o.a, life: o.l, hunger: o.e[0], energy: o.e[1], social: o.e[2], coin: o.e[3] }, this.rnd);
-    d.dream = o.dr; d.partner = o.p; d.married = !!o.m; d.dead = !!o.x; d.since = o.s; d.aff = new Map(o.af); d.thieves = new Set(o.th); d.kids = o.kd; d.fav = o.fv; d.fame = o.fm2; d.ire = o.ir; d.endorses = o.en; d.cop = !!o.cp; d.jailUntil = o.ju; d.gang = o.gn; d.party = o.pt; d.dep = o.dp; if (o.g) d.gear = Object.fromEntries(Object.entries(o.g).map(([k, v]: any) => [k, { q: v[0], w: v[1], brand: v[2] }])); d.dreams = o.drs; d.done = new Set(o.dn || []);
+    d.dream = o.dr; d.partner = o.p; d.married = !!o.m; d.dead = !!o.x; d.since = o.s; d.aff = new Map(o.af); d.thieves = new Set(o.th); d.kids = o.kd; d.fav = o.fv; d.th = o.tg ? o.tg.map((a: any) => ({ k: a[0], v: a[1], until: a[2], from: a[3], txt: a[4] })) : undefined; d.breakCd = o.bc; d.fame = o.fm2; d.ire = o.ir; d.endorses = o.en; d.cop = !!o.cp; d.jailUntil = o.ju; d.gang = o.gn; d.party = o.pt; d.dep = o.dp; if (o.g) d.gear = Object.fromEntries(Object.entries(o.g).map(([k, v]: any) => [k, { q: v[0], w: v[1], brand: v[2] }])); d.dreams = o.drs; d.done = new Set(o.dn || []);
     this.dots[i] = d; this.names[i] = d.name;
   });
   this.rep = new Float32Array(this.dots.length + 8);

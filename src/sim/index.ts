@@ -6,3 +6,4 @@ import './activity'; import './social'; import './crime'; import './viewer'; imp
 export { W, H } from '../shared/dims';
 export type { View } from './output';
 export * from '../shared/constants';
+import './thoughts';

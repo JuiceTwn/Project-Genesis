@@ -120,6 +120,7 @@ function doingText(this: World, d) {
 
 function thought(this: World, d) {
   const e = this.believedEmpty(d), tod = this.tod();
+  { const tt = this.topThought(d); if (tt && this.rnd() < 0.7) return tt; }
   if (this.tick < d.grief) return 'Missing someone.';
   if (d.thieves.size && this.rnd() < 0.5) return 'Watching out for thieves.';
   if (d.hunger > 85) return e >= this.markets.length ? 'Starving, and I heard every market is empty.' : 'So hungry I can barely think.';
