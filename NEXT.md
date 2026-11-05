@@ -84,5 +84,5 @@ aggregate shortcuts with individual agents and objects wherever the speed budget
 - New worlds warm up headless (`WARMUP_DAYS`, default 3, ~30 s). Saves are atomic with 6 rotating backups; boot falls back through them (`src/server/store.ts`).
 - Tick errors are caught; 5 in a row exit without saving. `/health` returns 503 on a stalled loop. Per-IP limits: `MAX_PER_IP`, `ACT_GAP_MS`, `TRUST_PROXY`. Deploy files in `deploy/`.
 - `npm run loadtest -- 200 15 ws://localhost:3000`: 200 viewers held 5.00 Hz, ~3.6 MB/s out, ~50% of one core.
-- **Failing tests on main (pre-existing, verified on 6f582a0):** `bank: opens, takes deposits, lends...` ("people saved") and `thoughts: a collapsed mood causes a break...` ("they drank their sorrows away"). 46/48 pass.
+- Full suite: 48/48 pass. The two earlier failures were (a) a real bank bug: the same-day dividend stripped capital to ~80x leverage (now keeps equity >= deposits/6), and unpaid claims were wiped when the vault ran short (now only the paid part is deducted); (b) a test that was a coin flip on the RNG stream (the break could be 'quit' instead of 'drink'). Viral bank rumours can still cause runs, which is intended.
 - Next: fix those two tests, smaller test world for faster suite (it takes ~10 min), type the sim interfaces and un-`@ts-nocheck` the client, then deploy for real.
