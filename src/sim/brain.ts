@@ -11,6 +11,8 @@ function decide(this: World, d) {
   c.push(['sleep', (100 - d.energy) * 1.15 + (night ? 75 : 0) - (d.hunger > 88 ? 60 : 0)]);
   const mk = d.hunger > 35 ? this.pickMarket(d) : -1;
   if (d.hunger > 90 && mk >= 0) { this.setGoal(d, 'eat', mk, null); return; }   // survival first
+  { const wb = d.adult && d.work >= 0 && d.job <= 2 ? this.buildings[d.work] : null;   // a job is a commitment: go in for the working day unless starving or exhausted
+    if (wb && wb.state === 'ok' && tod > 0.28 && tod < 0.62 && d.energy > 25 && d.hunger < 80) { this.setGoal(d, 'work', mk, null); return; } }
   if (mk >= 0 && d.coin >= this.price(d) && !(d.shortAt && this.tick - d.shortAt < 150 * TS && d.coin < 8 * MEAL_UNIT)) c.push(['eat', d.hunger * 1.3 - (night && d.energy < 40 ? 30 : 0) + (d.hunger > 45 && tod > 0.7 && tod < 0.95 ? 45 : 0)]);
   const broke = d.coin < FOOD_PRICE * 2;
   if (d.adult && (hours || (broke && d.hunger > 50 && !night) || (d.job === 0 && this.believedEmpty(d) && !night)) && d.energy > 20) {

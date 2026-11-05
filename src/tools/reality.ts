@@ -8,10 +8,13 @@ const w = new World({ seed: 1337, deterministic: true, pop });
 let wages = 0, shifts = 0; const orig = (w as any).payWage;
 (w as any).payWage = function (b: any, d: any, x: number) { const p = orig.call(this, b, d, x); if (p > 0) { wages += p; shifts++; } return p; };
 const m0 = w.stats.meals, born0 = w.stats.births, died0 = w.stats.deaths, th0 = w.stats.thefts, closed0 = w.biz.closed, firms0 = w.buildings.filter(b => b.state === 'ok' && w.isBiz(b)).length;
-let priceSum = 0, priceN = 0, hot = 0; const cast = new Set<number>(); let arcsSum = 0;
+let priceSum = 0, priceN = 0, hot = 0; const dcause: Record<string, number> = {}; const cast = new Set<number>(); let arcsSum = 0;
 for (let i = 0; i < days * DAY_TICKS; i++) {
   w.step();
-  for (const m of w.drain()) if (m.t === 'ev' && m.w >= 3) { hot++; for (const id of m.ids || []) cast.add(id); }
+  for (const m of w.drain()) {
+    if (m.t === 'ev' && m.k === 'death') { const c = /starved/.test(m.x) ? 'starved' : /accident|fall|cart/.test(m.x) ? 'accident' : /pneumonia|illness|fever/.test(m.x) ? 'illness' : 'old age'; dcause[c] = (dcause[c] || 0) + 1; }
+    if (m.t === 'ev' && m.w >= 3) { hot++; for (const id of m.ids || []) cast.add(id); }
+  }
   if (i % 300 === 0) { for (const m of w.markets) { priceSum += w.mprice(m); priceN++; } arcsSum += w.story.arcs.filter(a => !a.done).length; }
 }
 const alive = w.dots.filter(d => !d.dead), adults = alive.filter(d => d.adult), yrs = days / YEAR_DAYS;
@@ -29,7 +32,7 @@ const rows: [string, number, [number, number], string][] = [
   ['births per 1,000 per year', (w.stats.births - born0) / yrs / alive.length * 1000, [9, 18], ''],
   ['deaths per 1,000 per year', (w.stats.deaths - died0) / yrs / alive.length * 1000, [7, 12], ''],
   ['thefts per 100 per year', (w.stats.thefts - th0) / yrs / alive.length * 100, [1, 3], ''],
-  ['work hours per day', shifts * 8 / days / Math.max(1, employed.length), [6, 9], '(8-hour shifts)'],
+  ['work hours per day', shifts / days / Math.max(1, employed.length), [6, 9], '(per employed adult; farmers unpaid so counted low)'],
   ['median-wage day vs $833 target', wage / DAY_WAGE, [0.8, 1.25], '(gross pay per employed adult-day)'],
   ['meals a day\'s wage buys', wage / meal, [15, 35], ''],
   ['house price / yearly pay', BUILD_COST[0] / (wage * YEAR_DAYS), [4, 8], ''],
@@ -45,5 +48,6 @@ console.log(`\nREALITY (pop ${alive.length}, ${days} sim days = ${yrs.toFixed(1)
 let ok = 0;
 for (const [n, v, [lo, hi], note] of rows) { const pass = v >= lo && v <= hi; ok += +pass; console.log(`${pass ? ' ok ' : 'FAIL'}  ${n.padEnd(34)} ${v.toFixed(2).padStart(9)}   target ${lo}–${hi} ${note}`); }
 console.log(`\n${ok}/${rows.length} metrics within the real-world range`);
+console.log('deaths by cause:', JSON.stringify(dcause));
 const perHour = hot / (days * 24);
 console.log(`\nWATCHABILITY (dramatic events = weight >= 3)\n  events per sim hour: ${perHour.toFixed(1)}   distinct people in the news over ${days} days: ${cast.size} (${(100 * cast.size / alive.length).toFixed(0)}% of the country)\n  active story arcs (avg): ${(arcsSum / (days * DAY_TICKS / 300)).toFixed(1)}   issues of the Gazette: ${w.issues.length}`);

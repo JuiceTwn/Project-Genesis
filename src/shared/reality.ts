@@ -19,7 +19,7 @@ export const ADULT = 18;
 export const lifespan = (rf: () => number) => 62 + rf() * 18 + rf() * 18;
 export const FERTILE_MIN = 20, FERTILE_MAX = 42;
 /** Births per married couple per year while both are in their fertile years (-> ~12-18 births per 1,000 people per year). */
-export const BIRTHS_PER_COUPLE_YEAR = 0.12;
+export const BIRTHS_PER_COUPLE_YEAR = 0.2;
 
 /* ---- money ---- */
 export const MEDIAN_INCOME = 50_000;                       // $ per year, median earner

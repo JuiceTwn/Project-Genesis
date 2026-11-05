@@ -73,9 +73,16 @@ function hire(this: World) {
   const pools = {}; for (const d of this.dots) if (!d.dead && d.adult && d.job === 3) (pools[this.buildings[d.home].sid] = pools[this.buildings[d.home].sid] || []).push(d);
   for (const b of this.buildings) b.staff = staff.get(b.id) || 0;
   for (const b of this.buildings) {
-    if (b.state !== 'ok' || !STAFF[b.type]) continue; let need = STAFF[b.type] - b.staff; const pool = pools[b.sid]; if (need <= 0 || !pool) continue;
-    const job = b.type === BT.FARM ? 0 : b.type === BT.TAVERN ? 2 : 1;
-    while (need > 0 && pool.length) { const d = pool.splice((this.rnd() * pool.length) | 0, 1)[0]; d.job = job; d.work = b.id; need--; b.staff++; }
+    if (b.state !== 'ok' || !STAFF[b.type]) continue; let need = STAFF[b.type] - b.staff; if (need <= 0) continue;
+    const job = b.type === BT.FARM ? 0 : b.type === BT.TAVERN ? 2 : 1, town = this.S[b.sid];
+    while (need > 0) {
+      let pool = pools[b.sid];
+      if (!pool || !pool.length) {   // nobody local: hire a commuter from the nearest settlement within ~45 tiles (a 40-minute walk)
+        let best = -1, bd = 45; for (const k of Object.keys(pools)) { const o = this.S[+k]; if (!pools[+k].length) continue; const dd = Math.hypot(o.x - town.x, o.y - town.y); if (dd < bd) { bd = dd; best = +k; } }
+        if (best < 0) break; pool = pools[best];
+      }
+      const d = pool.splice((this.rnd() * pool.length) | 0, 1)[0]; d.job = job; d.work = b.id; need--; b.staff++;
+    }
   }
 }
 
