@@ -8,6 +8,7 @@
 import { World } from './world';
 import { DAY_TICKS, BT, YEAR_DAYS, C } from '../shared/constants';
 import { epithet, rollTraits, shiftTraits, TRAIT } from './personality';
+import { KB, BUILD_COST, usd } from '../shared/reality';
 import type { Dot } from '../shared/types';
 
 import { newStory, type Arc, type ChronEntry } from './story-types';
@@ -134,20 +135,20 @@ const protege: Kind = {
   launch(w) {
     const towns = townsWithPeople(w, 20); if (!towns.length) return null;
     const s = w.pick(towns), ad = w.townAdults(s.id).filter(d => !busy(w, [d.id]));
-    const rich = ad.filter(d => d.coin > 300 && d.fx.generosity >= 1.5).sort((u, v) => v.coin - u.coin)[0];
-    const poor = ad.filter(d => d.job === 3 && d.coin < 40 && d.fx.ambition >= 1.4 && !w.ownedBy(d.id).length)[0];
+    const rich = ad.filter(d => d.coin > BUILD_COST[4] * 0.6 && d.fx.generosity >= 1.5).sort((u, v) => v.coin - u.coin)[0];
+    const poor = ad.filter(d => d.job === 3 && d.coin < 40 * KB && d.fx.ambition >= 1.4 && !w.ownedBy(d.id).length)[0];
     if (!rich || !poor || rich === poor) return null;
-    rich.coin -= 220; poor.coin += 220; warm(poor, rich, 40);
-    const arc = mkArc(w, 'protege', `${poor.name}'s big chance`, s.id, [poor.id, rich.id], { loan: 220 });
-    beat(w, arc, `🌱 ${rich.name} ${epithet(rich.traits)} staked ${poor.name} ${epithet(poor.traits)} 220 coins to start a business in ${s.name}.`, true); return arc;
+    const loan = Math.round(BUILD_COST[4] * 0.3); rich.coin -= loan; poor.coin += loan; warm(poor, rich, 40);
+    const arc = mkArc(w, 'protege', `${poor.name}'s big chance`, s.id, [poor.id, rich.id], { loan });
+    beat(w, arc, `🌱 ${rich.name} ${epithet(rich.traits)} staked ${poor.name} ${epithet(poor.traits)} ${usd(loan)} to start a business in ${s.name}.`, true); return arc;
   },
   step(w, a, d) {
     if (!live(w, ...a.ids)) { beat(w, a, `The venture ended with the death of one of its partners.`); return close(w, a, 'death'); }
     const [p, r] = a.ids.map(i => w.dots[i]);
-    if (a.stage === 0) { if (w.tryFound(p)) { a.stage = 1; a.data.since = d; beat(w, a, `🏗️ ${p.name} broke ground on a new business.`); } else if (d >= 4) { beat(w, a, `${p.name} never found a viable opening and returned the money.`); const back = Math.min(p.coin, 220); p.coin -= back; r.coin += back; return close(w, a, 'no site'); } }
+    if (a.stage === 0) { if (w.tryFound(p)) { a.stage = 1; a.data.since = d; beat(w, a, `🏗️ ${p.name} broke ground on a new business.`); } else if (d >= 4) { beat(w, a, `${p.name} never found a viable opening and returned the money.`); const back = Math.min(p.coin, a.data.loan); p.coin -= back; r.coin += back; return close(w, a, 'no site'); } }
     else if (a.stage === 1 && d - a.data.since >= 10) {
       const biz = w.ownedBy(p.id).find(b => b.state === 'ok');
-      if (biz) { const back = Math.min(p.coin * 0.5, a.data.loan); p.coin -= back; r.coin += back; warm(p, r, 40); beat(w, a, `🌟 ${p.name}'s ${biz.name} is thriving. They repaid ${r.name} ${Math.round(back)} coins and the town calls it a rags-to-riches story.`, true); close(w, a, 'success'); }
+      if (biz) { const back = Math.min(p.coin * 0.5, a.data.loan); p.coin -= back; r.coin += back; warm(p, r, 40); beat(w, a, `🌟 ${p.name}'s ${biz.name} is thriving. They repaid ${r.name} ${usd(back)} and the town calls it a rags-to-riches story.`, true); close(w, a, 'success'); }
       else { r.aff.set(p.id, (r.aff.get(p.id) || 0) - 25); w.shiftTrait(p, 'cautious', 'the venture failed'); beat(w, a, `📉 ${p.name}'s venture collapsed. ${r.name} lost faith.`, true); close(w, a, 'failure'); }
     }
   },
@@ -175,9 +176,9 @@ const investor: Kind = {
     const s = w.pick(towns), houses = (w.sbl[s.id] || []).filter(b => b.type === BT.HOUSE).sort((u, v) => w.residents(u.id) - w.residents(v.id)); if (!houses.length) return null;
     let traits = rollTraits(w.rnd); const sh = shiftTraits(traits, 'ambitious'); if (sh) traits = sh.traits;
     const d = w.addDot({ name: w.newName(), fam: w.famGen(), job: 3, home: houses[0].id, work: -1, traits, age: 24 + w.rnd() * 14, life: 55 + w.rnd() * 20, coin: 0 }); if (!d) return null;
-    w.fromAbroad(d, 'coin', 700, 'investors'); w.biz.arrived++;
+    w.fromAbroad(d, 'coin', 400_000, 'investors'); w.biz.arrived++;
     const arc = mkArc(w, 'investor', `${d.name} the investor`, s.id, [d.id]);
-    beat(w, arc, `💼 ${d.name} ${epithet(d.traits)} arrives in ${s.name} from abroad with 700 coins to invest.`, true); return arc;
+    beat(w, arc, `💼 ${d.name} ${epithet(d.traits)} arrives in ${s.name} from abroad with ${usd(400_000)} to invest.`, true); return arc;
   },
   step(w, a, d) {
     if (!live(w, ...a.ids)) return close(w, a, 'death'); const p = w.dots[a.ids[0]];
@@ -220,7 +221,7 @@ function yearReview(this: World) {
   const st = this.story, yr = st.lastYear, s = this.stats, snap = st.snap, alive = this.dots.filter(d => !d.dead);
   const born = s.births - (snap.births || 0), died = s.deaths - (snap.deaths || 0), thefts = s.thefts - (snap.thefts || 0), arcs = st.closed - (snap.closed || 0);
   const richest = alive.slice().sort((a, b) => b.coin - a.coin)[0], big = this.S.filter(x => (this.sPop[x.id] || 0) > 0).sort((a, b) => (this.sPop[b.id] || 0) - (this.sPop[a.id] || 0))[0];
-  this.chronicle(`Year ${yr} in review`, `Population ${alive.length} (${born} born, ${died} died). ${arcs} stories played out. ${big ? `${big.name} remains the largest settlement (${this.sPop[big.id]}). ` : ''}${richest ? `${richest.name} ${epithet(richest.traits)} is the wealthiest at ${Math.round(richest.coin)} coins. ` : ''}${thefts} robberies. ${this.biz.closed} businesses have failed so far, ${this.biz.built} built.`, [], true);
+  this.chronicle(`Year ${yr} in review`, `Population ${alive.length} (${born} born, ${died} died). ${arcs} stories played out. ${big ? `${big.name} remains the largest settlement (${this.sPop[big.id]}). ` : ''}${richest ? `${richest.name} ${epithet(richest.traits)} is the wealthiest at ${usd(richest.coin)}. ` : ''}${thefts} robberies. ${this.biz.closed} businesses have failed so far, ${this.biz.built} built.`, [], true);
   st.lastYear = this.year(); st.snap = { births: s.births, deaths: s.deaths, thefts: s.thefts, closed: st.closed };
 }
 

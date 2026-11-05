@@ -2,7 +2,7 @@ import { World } from './world';
 import { makeField, b64, tkLess, mk } from '../shared/util';
 import * as K from '../shared/constants';
 import * as Gen from '../worldgen';
-const { TICK_HZ, DAY_TICKS, INF, TILE, COST, BT, BT_NAME, BUILD_SHIFTS, UPKEEP, STAFF, MAXM, JOBS, FOOD_PRICE, DRINK_PRICE, STOCK_CAP, ADULT, YEAR_DAYS, SEASON_DAYS, SEASONS, YIELD, RAIN_P, CON, C, TRAITS, TRAIT_W, DREAMS, DREAM_TXT } = K;
+const { TS, YEAR_TICKS, HOUR_TICKS, KB, MEAL_UNIT, TICK_HZ, DAY_TICKS, INF, TILE, COST, BT, BT_NAME, BUILD_SHIFTS, UPKEEP, STAFF, MAXM, JOBS, FOOD_PRICE, DRINK_PRICE, STOCK_CAP, ADULT, YEAR_DAYS, SEASON_DAYS, SEASONS, YIELD, RAIN_P, CON, C, TRAITS, TRAIT_W, DREAMS, DREAM_TXT } = K;
 import { W, H } from "../shared/dims";
 
 function stealTick(this: World) {
@@ -10,7 +10,7 @@ function stealTick(this: World) {
     if (!t.isThief || t.dead || t.inside || t.phase === 'chat' || t.theftCd > 0 || !t.adult || this.rnd() > 0.08 * t.fx.crime / 3) continue;
     let vic = null;
     for (const v of this.dots) {
-      if (v === t || v.dead || v.inside || v.coin < 15 || v.phase === 'chat') continue;
+      if (v === t || v.dead || v.inside || v.coin < 15 * KB || v.phase === 'chat') continue;
       const dx = v.x - t.x, dy = v.y - t.y; if (dx * dx + dy * dy > 4 || (t.aff.get(v.id) || 0) >= 25) continue;
       vic = v; break;
     }
@@ -19,11 +19,11 @@ function stealTick(this: World) {
 }
 
 function steal(this: World, t, v) {
-  const amt = Math.round(Math.min(v.coin, 8 + this.rnd() * 14)); v.coin -= amt; t.coin += amt; t.theftCd = 3600 + ((this.rnd() * 3600) | 0);
+  const amt = Math.min(v.coin * 0.5, (8 + this.rnd() * 14) * KB * 0.15);   // a pickpocket's haul: $100-300 v.coin -= amt; t.coin += amt; t.theftCd = Math.round(YEAR_TICKS * (0.6 + this.rnd() * 1.2));   // a thief strikes roughly once a year or two
   const wit = [];
   for (const o of this.dots) { if (o === t || o === v || o.dead || o.inside) continue; const dx = o.x - t.x, dy = o.y - t.y; if (dx * dx + dy * dy <= 36 && this.rnd() < 0.5) wit.push(o); }
   const noticed = this.rnd() < 0.45;
-  if (!noticed && !wit.length) { this.ev('theft0', `🥷 ${t.name} picked ${v.name}'s pocket (${amt} coins). Nobody noticed.`, [t.id, v.id], 25, 2); return; }
+  if (!noticed && !wit.length) { this.ev('theft0', `🥷 ${t.name} picked ${v.name}'s pocket (${K.usd(amt)}). Nobody noticed.`, [t.id, v.id], 25, 2); return; }
   const knowers = wit.slice(0, 4).concat(noticed ? [v] : []);
   for (const k of knowers) { k.thieves.add(t.id); k.aff.set(t.id, Math.min(k.aff.get(t.id) || 0, 0) - 30); }
   this.stats.thefts++;
@@ -48,7 +48,7 @@ function resolveFight(this: World, a, b, ctx) {
   w.energy = Math.max(0, w.energy - 6); l.energy = Math.max(0, l.energy - 16);
   this.addAff(a, b, -15); this.addAff(b, a, -15); this.stats.fights++;
   if (ctx) {
-    if (aw) { const back = Math.round(Math.min(b.coin, ctx.amt + 5)); b.coin -= back; a.coin += back; this.ev('fight', `💥 ${a.name} caught ${b.name} red-handed and took ${back} coins back.`, [a.id, b.id], 0, 3); }
+    if (aw) { const back = Math.round(Math.min(b.coin, ctx.amt + 5 * KB * 0.15)); b.coin -= back; a.coin += back; this.ev('fight', `💥 ${a.name} caught ${b.name} red-handed and took ${K.usd(back)} back.`, [a.id, b.id], 0, 3); }
     else this.ev('fight', `🏃 ${b.name} beat ${a.name} in a scuffle and kept the loot.`, [b.id, a.id], 0, 3);
   } else this.ev('fight', `🥊 ${a.name} confronted known thief ${b.name} — ${w.name} won the brawl.`, [a.id, b.id], 0, 3);
 }

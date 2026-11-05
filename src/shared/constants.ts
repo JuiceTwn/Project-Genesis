@@ -1,14 +1,15 @@
 /* Tunable constants and enums shared by sim, server and client. */
-export const TICK_HZ = 5, DAY_TICKS = 1200, INF = 65535;
+import { TICK_HZ, DAY_TICKS, YEAR_DAYS, SEASON_DAYS, ADULT, BUILD_DAYS, UPKEEP_BY_TYPE, STAFF_BY_TYPE, WAGE_BY_TYPE, REV_BY_TYPE, FOOD_PRICE, DRINK_PRICE } from './reality';
+export * from './reality';
+export const INF = 65535;
 export const TILE = { GRASS: 0, ROAD: 1, BLOCK: 2, WATER: 3, OPEN: 4, TREE: 5, BRIDGE: 6, FORD: 7, SAND: 8, ROCK: 9 };
 export const COST = [4, 2, INF, INF, 3, INF, 2, 4, 4, INF];
 export const BT = { HOUSE: 0, FARM: 1, MARKET: 2, TAVERN: 3, WORKSHOP: 4, PARK: 5, HALL: 6, DOCK: 7, OFFICE: 8, FACTORY: 9, STORE: 10 };
 export const BT_NAME = ['House', 'Farm', 'Market', 'Tavern', 'Workshop', 'Park', 'Town Hall', 'Dock', 'Office', 'Factory', 'Store'];
-export const BUILD_SHIFTS = [6, 5, 10, 8, 8, 3, 14, 12, 12, 16, 9], UPKEEP = [0, 10, 40, 22, 18, 0, 0, 35, 28, 30, 20], STAFF = [0, 4, 0, 3, 4, 0, 0, 4, 10, 12, 5], MAXM = 64;
-/** Per-shift wage and revenue for the workplaces that employ 'crafters' (job 1), indexed by building type. */
-export const WAGE = [0, 8, 0, 10, 9, 0, 0, 9, 13, 11, 9], REV = [0, 0, 0, 0, 11, 0, 0, 13, 16, 14, 12];
+export const BUILD_SHIFTS = BUILD_DAYS, UPKEEP = UPKEEP_BY_TYPE, STAFF = STAFF_BY_TYPE, MAXM = 64;
+export const WAGE = WAGE_BY_TYPE, REV = REV_BY_TYPE;
 export const JOBS = ['farmer', 'crafter', 'keeper', 'drifter'];
-export const FOOD_PRICE = 3, DRINK_PRICE = 2, STOCK_CAP = 700, ADULT = 8, YEAR_DAYS = 3, SEASON_DAYS = 2;
+export const STOCK_CAP = 700;
 export const SEASONS = ['Spring', 'Summer', 'Autumn', 'Winter'], YIELD = [1.0, 1.3, 2.0, 0.7], RAIN_P = [0.35, 0.15, 0.4, 0.55];
 
 export const CON = [['ME','me'],['YOU','you'],['WANT','want'],['GO','go'],['GIVE','give'],['SEE','see'],['LIKE','like'],['HELP','help'],

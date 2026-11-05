@@ -2,7 +2,7 @@ import { World } from './world';
 import { makeField, b64, tkLess, mk } from '../shared/util';
 import * as K from '../shared/constants';
 import * as Gen from '../worldgen';
-const { TICK_HZ, DAY_TICKS, INF, TILE, COST, BT, BT_NAME, BUILD_SHIFTS, UPKEEP, STAFF, MAXM, JOBS, FOOD_PRICE, DRINK_PRICE, STOCK_CAP, ADULT, YEAR_DAYS, SEASON_DAYS, SEASONS, YIELD, RAIN_P, CON, C, TRAITS, TRAIT_W, DREAMS, DREAM_TXT } = K;
+const { TS, YEAR_TICKS, HOUR_TICKS, KB, MEAL_UNIT, TICK_HZ, DAY_TICKS, INF, TILE, COST, BT, BT_NAME, BUILD_SHIFTS, UPKEEP, STAFF, MAXM, JOBS, FOOD_PRICE, DRINK_PRICE, STOCK_CAP, ADULT, YEAR_DAYS, SEASON_DAYS, SEASONS, YIELD, RAIN_P, CON, C, TRAITS, TRAIT_W, DREAMS, DREAM_TXT } = K;
 import { W, H } from "../shared/dims";
 
 function act(this: World, name, id) {
@@ -11,7 +11,7 @@ function act(this: World, name, id) {
   if (name === 'blight' && tk - this.cd.blight > 5 * 45) { this.cd.blight = tk; this.blightAt = tk; this.blight = tk + 5 * 40; this.ev('blight', '🥀 Blight strikes the fields. Farms produce nothing!', [], 0, 2); return true; }
   if (name === 'gift' || name === 'zap' || name === 'cupid') {
     const d = this.dots[id]; if (!d || d.dead || tk - this.cd[name] < CD) return false;
-    if (name === 'gift') { d.coin += 30; this.ledger.minted += 30; this.say(d, [C.THANKS]); this.ev('gift', `🎁 A viewer gifted ${d.name} 30 coins.`, [d.id], 0, 2); }
+    if (name === 'gift') { d.coin += 2500; this.ledger.minted += 2500; this.say(d, [C.THANKS]); this.ev('gift', `🎁 A viewer gifted ${d.name} $2,500.`, [d.id], 0, 2); }
     else if (name === 'zap') { d.energy = 3; this.say(d, [C.AFRAID]); this.ev('zap', `⚡ A viewer zapped ${d.name}! They're completely drained.`, [d.id], 0, 3); }
     else {
       if (!d.adult || d.partner >= 0) return false;

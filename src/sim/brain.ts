@@ -2,7 +2,7 @@ import { World } from './world';
 import { makeField, b64, tkLess, mk } from '../shared/util';
 import * as K from '../shared/constants';
 import * as Gen from '../worldgen';
-const { TICK_HZ, DAY_TICKS, INF, TILE, COST, BT, BT_NAME, BUILD_SHIFTS, UPKEEP, STAFF, MAXM, JOBS, FOOD_PRICE, DRINK_PRICE, STOCK_CAP, ADULT, YEAR_DAYS, SEASON_DAYS, SEASONS, YIELD, RAIN_P, CON, C, TRAITS, TRAIT_W, DREAMS, DREAM_TXT } = K;
+const { TS, YEAR_TICKS, HOUR_TICKS, KB, MEAL_UNIT, TICK_HZ, DAY_TICKS, INF, TILE, COST, BT, BT_NAME, BUILD_SHIFTS, UPKEEP, STAFF, MAXM, JOBS, FOOD_PRICE, DRINK_PRICE, STOCK_CAP, ADULT, YEAR_DAYS, SEASON_DAYS, SEASONS, YIELD, RAIN_P, CON, C, TRAITS, TRAIT_W, DREAMS, DREAM_TXT } = K;
 import { W, H } from "../shared/dims";
 
 function decide(this: World, d) {
@@ -11,16 +11,16 @@ function decide(this: World, d) {
   c.push(['sleep', (100 - d.energy) * 1.15 + (night ? 75 : 0) - (d.hunger > 88 ? 60 : 0)]);
   const mk = d.hunger > 35 ? this.pickMarket(d) : -1;
   if (d.hunger > 90 && mk >= 0) { this.setGoal(d, 'eat', mk, null); return; }   // survival first
-  if (mk >= 0 && d.coin >= this.price(d) && !(d.shortAt && this.tick - d.shortAt < 150 && d.coin < 8)) c.push(['eat', d.hunger * 1.3 - (night && d.energy < 40 ? 30 : 0) + (d.hunger > 45 && tod > 0.7 && tod < 0.95 ? 45 : 0)]);
+  if (mk >= 0 && d.coin >= this.price(d) && !(d.shortAt && this.tick - d.shortAt < 150 * TS && d.coin < 8 * MEAL_UNIT)) c.push(['eat', d.hunger * 1.3 - (night && d.energy < 40 ? 30 : 0) + (d.hunger > 45 && tod > 0.7 && tod < 0.95 ? 45 : 0)]);
   const broke = d.coin < FOOD_PRICE * 2;
   if (d.adult && (hours || (broke && d.hunger > 50 && !night) || (d.job === 0 && this.believedEmpty(d) && !night)) && d.energy > 20) {
-    let s = d.dil * 32 + (d.coin < 30 ? 35 : 0) + (d.coin < 10 ? 30 : 0) - (d.coin > 140 ? 45 : 0);
+    let s = d.dil * 32 + (d.coin < 30 * KB ? 35 : 0) + (d.coin < 10 * KB ? 30 : 0) - (d.coin > 140 * KB ? 45 : 0);
     if (d.job === 0) { const nm = this.nearest(this.markets, d, 0), low = nm ? nm.stock : 999; s += (low < 90 ? 30 : 0) + (low < 30 ? 35 : 0) + (low > (this.season() === 2 ? 600 : 250) ? -50 : 0) + (this.believedEmpty(d) ? 30 : 0) + (low < 40 && d.coin > 60 ? 45 : 0) + (this.season() === 2 ? 20 : 0); }
     if (d.hunger > 85 && d.coin >= FOOD_PRICE && mk >= 0) s -= 60;
     c.push(['work', s]);
   }
   if (d.adult && (d.job === 1 || d.job === 3) && this.sites.length && hours && d.energy > 22) {
-    const st = this.siteFor(d); if (st) c.push(['build', 38 + d.dil * 18 + (d.coin < 30 ? 28 : 0) + (d.job === 3 ? 12 : 0)]);
+    const st = this.siteFor(d); if (st) c.push(['build', 38 + d.dil * 18 + (d.coin < 30 * KB ? 28 : 0) + (d.job === 3 ? 12 : 0)]);
   }
   const fest = tk < this.festival || tk < ((this.gov(this.S[this.buildings[d.home].sid])).festival || 0), inv = d.invite && tk < d.invite.until ? d.invite : null;
   c.push(['social', (100 - d.social) * d.soc * 0.95 + (fest ? 90 : 0) + (inv && inv.k === 'social' ? 60 : 0) - (night ? 45 : 0) - (this.weather ? 30 : 0)]);
@@ -60,11 +60,11 @@ function setGoal(this: World, d, k, mk, inv) {
   d.goal = g; d.phase = 'walk'; d.nx = -1; d.prog = 0;
 }
 
-function believedEmpty(this: World, d) { let n = 0; for (const m of this.markets) { const b = d.belief[m.mi]; if (b >= 0 && this.tick - b < 300 && this.F(m)[d.y * W + d.x] < 160) n++; } return n; }
+function believedEmpty(this: World, d) { let n = 0; for (const m of this.markets) { const b = d.belief[m.mi]; if (b >= 0 && this.tick - b < 300 * TS && this.F(m)[d.y * W + d.x] < 160) n++; } return n; }
 
 function pickMarket(this: World, d) {
   let best = -1, bv = 1e9;
-  for (const m of this.markets) { const b = d.belief[m.mi]; if (b >= 0 && this.tick - b < 300) continue; const v = this.F(m)[d.y * W + d.x]; if (v < bv) { bv = v; best = m.id; } }
+  for (const m of this.markets) { const b = d.belief[m.mi]; if (b >= 0 && this.tick - b < 300 * TS) continue; const v = this.F(m)[d.y * W + d.x]; if (v < bv) { bv = v; best = m.id; } }
   return best;
 }
 

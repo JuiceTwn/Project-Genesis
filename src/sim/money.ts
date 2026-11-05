@@ -6,6 +6,7 @@
        2. The government explicitly printing money (mint), e.g. to fund a regional grant the treasury cannot afford.
    tests/money.test.ts checks that supply(now) == supply(start) + minted + inflow - outflow at all times. */
 import { World } from './world';
+import { usd } from '../shared/reality';
 
 
 type Acct = Record<string, any>;
@@ -29,7 +30,7 @@ function exportIn(this: World, b, amt: number) { const [o, k] = this.till(b); th
 /** The government explicitly creates new money. Always visible: it is announced and recorded. */
 function mint(this: World, amt: number, why: string) {
   if (amt <= 0) return; this.nation.treasury += amt; this.ledger.minted += amt;
-  this.ev('mint', `🖨️ The national bank issued ${Math.round(amt)} new coins (${why}).`, [], 0, 3);
+  this.ev('mint', `🖨️ The national bank issued ${usd(amt)} of new money (${why}).`, [], 0, 3);
 }
 
 /** Spend public money locally: split among a few random working-age residents (contractors, caterers, labour). */

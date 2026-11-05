@@ -3,6 +3,8 @@
    a market report, a gossip column written by the country's biggest gossip, classifieds and the day in numbers.
    Prose is templated (deterministic and free); every story is built from structured facts so names, towns and relationships are real. */
 import { World } from './world';
+import { usd } from '../shared/reality';
+import * as K from '../shared/constants';
 import { BT, BT_NAME, DAY_TICKS, SEASONS, STAFF, WAGE, DREAM_TXT, SEASON_DAYS } from '../shared/constants';
 import { TRAIT, epithet } from './personality';
 import { plain, type GStory, type Issue, type StoryDoc } from '../shared/gazette';
@@ -153,7 +155,7 @@ function writeIssue(w: World, log: LogEvent[], snap: Record<string, number>): Is
   // market report
   const mk = w.markets.filter(m => m.state === 'ok'), avgStock = mk.length ? Math.round(mk.reduce((a, m) => a + m.stock, 0) / mk.length) : 0, low = mk.slice().sort((a, b) => a.stock - b.stock)[0];
   const prices = mk.map(m => w.mprice(m)), taxes = w.S.map(s => w.gov(s).tax), supply = w.moneySupply(), dSupply = supply - (snap.supply || supply);
-  const market = [`Food stocks average ${avgStock} units across ${mk.length} markets${low ? `; thinnest at ${w.S[low.sid].name} (${Math.round(low.stock)})` : ''}.`, prices.length ? `A meal costs ${Math.min(...prices)}–${Math.max(...prices)} coins depending on the market.` : '', `Money supply: ${Math.round(supply).toLocaleString('en')} coins (${dSupply >= 0 ? '+' : '−'}${Math.abs(Math.round(dSupply)).toLocaleString('en')} on the day); the national bank has printed ${Math.round(w.ledger.minted)} in total.`, `Local tax rates run ${Math.min(...taxes)}–${Math.max(...taxes)} coins a day; the national treasury holds ${Math.round(w.nation.treasury).toLocaleString('en')}.`].filter(Boolean);
+  const market = [`Food stocks average ${avgStock} units across ${mk.length} markets${low ? `; thinnest at ${w.S[low.sid].name} (${Math.round(low.stock)})` : ''}.`, prices.length ? `A meal costs ${usd(Math.min(...prices))}–${usd(Math.max(...prices))} depending on the market.` : '', `Money supply: ${usd(supply)} (${dSupply >= 0 ? '+' : '−'}${Math.abs(Math.round(dSupply)).toLocaleString('en')} on the day); the national bank has printed ${Math.round(w.ledger.minted)} in total.`, `Local income taxes run ${Math.min(...taxes)}–${Math.max(...taxes)}% on top of the national ${Math.round(K.NATION_TAX * 100)}%; the national treasury holds ${Math.round(w.nation.treasury).toLocaleString('en')}.`].filter(Boolean);
 
   // gossip column, by the country's biggest gossip
   const col = alive.filter(d => d.adult).sort((a, b) => b.fx.gossip - a.fx.gossip || a.id - b.id)[0];
@@ -164,7 +166,7 @@ function writeIssue(w: World, log: LogEvent[], snap: Record<string, number>): Is
 
   // classifieds
   const jobsOpen = open.filter(b => STAFF[b.type] && (b.staff || 0) < STAFF[b.type]).sort((a, b) => (STAFF[b.type] - (b.staff || 0)) - (STAFF[a.type] - (a.staff || 0))).slice(0, 4);
-  const classifieds = [...jobsOpen.map(b => `WANTED: ${STAFF[b.type] - (b.staff || 0)} hand${STAFF[b.type] - (b.staff || 0) > 1 ? 's' : ''} at ${b.name} ${BT_NAME[b.type]}, ${w.S[b.sid].name}. ${WAGE[b.type] || 9} coins a shift.`), ...w.buildings.filter(b => b.state === 'vacant').slice(0, 2).map(b => `FOR SALE: vacant ${BT_NAME[b.type].toLowerCase()} in ${w.S[b.sid].name}. Enquire within.`)];
+  const classifieds = [...jobsOpen.map(b => `WANTED: ${STAFF[b.type] - (b.staff || 0)} hand${STAFF[b.type] - (b.staff || 0) > 1 ? 's' : ''} at ${b.name} ${BT_NAME[b.type]}, ${w.S[b.sid].name}. ${usd(WAGE[b.type] || 9)} a day.`), ...w.buildings.filter(b => b.state === 'vacant').slice(0, 2).map(b => `FOR SALE: vacant ${BT_NAME[b.type].toLowerCase()} in ${w.S[b.sid].name}. Enquire within.`)];
   if (!classifieds.length) classifieds.push('No notices today.');
 
   const mood = alive.length ? Math.round(alive.reduce((a, d) => a + w.mood(d), 0) / alive.length) : 0;

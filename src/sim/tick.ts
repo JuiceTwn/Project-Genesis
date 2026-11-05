@@ -2,7 +2,7 @@ import { World } from './world';
 import { makeField, b64, tkLess, mk } from '../shared/util';
 import * as K from '../shared/constants';
 import * as Gen from '../worldgen';
-const { TICK_HZ, DAY_TICKS, INF, TILE, COST, BT, BT_NAME, BUILD_SHIFTS, UPKEEP, STAFF, MAXM, JOBS, FOOD_PRICE, DRINK_PRICE, STOCK_CAP, ADULT, YEAR_DAYS, SEASON_DAYS, SEASONS, YIELD, RAIN_P, CON, C, TRAITS, TRAIT_W, DREAMS, DREAM_TXT } = K;
+const { TS, YEAR_TICKS, HOUR_TICKS, KB, MEAL_UNIT, TICK_HZ, DAY_TICKS, INF, TILE, COST, BT, BT_NAME, BUILD_SHIFTS, UPKEEP, STAFF, MAXM, JOBS, FOOD_PRICE, DRINK_PRICE, STOCK_CAP, ADULT, YEAR_DAYS, SEASON_DAYS, SEASONS, YIELD, RAIN_P, CON, C, TRAITS, TRAIT_W, DREAMS, DREAM_TXT } = K;
 import { W, H } from "../shared/dims";
 
 function step(this: World) {
@@ -30,18 +30,18 @@ function step(this: World) {
     d.age += 1 / (DAY_TICKS * YEAR_DAYS); if (d.theftCd > 0) d.theftCd--; if (d.rejectCd > 0) d.rejectCd--;
     // needs
     const asleep = d.phase === 'do' && d.goal && d.goal.k === 'sleep';
-    d.hunger = Math.min(100, d.hunger + (asleep ? 0.035 : 0.12) * hr);
-    if (!asleep) d.energy = Math.max(0, d.energy - 0.075 - (d.phase === 'do' && d.goal && d.goal.k === 'work' ? 0.03 : 0));
-    d.social = Math.max(0, d.social - 0.07);
+    d.hunger = Math.min(100, d.hunger + (asleep ? 0.035 : 0.12) * hr / TS);
+    if (!asleep) d.energy = Math.max(0, d.energy - (0.075 + (d.phase === 'do' && d.goal && d.goal.k === 'work' ? 0.03 : 0)) / TS);
+    d.social = Math.max(0, d.social - 0.07 / TS);
     if (d.chatCd > 0) d.chatCd--;
     if (d.hunger >= 99.5) d.starveT++; else d.starveT = 0;
-    if (d.starveT > 900) { this.die(d, 'hunger'); continue; }
+    if (d.starveT > 900 * TS) { this.die(d, 'hunger'); continue; }
     if (d.age > d.life && this.rnd() < 1 / (DAY_TICKS * 2)) { this.die(d, 'age'); continue; }
     if (!d.adult && d.age >= ADULT) this.grow(d);
     if ((tk + d.id) % 25 === 0) this.dreamCheck(d);
     if (d.hunger >= 99.5 && d.starvedDay !== this.day()) { d.starvedDay = this.day(); this.ev('starve', `😵 ${d.name} is starving.`, [d.id], 400); }
-    if (!d.rich && d.coin > 220) { d.rich = true; this.ev('rich', `💰 ${d.name} is getting rich.`, [d.id], 60); }
-    if (d.rich && d.coin < 100) d.rich = false;
+    if (!d.rich && d.coin > K.RICH) { d.rich = true; this.ev('rich', `💰 ${d.name} is getting rich.`, [d.id], 60); }
+    if (d.rich && d.coin < K.RICH * 0.4) d.rich = false;
     if (d.hunger > 85 && this.rnd() < 0.0015 && !d.inside) this.say(d, [C.ME, C.HUNGRY]);
     if (d.phase === 'chat') { if (d.hunger > 95) d.chatT = 0; if (--d.chatT <= 0) { d.phase = d.prev; d.fight = false; } continue; }
     if (d.hunger > 90 && d.goal && d.goal.k !== 'eat' && d.goal.k !== 'sleep' && !(d.goal.k === 'deliver' && d.hunger < 96)) { if (d.inside) this.leave(d); d.goal = null; d.phase = 'walk'; d.nx = -1; d.prog = 0; }   // starving: drop everything
@@ -75,7 +75,7 @@ function step(this: World) {
     }
   }
   this.stealTick();
-  if (tk % 50 === 0) this.couples();
+  if (tk % Math.round(50 * TS) === 0) this.couples();
   // tavern chatter
   for (const b of this.taverns) if (b.occ > 0 && tk % 25 === b.id % 25) {
     const o = this.pick(b.inside), lines = [[C.ME, C.WANT, C.DRINK], [C.HELLO], [C.ME, C.HAPPY], [C.YOU, C.GOOD], [C.DRINK, C.GOOD], [C.ME, C.LIKE, C.FRIEND]];

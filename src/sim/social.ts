@@ -2,11 +2,11 @@ import { World } from './world';
 import { makeField, b64, tkLess, mk } from '../shared/util';
 import * as K from '../shared/constants';
 import * as Gen from '../worldgen';
-const { TICK_HZ, DAY_TICKS, INF, TILE, COST, BT, BT_NAME, BUILD_SHIFTS, UPKEEP, STAFF, MAXM, JOBS, FOOD_PRICE, DRINK_PRICE, STOCK_CAP, ADULT, YEAR_DAYS, SEASON_DAYS, SEASONS, YIELD, RAIN_P, CON, C, TRAITS, TRAIT_W, DREAMS, DREAM_TXT } = K;
+const { TS, YEAR_TICKS, HOUR_TICKS, KB, MEAL_UNIT, TICK_HZ, DAY_TICKS, INF, TILE, COST, BT, BT_NAME, BUILD_SHIFTS, UPKEEP, STAFF, MAXM, JOBS, FOOD_PRICE, DRINK_PRICE, STOCK_CAP, ADULT, YEAR_DAYS, SEASON_DAYS, SEASONS, YIELD, RAIN_P, CON, C, TRAITS, TRAIT_W, DREAMS, DREAM_TXT } = K;
 import { W, H } from "../shared/dims";
 
 function addAff(this: World, a, b, v) {
-  const prev = a.aff.get(b.id) || 0, nv = Math.max(-100, Math.min(100, prev + v));
+  v /= TS; const prev = a.aff.get(b.id) || 0, nv = Math.max(-100, Math.min(100, prev + v));
   a.aff.set(b.id, nv);
   if (a.aff.size > 14) { let mk = -1, mv = 1e9; for (const [k, x] of a.aff) if (Math.abs(x) < mv && k !== b.id) { mv = Math.abs(x); mk = k; } a.aff.delete(mk); }
   if (prev < 25 && nv >= 25) {
@@ -27,7 +27,7 @@ function couple(this: World, a, b) {
 }
 
 function reject(this: World, s, l) {
-  s.rejectCd = 1500; s.social = Math.max(0, s.social - 30); s.aff.set(l.id, (s.aff.get(l.id) || 0) - 8);
+  s.rejectCd = Math.round(1500 * TS); s.social = Math.max(0, s.social - 30); s.aff.set(l.id, (s.aff.get(l.id) || 0) - 8);
   this.ev('reject', `💔 ${s.name} confessed to ${l.name} and got turned down.`, [s.id, l.id], 0, 3);
 }
 
@@ -56,7 +56,7 @@ function jealous(this: World, a, b) {
 }
 
 function kindness(this: World, a, b) {
-  if (b.coin < 15 && a.coin > 50 && this.rnd() < 0.25 * a.fx.generosity) { a.coin -= 15; b.coin += 15; this.addAff(b, a, 8); this.say(b, [C.THANKS]); this.ev('kind', `💖 ${a.name} gave ${b.name} 15 coins.`, [a.id, b.id], 40, 1); }
+  if (b.coin < 15 * KB && a.coin > 50 * KB && this.rnd() < 0.25 * a.fx.generosity) { const g = 15 * KB * 0.4; a.coin -= g; b.coin += g; this.addAff(b, a, 8); this.say(b, [C.THANKS]); this.ev('kind', `💖 ${a.name} gave ${b.name} ${K.usd(g)}.`, [a.id, b.id], 40, 1); }
 }
 
 function couples(this: World) {
@@ -64,9 +64,10 @@ function couples(this: World) {
   for (const d of this.dots) {
     if (d.dead || d.partner < 0 || d.id > d.partner) continue;
     const p = this.dots[d.partner];
-    if (this.rnd() < 0.05) { const tav = this.rnd() < 0.45 && d.coin > 6 && p.coin > 6 && d.adult, place = tav ? this.nearest(this.taverns, d, 0) : this.nearest(this.parks, d, 10); const inv = { k: tav ? 'drink' : 'social', b: place.id, until: tk + 300 }; d.invite = inv; p.invite = Object.assign({}, inv); }
-    if (!d.married && tk - d.since > 2 * DAY_TICKS && this.rnd() < 0.03 && (d.aff.get(p.id) || 0) >= 50) this.wedding(d, p);
-    if (d.married && d.kids < 4 && this.rnd() < 0.02) this.spawn(d, p);
+    if (this.rnd() < 0.05) { const tav = this.rnd() < 0.45 && d.coin > K.DRINK_PRICE * 2 && p.coin > K.DRINK_PRICE * 2 && d.adult, place = tav ? this.nearest(this.taverns, d, 0) : this.nearest(this.parks, d, 10); const inv = { k: tav ? 'drink' : 'social', b: place.id, until: tk + 300 }; d.invite = inv; p.invite = Object.assign({}, inv); }
+    const step = 50 * TS;   // this runs every `step` ticks
+    if (!d.married && tk - d.since > 0.25 * YEAR_TICKS && this.rnd() < step / (0.25 * YEAR_TICKS) && (d.aff.get(p.id) || 0) >= 50) this.wedding(d, p);   // engaged after at least a quarter-year together
+    if (d.married && d.kids < 4 && d.age >= K.FERTILE_MIN && d.age <= K.FERTILE_MAX && p.age >= K.FERTILE_MIN && p.age <= K.FERTILE_MAX && this.rnd() < K.BIRTHS_PER_COUPLE_YEAR * step / YEAR_TICKS) this.spawn(d, p);
   }
 }
 
@@ -86,7 +87,7 @@ function dialogue(this: World, a, b) {
       return true;
     }
     for (const m of this.markets) { const bs = s.belief[m.mi]; if (bs >= 0 && tk - bs < 250 && !(l.belief[m.mi] >= 0 && tk - l.belief[m.mi] < 250)) { L.push([s, [2000 + m.id, C.NO, C.FOOD]]); L.push([l, [C.THANKS]]); fx.push(() => { l.belief[m.mi] = bs; }); return true; } }
-    if (s.coin < 12) { L.push([s, [C.ME, C.BROKE]]); L.push([l, [C.YOU, C.GO, C.WORK]]); return true; }
+    if (s.coin < 12 * KB) { L.push([s, [C.ME, C.BROKE]]); L.push([l, [C.YOU, C.GO, C.WORK]]); return true; }
     if (s.adult && l.adult && s.partner < 0 && l.partner < 0 && s.home !== l.home && s.fam !== l.fam && s.rejectCd <= 0 && (s.aff.get(l.id) || 0) >= 22 && this.rnd() < Math.min(0.8, 0.2 * s.fx.romance)) {
       L.push([s, [C.ME, C.LOVE, C.YOU]]);
       if (this.rnd() < 0.3 + (l.aff.get(s.id) || 0) / 100 + Math.min(0.2, 0.075 * (l.fx.romance - 1))) { L.push([l, [C.ME, C.LOVE, C.YOU]]); fx.push(() => this.couple(s, l)); }
@@ -97,7 +98,7 @@ function dialogue(this: World, a, b) {
       const tid = [...s.thieves].find(x => x !== l.id && !this.dots[x].dead && !l.thieves.has(x));
       if (tid !== undefined && this.rnd() < Math.min(0.95, 0.5 + 0.2 * (s.fx.gossip - 1))) { L.push([s, [1000 + tid, C.THIEF]]); L.push([l, [C.ANGRY]]); fx.push(() => { l.thieves.add(tid); this.addAff(l, this.dots[tid], -12); }); return true; }
     }
-    if (s.social < 70 && this.rnd() < 0.55 && l.coin >= 4 && s.coin >= 4) {
+    if (s.social < 70 && this.rnd() < 0.55 && l.coin >= K.DRINK_PRICE * 2 && s.coin >= K.DRINK_PRICE * 2) {
       const tav = this.rnd() < 0.4, place = tav ? this.nearest(this.taverns, s, 0) : this.nearest(this.parks, s, 10);
       L.push([s, [C.YOU, C.AND, C.ME, C.GO, 2000 + place.id]]);
       const yes = (l.aff.get(s.id) || 0) + this.rnd() * 40 > 15;
@@ -127,7 +128,7 @@ function startChat(this: World, a, b) {
   this.later(dur, { fn: () => {
     if (a.dead || b.dead) return;
     for (const f of fx) f();
-    const bonus = 12;
+    const bonus = 12 / TS;
     a.social = Math.min(100, a.social + bonus); b.social = Math.min(100, b.social + bonus);
     this.addAff(a, b, 7 + this.rnd() * 4); this.addAff(b, a, 7 + this.rnd() * 4); this.stats.chats++;
     this.jealous(a, b); this.jealous(b, a); this.kindness(a, b); this.kindness(b, a);

@@ -4,7 +4,7 @@ import { COUNTRY, FIELD_BUDGET } from './config';
 import { makeField, b64, tkLess, mk } from '../shared/util';
 import * as K from '../shared/constants';
 import * as Gen from '../worldgen';
-const { TICK_HZ, DAY_TICKS, INF, TILE, COST, BT, BT_NAME, BUILD_SHIFTS, UPKEEP, STAFF, MAXM, JOBS, FOOD_PRICE, DRINK_PRICE, STOCK_CAP, ADULT, YEAR_DAYS, SEASON_DAYS, SEASONS, YIELD, RAIN_P, CON, C, TRAITS, TRAIT_W, DREAMS, DREAM_TXT } = K;
+const { TS, YEAR_TICKS, HOUR_TICKS, KB, MEAL_UNIT, TICK_HZ, DAY_TICKS, INF, TILE, COST, BT, BT_NAME, BUILD_SHIFTS, UPKEEP, STAFF, MAXM, JOBS, FOOD_PRICE, DRINK_PRICE, STOCK_CAP, ADULT, YEAR_DAYS, SEASON_DAYS, SEASONS, YIELD, RAIN_P, CON, C, TRAITS, TRAIT_W, DREAMS, DREAM_TXT } = K;
 import { W, H, setDims } from "../shared/dims";
 
 function mkBuilding(this: World, type, x, y, door, open, sid) {
@@ -80,7 +80,7 @@ function buildMap(this: World) {
     if (tier === 0) { const free = urban.filter(p => !p.used && !p.sq); put(BT.PARK, free[Math.floor(free.length * 0.3)]); }
     const nHouse = Math.ceil(P / 4);
     for (let i = 0; i < nHouse; i++) put(BT.HOUSE, take(urban, p => !p.sq) || take(urban) || take(rural));
-    const nFarm = Math.max(1, Math.round(P * 0.36 / 11));
+    const nFarm = tier >= 2 ? (P >= 15 ? 1 : 0) : Math.max(1, Math.round(P * K.FARMERS_SHARE / 4));
     for (let i = 0; i < nFarm; i++) put(BT.FARM, take(rural) || take(urban.slice().reverse()));
   }
   this.pop = this.S.reduce((a, s) => a + s.pop0, 0); this.maxPop = Math.max(this.maxPop, Math.round(this.pop * 1.7));
@@ -124,14 +124,16 @@ function expandSettlement(this: World, s) {
 function plotFor(this: World, s, kind) { return this.freePlot(s, kind) || (this.expandSettlement(s) ? this.freePlot(s, kind) : null); }
 
 function startBuild(this: World, plot, type, owner, cost) {
-  const b = this.placeOn(plot, type, 'build'); b.owner = owner; b.need = BUILD_SHIFTS[type]; b.prog = 0; b.escrow = cost; b.started = this.tick;
+  const b = this.placeOn(plot, type, 'build'); b.owner = owner; b.need = BUILD_SHIFTS[type]; b.prog = 0; b.escrow = cost * K.LABOUR_SHARE;   // wages are held in escrow; the materials are imported
+  this.ledger.outflow += cost * (1 - K.LABOUR_SHARE); this.ledger.flow.materials = (this.ledger.flow.materials || 0) - cost * (1 - K.LABOUR_SHARE);
+  b.started = this.tick;
   this.nameBuilding(b, owner >= 0 ? this.dots[owner] : null);
   this.sites.push(b); this.fgen++; this.pushBld(b, 'add'); this.pushTiles(this.footprint(b)); return b;
 }
 
 function buildStep(this: World, d, b) {
   if (!b || b.state !== 'build') return;
-  const w = Math.min(9, Math.max(0, b.escrow)); b.escrow -= w; d.coin += w; b.prog++;
+  const w = Math.min(K.DAY_WAGE, Math.max(0, b.escrow)); b.escrow -= w; d.coin += w; b.prog++;
   if (b.prog >= b.need) this.completeBuild(b);
 }
 
