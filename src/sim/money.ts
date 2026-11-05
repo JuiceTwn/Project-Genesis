@@ -51,7 +51,7 @@ function liquidate(this: World, b) {
 
 /** Everything that counts as money in the country. */
 function moneySupply(this: World): number {
-  let t = this.nation.treasury;
+  let t = this.nation.treasury + (this.bank ? this.bank.cash : 0);
   for (const d of this.dots) t += d.coin;
   for (const b of this.buildings) t += (b.cash || 0) + (b.escrow || 0);
   for (const s of this.S) t += s.gov ? s.gov.treasury : 0;

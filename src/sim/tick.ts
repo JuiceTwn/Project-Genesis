@@ -87,7 +87,7 @@ function step(this: World) {
 function dawn(this: World) {
   this.mortality(); this.retirement();
   if (this.day() % K.MONTH_DAYS === 0) this.monthlyHousing();
-  this.budgetDawn(); this.gearDawn(); this.brandDawn();
+  this.budgetDawn(); this.gearDawn(); this.brandDawn(); this.bankDawn();
   this.gazetteDawn();   // the paper goes to press with yesterday's news before today's begins
   const day = this.day();
   const alive = this.dots.filter(d => !d.dead);
