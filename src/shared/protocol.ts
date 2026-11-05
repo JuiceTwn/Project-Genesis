@@ -60,7 +60,7 @@ export interface DetailMsg {
   hunger: number; energy: number; social: number; coin: number; mood: number; doing: string; thought: string; home: number;
   dream: string; partner: string | null; pid: number; married: boolean; rep: number; kids: number;
   thieves: number[]; friends: [number, number][]; nick: string | null; face: any; fame: number; mem: string[];
-  attrs: number[]; skills: [string, number][]; ill: string[]; thoughts: [string, number][];
+  attrs: number[]; skills: [string, number][]; ill: string[]; thoughts: [string, number][]; bonds?: string[];
   [extra: string]: any;
 }
 export interface CastEntry { id: number; name: string; nick: string | null; age: number; job: string; town: string; fame: number; mood: number; line: string; face: any }

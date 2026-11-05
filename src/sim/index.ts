@@ -7,6 +7,7 @@ export { W, H } from '../shared/dims';
 export type { View } from './output';
 export * from '../shared/constants';
 import './thoughts';
+import './bonds';
 import './skills';
 import './health';
 import './legend';

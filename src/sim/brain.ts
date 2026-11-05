@@ -32,6 +32,9 @@ function decide(this: World, d: Dot) {
   c.push(['social', (100 - d.social) * d.soc * 0.95 + (fest ? 90 : 0) + (inv && inv.k === 'social' ? 60 : 0) - (night ? 45 : 0) - (this.weather ? 30 : 0)]);
   if (d.adult && this.stores.length && (d.budget || 0) >= 0.2 * K.DAY_WAGE && tod > 0.36 && tod < 0.84) c.push(['shop', 55 + Math.min(70, (d.budget || 0) / K.DAY_WAGE * 22) + this.rnd() * 10]);
   if (d.adult && d.coin >= K.NIGHT_OUT * 2) c.push(['drink', d.fx.spend * (100 - d.social) * d.soc * 0.55 + (tod > 0.62 && tod < 0.92 ? 22 : -35) + (inv && inv.k === 'drink' ? 60 : 0) + (fest ? 30 : 0) + (this.weather ? 15 : 0)]);
+  if (d.adult && !retired && d.foes && d.foes.size && !night && d.energy > 40 && d.hunger < 70 && (d.fx.temper > 1.4 || d.traits.includes('vengeful') || d.traits.includes('hothead')) && d.fx.courage > -0.2) {
+    const rg = this.revengeGoal(d); if (rg) c.push(['confront', 30 + this.grudge(d, rg.t) * 0.9 + (d.fx.temper - 1) * 14]);
+  }
   c.push(['wander', 18 + this.rnd() * 10]);
   let bk = 'wander', bs = -1e9;
   for (const [k, s] of c) { const v = s + (this.rnd() - 0.5) * 14; if (v > bs) { bs = v; bk = k; } }
@@ -42,6 +45,7 @@ function setGoal(this: World, d: Dot, k, mk, inv) {
   let g;
   switch (k) {
     case 'sleep': g = { k, b: d.home, enter: true }; break;
+    case 'confront': { const rg = this.revengeGoal(d); if (!rg) { g = { k: 'wander', b: d.home, enter: false }; break; } g = { k, b: rg.b, enter: false, t: rg.t }; break; }
     case 'eat': g = { k, b: mk, enter: true }; break;
     case 'work': {
       let b = d.job === 3 ? this.nearest(this.workshops, d, 10) : this.buildings[d.work];

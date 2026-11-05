@@ -112,7 +112,7 @@ function spawn(this: World, a: Dot, b: Dot) {
   const traits = inheritTraits(a.traits, b.traits, this.rnd);
   const pj = (this.rnd() < 0.5 ? a : b).future, future = pj === 2 ? 3 : pj;
   const d = this.makeDot(slot.id, { name: this.newName(), fam: (this.rnd() < 0.5 ? a : b).fam, job: 3, home: a.home, work: -1, future, traits, age: 0, life: K.lifespan(this.rnd), hunger: 20, energy: 90, social: 60, coin: 0 }, this.rnd);
-  d.speed = 0.26; this.dots[slot.id] = d; this.names[slot.id] = d.name;
+  d.speed = 0.26; d.par = [a.id, b.id]; this.dots[slot.id] = d; this.names[slot.id] = d.name;
   for (const p of [a, b]) { p.aff.set(d.id, 70); d.aff.set(p.id, 70); p.kids++; }
   for (const o of this.dots) if (!o.dead && o.home === a.home && o.id !== d.id && o.id !== a.id && o.id !== b.id) { o.aff.set(d.id, 40); d.aff.set(o.id, 40); }
   this.stats.births++;

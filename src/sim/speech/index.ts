@@ -10,6 +10,7 @@ import './content/acts';
 import './content/acts-talk';
 import './content/topics-life';
 import './content/topics-people';
+import './content/topics-bonds';
 import './content/topics-body';
 import './content/replies';
 import './content/flourishes';

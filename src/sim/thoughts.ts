@@ -9,7 +9,7 @@ import * as K from '../shared/constants';
 import * as R from '../shared/reality';
 import { shareAbroad } from './thoughts-util';
 
-export interface Thought { k: string; v: number; until: number; from: number; txt: string }
+export interface Thought { k: string; v: number; until: number; from: number; txt: string; src?: number }
 const MAX = 14;
 const DAY = K.DAY_TICKS;
 
@@ -27,12 +27,17 @@ const MAP: Record<string, [string, number, number, string]> = {
   embezzle: ['first', -8, 10, 'Under suspicion.'], arrest: ['first', -8, 10, 'Arrested.'],
 };
 const BASEKIND = (k: string) => k.replace(/\d+$/, '');
+/** Events with another person in them name that person in the thought, and remember who it was about. */
+const CAUSAL: Record<string, (n: string) => string> = {
+  theft: n => `Robbed by ${n}.`, burg: n => `${n} broke into my home.`, fight: n => `Brawl with ${n}.`, breakup: n => `Heartbroken over ${n}.`,
+  love: n => `In love with ${n}.`, wedding: n => `Married ${n}!`,
+};
 
-function addThought(this: World, d: Dot, k: string, v: number, days: number, txt: string) {
+function addThought(this: World, d: Dot, k: string, v: number, days: number, txt: string, src?: number) {
   if (!d || d.dead) return; const th: Thought[] = d.th || (d.th = []), now = this.tick;
   const i = th.findIndex(t => t.k === k);
-  if (i >= 0) { th[i].v = Math.abs(v) > Math.abs(th[i].v) ? v : th[i].v; th[i].until = Math.max(th[i].until, now + days * DAY); th[i].from = now; th[i].txt = txt; return; }
-  th.push({ k, v, until: now + days * DAY, from: now, txt });
+  if (i >= 0) { th[i].v = Math.abs(v) > Math.abs(th[i].v) ? v : th[i].v; th[i].until = Math.max(th[i].until, now + days * DAY); th[i].from = now; th[i].txt = txt; if (src !== undefined) th[i].src = src; return; }
+  th.push({ k, v, until: now + days * DAY, from: now, txt, src });
   if (th.length > MAX) { let w = 0, wv = 1e9; th.forEach((t, j) => { const a = Math.abs(t.v); if (a < wv) { wv = a; w = j; } }); th.splice(w, 1); }
 }
 
@@ -48,7 +53,10 @@ function thoughtHook(this: World, kind: string, text: string, ids: number[], w: 
   const m = MAP[BASEKIND(kind)]; if (!m || !ids || !ids.length) return;
   const who = m[0] === 'all' ? ids : m[0] === 'rest' ? ids.slice(1) : m[0] === 'last' ? [ids[ids.length - 1]] : [ids[0]];
   const base = BASEKIND(kind); const dead = base === 'death' ? this.dots[ids[0]] : null;
-  for (const id of who) this.addThought(this.dots[id], base, m[1], m[2], dead ? `Mourning ${dead.name}.` : m[3]);
+  for (const id of who) {
+    const other = ids.find(i => i !== id), o = other !== undefined ? this.dots[other] : null, cause = o && CAUSAL[base] ? CAUSAL[base](o.name.replace(/ “[^”]*”$/, '')) : null;
+    this.addThought(this.dots[id], base, m[1], m[2], dead ? `Mourning ${dead.name}.` : cause || m[3], cause && o ? o.id : dead ? dead.id : undefined);
+  }
   // friends worry about a friend's big misfortune
   if (m[1] < 0 && w >= 4 && ids[0] !== undefined && base !== 'death') {
     const a = this.dots[ids[0]]; if (!a) return;
@@ -87,7 +95,9 @@ function mentalBreak(this: World, d: Dot, m: number) {
   else if ((d.work >= 0 && d.job <= 2) && (d.traits.includes('lazy') || this.rnd() < 0.4)) how = 'quit';
   switch (how) {
     case 'rage': {
-      const foe = near.find(o => (d.aff.get(o.id) || 0) < 0 || d.thieves.has(o.id)) || (near.length ? near[(this.rnd() * near.length) | 0] : null);
+      const src = (d.th || []).filter((t: Thought) => t.src !== undefined && t.v < 0 && t.until > this.tick).sort((p: Thought, q: Thought) => q.v * -1 - p.v * -1)[0],
+        cause2 = src ? near.find(o => o.id === src.src) : null, grudged = near.slice().sort((p, q) => this.grudge(d, q.id) - this.grudge(d, p.id))[0];
+      const foe = cause2 || (grudged && this.grudge(d, grudged.id) >= 20 ? grudged : null) || near.find(o => (d.aff.get(o.id) || 0) < 0 || d.thieves.has(o.id)) || (near.length ? near[(this.rnd() * near.length) | 0] : null);
       if (foe) { this.fight(d, foe, null); this.ev('break' + d.id, `😡 ${who} snapped (${cause.replace(/\.$/, '').toLowerCase()}) and attacked ${foe.name}.`, [d.id, foe.id], 0, 4); break; }
     } // fall through
     case 'drink': {

@@ -253,7 +253,29 @@ const disgrace: Kind = {
   },
 };
 
-export const KINDS: Kind[] = [rivalry, triangle, feud, protege, drought, investor, comeback, panic, gangster, disgrace];
+/* A vendetta is not authored: it is noticed. When one dot's ledger holds a big grudge against someone in town and they are the type to act on it, the
+   storyteller starts following them. It never forces a fight; it narrates what the bond system does (fights, forgiveness, a death). */
+const grudgeHolders = (w: World) => w.dots.filter(d => !d.dead && d.adult && d.foes && d.foes.size && !busy(w, [d.id])).map(d => { let o = -1, g = 0; for (const [id, v] of d.foes) { const t = w.dots[id]; if (t && !t.dead && !busy(w, [id]) && v > g && w.buildings[t.home].sid === w.buildings[d.home].sid) { g = v; o = id; } } return { d, o, g }; }).filter(x => x.o >= 0 && x.g >= 40);
+const vendetta: Kind = {
+  kind: 'vendetta', weight: w => (grudgeHolders(w).length ? 1.8 : 0),
+  launch(w) {
+    const c = grudgeHolders(w).sort((x, y) => y.g - x.g)[0]; if (!c) return null;
+    const why = (c.d.bonds || []).filter((b: any) => b.o === c.o && b.v < 0).sort((x: any, y: any) => x.v - y.v)[0], t = w.dots[c.o];
+    const arc = mkArc(w, 'vendetta', `${c.d.name} and ${t.name}`, w.buildings[c.d.home].sid, [c.d.id, c.o], { g0: c.g, fights0: w.stats.fights, why: why ? why.k : 'robbed' });
+    const txt: Record<string, string> = { robbed: 'was robbed by', burgled: 'was burgled by', beaten: 'was beaten up by', stiffed: 'was never repaid by', jilted: 'was left heartbroken by', killed: 'lost someone to', feud: 'inherited a family feud with', witnessed: 'saw too much of', brawl: 'came to blows with', rival: 'is eaten up with jealousy over' };
+    beat(w, arc, `🗡️ ${c.d.name} ${txt[arc.data.why] || 'holds a grudge against'} ${t.name}, and has not let it go.`, true); return arc;
+  },
+  step(w, a, d) {
+    if (!live(w, ...a.ids)) { beat(w, a, `The grudge ended with a funeral.`, true); return close(w, a, 'death'); }
+    const h = w.dots[a.ids[0]], t = w.dots[a.ids[1]], g = w.grudge(h, t.id);
+    if (g < 12) { beat(w, a, `🕊️ ${h.name} has finally let go of what ${t.name} did.`, true); return close(w, a, 'forgiven'); }
+    if (a.stage === 0 && (h.revCd || 0) > w.tick - 2 * DAY_TICKS) { a.stage = 1; beat(w, a, `🔥 ${h.name} went looking for ${t.name}.`); }
+    if (a.stage === 1 && (h.revCd || 0) < w.tick - 4 * DAY_TICKS && g < 30) { beat(w, a, `${h.name} and ${t.name} have done with each other, for now.`); return close(w, a, 'settled'); }
+    if (d >= 30) close(w, a, 'faded');
+  },
+};
+
+export const KINDS: Kind[] = [rivalry, triangle, feud, protege, drought, investor, comeback, panic, gangster, disgrace, vendetta];
 
 /* ---------------- the director ---------------- */
 /** Called once per dawn. */

@@ -52,7 +52,7 @@ function jealous(this: World, a: Dot, b: Dot) {
   const P = this.dots[a.partner]; if (P.dead || P.inside) return;
   const dx = P.x - a.x, dy = P.y - a.y, jt = P.fx.jealousy;
   if (dx * dx + dy * dy > 64 || this.rnd() > Math.min(0.85, 0.06 * jt * jt)) return;
-  P.aff.set(b.id, Math.min(P.aff.get(b.id) || 0, 0) - 25); this.say(P, [C.ME, C.JEALOUS]);
+  P.aff.set(b.id, Math.min(P.aff.get(b.id) || 0, 0) - 25); this.say(P, [C.ME, C.JEALOUS]); this.bondAdd(P, b.id, 'rival'); this.addThought(P, 'jealous:' + b.id, -5, 6, `Jealous of ${b.name.replace(/ “[^”]*”$/, '').split(' ')[0]}.`, b.id);
   this.ev('jealous', `😠 ${P.name} saw ${a.name} chatting with ${b.name}.`, [P.id, a.id], 15, 3);
   if (this.rnd() < Math.min(0.6, 0.1 * jt)) this.breakup(P, a);
 }

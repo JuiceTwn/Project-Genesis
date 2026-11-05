@@ -68,6 +68,7 @@ function step(this: World) {
             if (kn.fx.courage > -0.3 && this.rnd() < 0.001 * kn.fx.temper * (kn.fx.forgive < 0.5 ? 2 : 1)) { this.fight(kn, th, null); done = true; break; }
             continue;
           }
+          if ((a.foes && a.foes.size) || (b.foes && b.foes.size)) { const fm = this.foeMeet(a, b); if (fm === 2) { done = true; break; } if (fm === 1) continue; }
           const fr = (a.aff.get(b.id) || 0) >= 25;
           const p = 0.05 * (0.5 + (100 - a.social) / 100) * ((a.soc + b.soc) / 2) * (fr ? 2.5 : 1);
           if (this.rnd() < p) { this.startChat(a, b); done = true; break; }
@@ -95,6 +96,7 @@ function dawn(this: World) {
     () => { this.budgetDawn(); this.gearDawn(); this.brandDawn(); },
     () => { this.bankDawn(); this.mortgageDawn(); },
     () => { this.crimeDawn(); this.mediaDay(); this.thoughtDay(); this.skillDay(); this.healthDay(); },
+    () => this.bondDay(),
     () => this.gazetteDawn(),   // the paper goes to press with yesterday's news
     () => {
       this.sPop = []; for (const d of this.dots) if (!d.dead) { const sid = this.buildings[d.home].sid; this.sPop[sid] = (this.sPop[sid] || 0) + 1; }

@@ -58,6 +58,7 @@ function arrive(this: World, d: Dot) {
     }
     case 'build': if (b.state !== 'build') { d.phase = 'walk'; d.goal = null; } else d.timer = HOUR_TICKS * 8; break;
     case 'social': d.timer = Math.round((70 + ((this.rnd() * 70) | 0)) * TS); break;
+    case 'confront': d.timer = Math.round(40 * TS); break;
     case 'shop': this.enter(d, b); this.shopAt(d, b); d.timer = Math.round(HOUR_TICKS * 0.75); break;
     case 'drink':
       if (d.coin >= K.NIGHT_OUT) { d.coin -= K.NIGHT_OUT; d.budget = Math.max(0, (d.budget || 0) - K.NIGHT_OUT); this.credit(b, K.NIGHT_OUT); b.rev += K.NIGHT_OUT; { const [to, tk2] = this.till(b); this.toAbroad(to, tk2, K.NIGHT_OUT * 0.3, 'supplies'); } b.visits++; this.enter(d, b); d.timer = Math.round((60 + ((this.rnd() * 50) | 0)) * TS); }
@@ -86,6 +87,13 @@ function doing(this: World, d: Dot) {
       break;
     case 'build': if (--d.timer <= 0) { this.buildStep(d, this.buildings[g.b]); this.finish(d); } break;
     case 'social': d.social = Math.min(100, d.social + 0.30 / TS); if (--d.timer <= 0) this.finish(d); break;
+    case 'confront': {   // wait outside for them; if they come within reach, it starts
+      const t = this.dots[g.t];
+      if (!t || t.dead) { this.finish(d); break; }
+      if (!g.done && this.tick % 4 === d.id % 4 && !t.inside && t.phase !== 'chat') { const dx = t.x - d.x, dy = t.y - d.y; if (dx * dx + dy * dy <= 9) { g.done = true; d.timer = 1; d.revCd = this.tick + 3 * DAY_TICKS; this.fight(d, t, { rev: true }); break; } }
+      if (--d.timer <= 0) { d.revCd = this.tick + 1 * DAY_TICKS; if (!t.inside) this.say(d, [K.TOK_PERSON + t.id, C.BAD]); this.finish(d); }
+      break;
+    }
     case 'drink': {
       d.social = Math.min(100, d.social + 0.38 / TS);
       if (this.tick % 20 === d.id % 20) { const b = this.buildings[g.b]; if (b.inside.length > 1) { const o = this.pick(b.inside); if (o !== d) { this.addAff(d, o, 3); this.addAff(o, d, 3); } } }

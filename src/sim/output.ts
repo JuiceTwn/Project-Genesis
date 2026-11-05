@@ -148,7 +148,7 @@ function detail(this: World, id): DetailMsg | null {
     friends: this.friends(d).slice(0, 6).map(([k, v]) => [k, Math.round(v)]),
     nick: d.nick || null, face: this.faceOf(d), fame: Math.round(d.fame || 0), mem: (d.mem || []).slice().sort((a: any, b: any) => b.w - a.w).slice(0, 3).map((m: any) => m.x),
     attrs: ['str', 'dex', 'int', 'end', 'cha', 'wil'].map(k => Math.round(this.attr(d, k as any))), skills: Object.entries(this.skills(d)).sort((a: any, b: any) => b[1] - a[1]).slice(0, 3).map(([k, v]: any) => [k, Math.round(v * 10) / 10]),
-    ill: (d.hp || []).map((x: any) => x.k), thoughts: (d.th || []).filter((t: any) => t.until > this.tick).sort((a: any, b: any) => Math.abs(b.v) - Math.abs(a.v)).slice(0, 3).map((t: any) => [t.txt, Math.round(t.v)]) };
+    ill: (d.hp || []).map((x: any) => x.k), bonds: this.bondLines(d), thoughts: (d.th || []).filter((t: any) => t.until > this.tick).sort((a: any, b: any) => Math.abs(b.v) - Math.abs(a.v)).slice(0, 3).map((t: any) => [t.txt, Math.round(t.v)]) };
 }
 
 Object.assign(World.prototype, { dotFlags, indexDots, relatedIds, frameFor, initMsg, actCode, frame, drain, computeRep, statsMsg, doingText, thought, detail });

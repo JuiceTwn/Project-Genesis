@@ -27,6 +27,7 @@ function steal(this: World, t, v) {
   const noticed = this.rnd() < 0.45;
   if (!noticed && !wit.length) { this.ev('theft0', `🥷 ${t.name} picked ${v.name}'s pocket (${K.usd(amt)}). Nobody noticed.`, [t.id, v.id], 25, 2); return; }
   const knowers = wit.slice(0, 4).concat(noticed ? [v] : []);
+  this.wronged(t, v, 'robbed', wit.slice(0, 4), noticed);
   for (const k of knowers) { k.thieves.add(t.id); k.aff.set(t.id, Math.min(k.aff.get(t.id) || 0, 0) - 30); }
   this.stats.thefts++;
   if (this.scar(v, 'robbed', 3)) this.shiftTrait(v, v.fx.temper > 1.2 ? 'vengeful' : 'cautious', 'robbed once too often');
@@ -39,7 +40,7 @@ function steal(this: World, t, v) {
 function fight(this: World, a: Dot, b: Dot, ctx) {
   if (a.phase === 'chat' || b.phase === 'chat' || a.inside || b.inside || a.dead || b.dead) return;
   for (const d of [a, b]) { d.prev = d.phase; d.phase = 'chat'; d.chatT = 18; d.fight = true; d.chatCd = 250; }
-  this.say(a, [C.STOP, C.THIEF]); this.later(4, { t: 'say', d: b.id, k: [ctx ? C.SORRY : C.NO] }); this.later(9, { t: 'say', d: a.id, k: [C.ANGRY] });
+  this.say(a, ctx && ctx.rev ? [C.YOU, C.ANGRY] : [C.STOP, C.THIEF]); this.later(4, { t: 'say', d: b.id, k: [ctx ? C.SORRY : C.NO] }); this.later(9, { t: 'say', d: a.id, k: [C.ANGRY] });
   this.later(18, { fn: () => this.resolveFight(a, b, ctx) });
 }
 
@@ -51,10 +52,15 @@ function resolveFight(this: World, a: Dot, b: Dot, ctx) {
   this.hurt(l, 'injury', 0.25 + this.rnd() * 0.5, 'a fight with ' + w.name); if (this.rnd() < 0.5) this.hurt(w, 'injury', 0.1 + this.rnd() * 0.25, 'a fight with ' + l.name);
   w.energy = Math.max(0, w.energy - 6); l.energy = Math.max(0, l.energy - 16);
   this.addAff(a, b, -15); this.addAff(b, a, -15); this.stats.fights++;
-  if (ctx) {
+  l.hurtBy = { id: w.id, tk: this.tick };
+  this.bondAdd(l, w.id, 'beaten'); this.bondAdd(w, l.id, 'brawl', { v: -6 });
+  if (aw && ctx && ctx.rev) this.bondAdd(a, b.id, 'avenged'); else if (aw && ctx && ctx.amt) this.bondAdd(a, b.id, 'avenged', { v: 15 });
+  this.witnesses('beaten', w, l);
+  if (ctx && !ctx.rev) {
     if (aw) { const back = Math.round(Math.min(b.coin, ctx.amt + 5 * KB * 0.15)); b.coin -= back; a.coin += back; this.ev('fight', `💥 ${a.name} caught ${b.name} red-handed and took ${K.usd(back)} back.`, [a.id, b.id], 0, 3); }
     else this.ev('fight', `🏃 ${b.name} beat ${a.name} in a scuffle and kept the loot.`, [b.id, a.id], 0, 3);
-  } else this.ev('fight', `🥊 ${a.name} confronted known thief ${b.name} — ${w.name} won the brawl.`, [a.id, b.id], 0, 3);
+  } else if (ctx && ctx.rev) this.ev('fight', aw ? `⚔️ ${a.name} went looking for ${b.name} and settled the score.` : `⚔️ ${a.name} came looking for revenge on ${b.name} and got beaten for it.`, [a.id, b.id], 0, 3);
+  else this.ev('fight', `🥊 ${a.name} confronted known thief ${b.name} — ${w.name} won the brawl.`, [a.id, b.id], 0, 3);
 }
 
 Object.assign(World.prototype, { stealTick, steal, fight, resolveFight });
