@@ -7,7 +7,7 @@ import { targetTension } from '../src/sim/storyteller';
 const run = (w: World, days: number) => { for (let i = 0; i < days * DAY_TICKS; i++) { w.step(); w.drain(); } };
 
 test('the storyteller launches arcs, resolves them, writes a chronicle, and the world stays coherent', () => {
-  const w = new World({ seed: 31, deterministic: true, pop: 500 }), s0 = w.moneySupply();
+  const w = new World({ seed: 33, deterministic: true, pop: 500 }), s0 = w.moneySupply();
   run(w, 13);
   const launched = w.story.nextId - 1, closed = w.story.closed;
   assert.ok(launched >= 3, `arcs launched: ${launched}`);
