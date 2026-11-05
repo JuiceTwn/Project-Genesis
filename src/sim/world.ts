@@ -16,7 +16,7 @@ export class World {
   fieldHolders: Building[] = []; sites: Building[] = []; fq: Building[] = []; fgen = 0; biz: any; blightAt = -1e9; lastTheftTick = -1e9; sPop: number[] = []; sbl: Building[][] = [];
   tick = 0; out: Msg[] = []; pending: { at: number; m: any }[] = []; stats: any; pairs = new Set<number>(); festival = 0; blight = 0;
   weather = 0; nation = { treasury: 0 }; cd: any; rep: Float32Array | null = null; lastEv: Record<string, number> = {};
-  posts: any[] = []; deals: any[] = []; postSeq = 1; gangs: any[] = []; hpi = 1; hpiMom = 0; crashDays = 0; bank: any = null; bankGone?: number; brands: any[] = []; grid: Dot[][] = []; hist: Msg[] = [];
+  posts: any[] = []; deals: any[] = []; postSeq = 1; gangs: any[] = []; hpi = 1; hpiMom = 0; crashDays = 0; bank: any = null; bankGone?: number; brands: any[] = []; grid: Dot[][] = []; gridUsed: number[] = []; hist: Msg[] = [];
   map: any; tiles: Uint8Array = new Uint8Array(0); buildings: Building[] = [];
   stores: Building[] = []; markets: Building[] = []; taverns: Building[] = []; workshops: Building[] = []; parks: Building[] = []; farms: Building[] = []; houses: Building[] = []; halls: Building[] = []; docks: Building[] = [];
   mcount = 0; S: any[] = []; lex: any; names: string[] = []; word: any; nameGen: any; famGen: any; dots: Dot[] = []; lastSeason = 0;

@@ -22,8 +22,8 @@ function step(this: World) {
   }
   // chat grid
   const GW = Math.ceil(W / 2), GH = Math.ceil(H / 2), g = this.grid;
-  if (g.length !== GW * GH) { g.length = 0; for (let i = 0; i < GW * GH; i++) g.push([]); }
-  for (let i = 0; i < g.length; i++) g[i].length = 0;
+  if (g.length !== GW * GH) { g.length = 0; this.gridUsed.length = 0; for (let i = 0; i < GW * GH; i++) g.push([]); }
+  const used = this.gridUsed; for (let k = 0; k < used.length; k++) g[used[k]].length = 0; used.length = 0;   // clear only the cells that were occupied last tick
   const dots = this.dots, hr = this.season() === 3 ? 1.1 : 1;
   for (const d of dots) {
     if (d.dead) continue;
@@ -47,11 +47,12 @@ function step(this: World) {
     if (d.hunger > 90 && d.goal && d.goal.k !== 'eat' && d.goal.k !== 'sleep' && !(d.goal.k === 'deliver' && d.hunger < 96)) { if (d.inside) this.leave(d); d.goal = null; d.phase = 'walk'; d.nx = -1; d.prog = 0; }   // starving: drop everything
     if (!d.goal) this.decide(d);
     if (d.phase === 'walk') this.move(d); else if (d.phase === 'do') this.doing(d);
-    if (!d.inside && d.chatCd <= 0 && d.phase !== 'chat' && !(d.phase === 'do' && d.goal && !this.buildings[d.goal.b].open && d.goal.k !== 'wander')) g[(d.y >> 1) * GW + (d.x >> 1)].push(d);
+    if (!d.inside && d.chatCd <= 0 && d.phase !== 'chat' && !(d.phase === 'do' && d.goal && !this.buildings[d.goal.b].open && d.goal.k !== 'wander')) { const ci = (d.y >> 1) * GW + (d.x >> 1), cell = g[ci]; if (!cell.length) used.push(ci); cell.push(d); }
   }
   // chat matching
-  for (let i = 0; i < g.length; i++) {
-    const cell = g[i]; if (!cell.length) continue;
+  used.sort((p, q) => p - q);   // same visiting order as a full scan, so results are unchanged
+  for (let u = 0; u < used.length; u++) {
+    const i = used[u], cell = g[i];
     const cx = i % GW, cy = (i / GW) | 0;
     for (const a of cell) {
       if (a.phase === 'chat' || a.chatCd > 0) continue;
