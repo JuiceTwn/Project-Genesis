@@ -43,7 +43,8 @@ function step(this: World) {
     if (!d.rich && d.coin > 220) { d.rich = true; this.ev('rich', `💰 ${d.name} is getting rich.`, [d.id], 60); }
     if (d.rich && d.coin < 100) d.rich = false;
     if (d.hunger > 85 && this.rnd() < 0.0015 && !d.inside) this.say(d, [C.ME, C.HUNGRY]);
-    if (d.phase === 'chat') { if (--d.chatT <= 0) { d.phase = d.prev; d.fight = false; } continue; }
+    if (d.phase === 'chat') { if (d.hunger > 95) d.chatT = 0; if (--d.chatT <= 0) { d.phase = d.prev; d.fight = false; } continue; }
+    if (d.hunger > 90 && d.goal && d.goal.k !== 'eat' && d.goal.k !== 'sleep' && !(d.goal.k === 'deliver' && d.hunger < 96)) { if (d.inside) this.leave(d); d.goal = null; d.phase = 'walk'; d.nx = -1; d.prog = 0; }   // starving: drop everything
     if (!d.goal) this.decide(d);
     if (d.phase === 'walk') this.move(d); else if (d.phase === 'do') this.doing(d);
     if (!d.inside && d.chatCd <= 0 && d.phase !== 'chat' && !(d.phase === 'do' && d.goal && !this.buildings[d.goal.b].open && d.goal.k !== 'wander')) g[(d.y >> 1) * GW + (d.x >> 1)].push(d);
@@ -83,6 +84,7 @@ function step(this: World) {
 }
 
 function dawn(this: World) {
+  this.mortality();
   this.gazetteDawn();   // the paper goes to press with yesterday's news before today's begins
   const day = this.day();
   const alive = this.dots.filter(d => !d.dead);

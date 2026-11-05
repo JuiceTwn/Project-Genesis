@@ -10,6 +10,7 @@ function decide(this: World, d) {
   const c = [];
   c.push(['sleep', (100 - d.energy) * 1.15 + (night ? 75 : 0) - (d.hunger > 88 ? 60 : 0)]);
   const mk = d.hunger > 35 ? this.pickMarket(d) : -1;
+  if (d.hunger > 90 && mk >= 0) { this.setGoal(d, 'eat', mk, null); return; }   // survival first
   if (mk >= 0 && d.coin >= this.price(d) && !(d.shortAt && this.tick - d.shortAt < 150 && d.coin < 8)) c.push(['eat', d.hunger * 1.3 - (night && d.energy < 40 ? 30 : 0) + (d.hunger > 45 && tod > 0.7 && tod < 0.95 ? 45 : 0)]);
   const broke = d.coin < FOOD_PRICE * 2;
   if (d.adult && (hours || (broke && d.hunger > 50 && !night) || (d.job === 0 && this.believedEmpty(d) && !night)) && d.energy > 20) {

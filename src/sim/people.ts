@@ -47,13 +47,14 @@ function makeDots(this: World) {
     const near = l => l.some(b => b.sid === s.id || Math.hypot(b.x - s.x, b.y - s.y) <= 34), hasFarm = near(this.farms), hasShop = near(this.workshops);
     let left = s.pop0, keepers = nTav * 3;
     for (const home of houses) for (let k = 0; k < per && left > 0; k++, left--) {
-      const id = dots.length, r = R();
-      let job = keepers > 0 && this.taverns.length ? 2 : r < 0.36 ? (hasFarm ? 0 : 3) : r < 0.62 ? (hasShop ? 1 : hasFarm ? 0 : 3) : 3;
+      const id = dots.length, r = R(), life = 45 + R() * 25;
+      // age pyramid: ~16% children, adults skewed young, some elderly close to the end of their lives; each house starts with an adult head
+      const age = k > 0 && R() < 0.2 ? R() * ADULT * 0.99 : ADULT + Math.pow(R(), 1.25) * (life - ADULT) * 0.97, child = age < ADULT;
+      let job = child ? 3 : keepers > 0 && this.taverns.length ? 2 : r < 0.36 ? (hasFarm ? 0 : 3) : r < 0.62 ? (hasShop ? 1 : hasFarm ? 0 : 3) : 3;
       if (job === 2) keepers--;
-      const w = job === 3 ? null : this.workFor(job, s.id);
-      const life = 45 + R() * 25, age = ADULT + R() * (life - ADULT - 4);
+      const w = job === 3 ? null : this.workFor(job, s.id), future = child ? (r < 0.4 ? 0 : r < 0.7 ? 1 : 3) : undefined;
       if (id >= this.names.length) this.names.push(this.nameGen());
-      dots.push(this.makeDot(id, { name: this.names[id], fam: home.fam, job, home: home.id, work: w ? w.id : -1, traits: rollTraits(R), age, life }, R));
+      dots.push(this.makeDot(id, { name: this.names[id], fam: home.fam, job, home: home.id, work: w ? w.id : -1, future, traits: rollTraits(R), age, life }, R));
     }
   }
   const n = dots.length;
@@ -67,13 +68,13 @@ function makeDots(this: World) {
   let made = 0, tries = 0; const wantC = Math.round(n * 0.07);
   while (made < wantC && tries++ < 1500) {
     const a = dots[(R() * n) | 0], b = dots[(R() * n) | 0];
-    if (a === b || a.partner >= 0 || b.partner >= 0 || a.home === b.home || a.fam === b.fam || this.buildings[a.home].sid !== this.buildings[b.home].sid) continue;
+    if (a === b || !a.adult || !b.adult || a.partner >= 0 || b.partner >= 0 || a.home === b.home || a.fam === b.fam || this.buildings[a.home].sid !== this.buildings[b.home].sid) continue;
     link(a, b, 45 + R() * 20); a.partner = b.id; b.partner = a.id; a.since = b.since = -Math.floor(R() * 1.2 * DAY_TICKS);
     a.married = b.married = made < wantC * 0.36; made++;
     for (const d of [a, b]) { d.done.add('love'); if (d.dream === 'love') d.dream = this.pickDream(d, R, 'love'); }
   }
   // ownership: house heads own their homes; about half of the businesses start in private hands
-  for (const d of dots) { const h = this.buildings[d.home]; if (h.owner < 0) h.owner = d.id; }
+  for (const d of dots) { const h = this.buildings[d.home]; if (h.owner < 0 && d.adult) h.owner = d.id; }
   for (const b of this.buildings) if (b.state === 'ok' && (b.type === BT.MARKET || b.type === BT.TAVERN || b.type === BT.WORKSHOP || b.type === BT.FARM || b.type === BT.DOCK || b.type === BT.OFFICE || b.type === BT.FACTORY || b.type === BT.STORE) && R() < 0.55) {
     const pool = dots.filter(d => d.adult && this.buildings[d.home].sid === b.sid && !this.ownedBy(d.id).length).sort((a, c) => (c.traits.includes('ambitious') ? 1 : 0) + R() * 0.8 - ((a.traits.includes('ambitious') ? 1 : 0) + R() * 0.8));
     if (pool.length) { b.owner = pool[0].id; b.cash = 40; pool[0].coin += 30; }
@@ -81,6 +82,9 @@ function makeDots(this: World) {
 }
 
 function ownedBy(this: World, id, types) { return this.buildings.filter(b => b.owner === id && b.state === 'ok' && b.type !== BT.HOUSE); }
+
+const CAUSES: Record<string, string[]> = { hunger: ['starved'], age: ['died of old age', 'passed away peacefully in their sleep', 'died of old age'], illness: ['died of pneumonia', 'died after a long illness', 'succumbed to a winter fever', 'died of a sudden fever'], accident: ['was killed in a farming accident', 'died after a fall at work', 'died in a workplace accident', 'was lost in a cart accident'] };
+function causeText(w: World, cause: string) { return w.pick(CAUSES[cause] || CAUSES.age); }
 
 function die(this: World, d, cause) {
   if (d.dead) return;
@@ -97,7 +101,7 @@ function die(this: World, d, cause) {
   const mourners = fr.slice(0, 6), park = this.nearest(this.parks, mourners[0] || d, 0);
   for (const m of mourners) { m.grief = this.tick + 400; m.social = Math.max(0, m.social - 15); m.invite = { k: 'social', b: park.id, until: this.tick + 300 }; this.later(2 + ((this.rnd() * 10) | 0), { t: 'say', d: m.id, k: [1000 + d.id, C.DIE] }); }
   this.stats.deaths++;
-  this.ev('death', `🕯️ ${d.name} ${cause === 'hunger' ? 'starved' : 'died of old age'} at ${Math.round(d.age)}.${mourners.length ? ` ${mourners.length} friend${mourners.length > 1 ? 's' : ''} mourn.` : ''}${heir && est > 0 ? ` ${heir.name} inherits ${Math.round(est)} coin${Math.round(est) === 1 ? '' : 's'}.` : ''}`, [d.id].concat(mourners.slice(0, 1).map(m => m.id)), 0, 4);
+  this.ev('death', `🕯️ ${d.name} ${causeText(this, cause)} at ${Math.round(d.age)}.${mourners.length ? ` ${mourners.length} friend${mourners.length > 1 ? 's' : ''} mourn.` : ''}${heir && est > 0 ? ` ${heir.name} inherits ${Math.round(est)} coin${Math.round(est) === 1 ? '' : 's'}.` : ''}`, [d.id].concat(mourners.slice(0, 1).map(m => m.id)), 0, 4);
 }
 
 function spawn(this: World, a, b) {
@@ -153,8 +157,21 @@ function inherit(this: World, d) {
   }
 }
 
-Object.assign(World.prototype, { makeDot, pickDream, workFor, makeDots, ownedBy, die, spawn, newName, grow, dreamCheck, addDot, residents, unemployed, unstaff, inherit });
+/** Daily health: illness (worse in winter, for the old, the hungry and the very young) and workplace accidents. */
+function mortality(this: World) {
+  const winter = this.season() === 3 ? 2 : 1;
+  for (const d of this.dots) {
+    if (d.dead) continue;
+    const old = d.age > d.life * 0.8 ? 1 + (d.age / d.life - 0.8) * 25 : 1;
+    const p = 0.0004 * old * winter * (d.hunger > 85 ? 3 : 1) * (d.age < 2 ? 2.5 : 1) * (d.fx.risk > 1.6 ? 1.2 : 1);
+    if (this.rnd() < p) { this.die(d, 'illness'); continue; }
+    if (d.adult && (d.job === 0 || d.job === 1) && this.rnd() < 0.0002 * d.fx.risk) this.die(d, 'accident');
+  }
+}
+
+Object.assign(World.prototype, { mortality, makeDot, pickDream, workFor, makeDots, ownedBy, die, spawn, newName, grow, dreamCheck, addDot, residents, unemployed, unstaff, inherit });
 declare module './world' { interface World {
+  mortality: (...args: any[]) => any;
   makeDot: (...args: any[]) => any;
   pickDream: (...args: any[]) => any;
   workFor: (...args: any[]) => any;
