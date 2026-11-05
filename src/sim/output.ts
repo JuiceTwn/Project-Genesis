@@ -112,7 +112,8 @@ function doingText(this: World, d) {
     case 'deliver': return walk ? `carrying crops to ${nm}` : `delivering crops`;
     case 'build': return walk ? `heading to the building site` : `building a ${BT_NAME[b.type].toLowerCase()}`;
     case 'social': return walk ? `heading to ${nm}` : `hanging out at ${nm}`;
-    case 'drink': return walk ? `off to ${nm}` : `having a drink at ${nm}`;
+    case 'shop': return walk ? `heading out shopping to ${nm}` : `shopping at ${nm}`;
+    case 'drink': return walk ? `off to ${nm}` : `having a night out at ${nm}`;
     default: return 'wandering';
   }
 }

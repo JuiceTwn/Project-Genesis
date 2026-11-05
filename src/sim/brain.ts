@@ -26,7 +26,8 @@ function decide(this: World, d) {
   }
   const fest = tk < this.festival || tk < ((this.gov(this.S[this.buildings[d.home].sid])).festival || 0), inv = d.invite && tk < d.invite.until ? d.invite : null;
   c.push(['social', (100 - d.social) * d.soc * 0.95 + (fest ? 90 : 0) + (inv && inv.k === 'social' ? 60 : 0) - (night ? 45 : 0) - (this.weather ? 30 : 0)]);
-  if (d.adult && d.coin >= DRINK_PRICE * 2) c.push(['drink', d.fx.spend * (100 - d.social) * d.soc * 0.55 + (tod > 0.62 && tod < 0.92 ? 22 : -35) + (inv && inv.k === 'drink' ? 60 : 0) + (fest ? 30 : 0) + (this.weather ? 15 : 0)]);
+  if (d.adult && this.stores.length && (d.budget || 0) >= 0.2 * K.DAY_WAGE && tod > 0.36 && tod < 0.84) c.push(['shop', 30 + Math.min(60, (d.budget || 0) / K.DAY_WAGE * 18) + this.rnd() * 10]);
+  if (d.adult && d.coin >= K.NIGHT_OUT * 2) c.push(['drink', d.fx.spend * (100 - d.social) * d.soc * 0.55 + (tod > 0.62 && tod < 0.92 ? 22 : -35) + (inv && inv.k === 'drink' ? 60 : 0) + (fest ? 30 : 0) + (this.weather ? 15 : 0)]);
   c.push(['wander', 18 + this.rnd() * 10]);
   let bk = 'wander', bs = -1e9;
   for (const [k, s] of c) { const v = s + (this.rnd() - 0.5) * 14; if (v > bs) { bs = v; bk = k; } }
@@ -52,6 +53,7 @@ function setGoal(this: World, d, k, mk, inv) {
       if (inv && inv.k === 'social') d.invite = null;
       g = { k, b: b.id, enter: false }; break;
     }
+    case 'shop': { const b = this.nearest(this.stores, d, 40); g = { k, b: b.id, enter: true }; break; }
     case 'drink': {
       let b = (inv && inv.k === 'drink') ? this.buildings[inv.b] : this.nearest(this.taverns, d, 25);
       if (inv && inv.k === 'drink') d.invite = null;

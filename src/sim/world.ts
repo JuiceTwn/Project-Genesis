@@ -18,7 +18,7 @@ export class World {
   weather = 0; nation = { treasury: 0 }; cd: any; rep: Float32Array | null = null; lastEv: Record<string, number> = {};
   grid: Dot[][] = []; hist: Msg[] = [];
   map: any; tiles: Uint8Array = new Uint8Array(0); buildings: Building[] = [];
-  markets: Building[] = []; taverns: Building[] = []; workshops: Building[] = []; parks: Building[] = []; farms: Building[] = []; houses: Building[] = []; halls: Building[] = []; docks: Building[] = [];
+  stores: Building[] = []; markets: Building[] = []; taverns: Building[] = []; workshops: Building[] = []; parks: Building[] = []; farms: Building[] = []; houses: Building[] = []; halls: Building[] = []; docks: Building[] = [];
   mcount = 0; S: any[] = []; lex: any; names: string[] = []; word: any; nameGen: any; famGen: any; dots: Dot[] = []; lastSeason = 0;
 
   constructor(o: WorldOptions = {}) {
@@ -30,7 +30,7 @@ export class World {
     this.pairs = new Set(); this.festival = 0; this.blight = 0;
     this.weather = 0; this.nation = { treasury: 0 }; this.cd = { festival: -1e9, blight: -1e9, gift: -1e9, zap: -1e9, cupid: -1e9 }; this.rep = null; this.lastEv = {};
     this.grid = []; this.hist = [];
-    this.buildMap(); this.makeLexicon(); this.makeDots(); this.rep = new Float32Array(this.dots.length); this.lastSeason = this.season(); this.sPop = []; for (const d of this.dots) { const sid = this.buildings[d.home].sid; this.sPop[sid] = (this.sPop[sid] || 0) + 1; }
+    this.buildMap(); this.makeLexicon(); this.makeDots(); this.assignLandlords(); this.rep = new Float32Array(this.dots.length); this.lastSeason = this.season(); this.sPop = []; for (const d of this.dots) { const sid = this.buildings[d.home].sid; this.sPop[sid] = (this.sPop[sid] || 0) + 1; }
     this.electAll(true);
     this.rebuild();   // distance fields are built lazily (see F())
     if (o.state) this.load(o.state);

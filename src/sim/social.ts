@@ -67,7 +67,7 @@ function couples(this: World) {
     if (this.rnd() < 0.05) { const tav = this.rnd() < 0.45 && d.coin > K.DRINK_PRICE * 2 && p.coin > K.DRINK_PRICE * 2 && d.adult, place = tav ? this.nearest(this.taverns, d, 0) : this.nearest(this.parks, d, 10); const inv = { k: tav ? 'drink' : 'social', b: place.id, until: tk + 300 }; d.invite = inv; p.invite = Object.assign({}, inv); }
     const step = 50 * TS;   // this runs every `step` ticks
     if (!d.married && tk - d.since > 0.25 * YEAR_TICKS && this.rnd() < step / (0.25 * YEAR_TICKS) && (d.aff.get(p.id) || 0) >= 50) this.wedding(d, p);   // engaged after at least a quarter-year together
-    if (d.married && d.kids < 4 && d.age >= K.FERTILE_MIN && d.age <= K.FERTILE_MAX && p.age >= K.FERTILE_MIN && p.age <= K.FERTILE_MAX && this.rnd() < K.BIRTHS_PER_COUPLE_YEAR * step / YEAR_TICKS) this.spawn(d, p);
+    if ((d.married || tk - d.since > 0.5 * YEAR_TICKS) && d.kids < 4 && d.age >= K.FERTILE_MIN && d.age <= K.FERTILE_MAX && p.age >= K.FERTILE_MIN && p.age <= K.FERTILE_MAX && this.rnd() < K.BIRTHS_PER_COUPLE_YEAR * (d.married ? 1 : 0.5) * step / YEAR_TICKS) this.spawn(d, p);
   }
 }
 

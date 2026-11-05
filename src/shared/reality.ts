@@ -17,9 +17,9 @@ export const HOUR_TICKS = DAY_TICKS / 24;
 export const ADULT = 18;
 /** Lifespan in years: triangular 62..98, mean 80. */
 export const lifespan = (rf: () => number) => 62 + rf() * 18 + rf() * 18;
-export const FERTILE_MIN = 20, FERTILE_MAX = 42;
+export const FERTILE_MIN = 20, FERTILE_MAX = 44;
 /** Births per married couple per year while both are in their fertile years (-> ~12-18 births per 1,000 people per year). */
-export const BIRTHS_PER_COUPLE_YEAR = 0.2;
+export const BIRTHS_PER_COUPLE_YEAR = 0.28;
 
 /* ---- money ---- */
 export const MEDIAN_INCOME = 50_000;                       // $ per year, median earner
@@ -45,7 +45,9 @@ export function drawWealth(rf: () => number, age: number): number {
 /** Workplace wage per 8-hour shift (= a day's pay) and export revenue per shift, by building type (see BT). Revenue is ~1.45x the wage. */
 export const WAGE_BY_TYPE = [0, 0, 0, 700, 760, 0, 0, 800, 1000, 780, 620];
 export const REV_BY_TYPE = WAGE_BY_TYPE.map(w => Math.round(w * 1.45));
-export const STAFF_BY_TYPE = [0, 6, 0, 5, 6, 0, 0, 8, 14, 18, 8];
+REV_BY_TYPE[10] = 0;                                       // stores live on customers, not exports
+REV_BY_TYPE[3] = Math.round(WAGE_BY_TYPE[3] * 0.6);        // taverns: some trade from outside, the rest from customers
+export const STAFF_BY_TYPE = [0, 6, 0, 5, 6, 0, 0, 8, 14, 18, 5];
 /** Upkeep (utilities, supplies, insurance) per day: a quarter of the payroll the building carries when fully staffed. */
 export const UPKEEP_BY_TYPE = WAGE_BY_TYPE.map((w, i) => Math.round(w * STAFF_BY_TYPE[i] * 0.25));
 UPKEEP_BY_TYPE[1] = 450; UPKEEP_BY_TYPE[2] = 300;
@@ -58,3 +60,15 @@ export const FARM_PRODUCTIVITY = 3;
 export const FARMERS_SHARE = 0.06;
 /** Format dollars for text. */
 export const usd = (n: number) => '$' + Math.round(n).toLocaleString('en');
+
+/* ---- housing ---- */
+export const HOUSE_VALUE = BUILD_COST[0];
+export const RENT_YIELD = 0.061;                                  // gross yearly rent as a share of value
+export const RENT_MONTH = HOUSE_VALUE * RENT_YIELD / 12;          // ~$1,400 per 5-day month
+export const PROPERTY_TAX = 0.01, MAINTENANCE = 0.01;             // of value, per year, paid monthly
+export const LANDLORD_SHARE = 0.30;                               // share of houses owned by someone who does not live in them
+/* ---- consumer spending ---- */
+export const CONSUME_SHARE = 0.30;                                // of net income spent on goods and services (on top of rent and food)
+export const WEALTH_SPEND = 0.0008;                               // of liquid wealth per day (about 5% a year)
+export const NIGHT_OUT = 0.15 * DAY_WAGE;                         // a visit to the tavern
+export const COGS = 0.55;                                         // share of a shop sale paid abroad for the goods

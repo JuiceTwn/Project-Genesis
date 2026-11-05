@@ -56,8 +56,9 @@ function arrive(this: World, d) {
     }
     case 'build': if (b.state !== 'build') { d.phase = 'walk'; d.goal = null; } else d.timer = HOUR_TICKS * 8; break;
     case 'social': d.timer = Math.round((70 + ((this.rnd() * 70) | 0)) * TS); break;
+    case 'shop': this.enter(d, b); this.shopAt(d, b); d.timer = Math.round(HOUR_TICKS * 0.75); break;
     case 'drink':
-      if (d.coin >= DRINK_PRICE) { d.coin -= DRINK_PRICE; this.credit(b, DRINK_PRICE); b.rev += DRINK_PRICE; b.visits++; this.enter(d, b); d.timer = Math.round((60 + ((this.rnd() * 50) | 0)) * TS); }
+      if (d.coin >= K.NIGHT_OUT) { d.coin -= K.NIGHT_OUT; d.budget = Math.max(0, (d.budget || 0) - K.NIGHT_OUT); this.credit(b, K.NIGHT_OUT); b.rev += K.NIGHT_OUT; { const [to, tk2] = this.till(b); this.toAbroad(to, tk2, K.NIGHT_OUT * 0.3, 'supplies'); } b.visits++; this.enter(d, b); d.timer = Math.round((60 + ((this.rnd() * 50) | 0)) * TS); }
       else { d.phase = 'walk'; d.goal = null; }
       break;
     default: d.timer = Math.round((12 + ((this.rnd() * 25) | 0)) * TS);
@@ -119,7 +120,7 @@ function payShiftHours(this: World, d, g, final: boolean) {
   d.paidH = (d.paidH || 0) + n;
   const day = K.WAGE[wb.type] || K.DAY_WAGE * 0.6;
   if (wb.state === 'ok' && K.REV[wb.type]) this.exportIn(wb, K.REV[wb.type] * n / 8);
-  d.coin += this.payWage(wb, d, day * n / 8);
+  const net = this.payWage(wb, d, day * n / 8); d.coin += net; d.earn = (d.earn || 0) + net;
 }
 
 Object.assign(World.prototype, { payShiftHours, move, arrive, doing, finish, checkStock, enter, leave, sayDelayed });

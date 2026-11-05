@@ -115,7 +115,7 @@ function tryFound(this: World, d) {
   const opts = [[BT.MARKET, P / 85 - cnt(BT.MARKET) + starved + (s.tier <= 1 ? 0.1 : -0.25)], [BT.TAVERN, P / 60 - cnt(BT.TAVERN)], [BT.WORKSHOP, P / 40 - cnt(BT.WORKSHOP) + this.unemployed(s.id) / 12], [BT.FARM, P * K.FARMERS_SHARE / 4 - this.farms.filter(f => f.sid === s.id).length + starved]];
   const jobless = this.unemployed(s.id);
   if (s.tier <= 1) { opts.push([BT.OFFICE, P / 60 - cnt(BT.OFFICE) + jobless / 25], [BT.FACTORY, P / 70 - cnt(BT.FACTORY) + jobless / 20]); }
-  if (s.tier <= 2 && P >= 20) opts.push([BT.STORE, P / 75 - cnt(BT.STORE) + jobless / 40]);
+  if (s.tier <= 2 && P >= 20) opts.push([BT.STORE, P / 50 - cnt(BT.STORE) + jobless / 40]);
   if (s.quayAt !== undefined && cnt(BT.DOCK) < (s.tier === 0 ? 3 : 1)) opts.push([BT.DOCK, 0.55 - cnt(BT.DOCK) * 0.3 + s.trade * 0.5]);
   for (const o of opts) { o[1] += (this.rnd() - 0.5) * 0.9; if (o[0] === BT.MARKET && this.mcount >= MAXM) o[1] = -9; }   // overconfidence: people misjudge a market
   opts.sort((a, b) => b[1] - a[1]); const [type, score] = opts[0]; if (score < 0.15) return false;
@@ -155,6 +155,7 @@ function housing(this: World) {
 
 function immigration(this: World) {
   if (this.dots.filter(d => !d.dead).length >= this.maxPop || !this.markets.length) return;
+  { const ad = this.dots.filter(d => !d.dead && d.adult), jl = ad.filter(d => d.job === 3 && d.work < 0).length; if (jl > 0.07 * ad.length) return; }   // people only move to where there is work
   const avg = this.markets.reduce((a, m) => a + m.stock, 0) / this.markets.length; if (avg < 130 || this.rnd() > 0.3) return;
   const w = this.S.map(s => { const sp = this.sbl[s.id].filter(b => b.type === BT.HOUSE && this.residents(b.id) <= 2).length; return (s.tier === 0 ? 3 : s.tier === 1 ? 1.5 : 1) * (1 + sp) * (this.sbl[s.id].some(b => b.type === BT.HOUSE) ? 1 : 0); });
   let r = this.rnd() * w.reduce((a, b) => a + b, 0), s = this.S[0]; for (let i = 0; i < w.length; i++) { r -= w[i]; if (r <= 0) { s = this.S[i]; break; } }
