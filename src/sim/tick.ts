@@ -17,7 +17,7 @@ function step(this: World) {
   // pending
   if (this.pending.length) {
     const rest = [];
-    for (const p of this.pending) { if (p.at <= tk) { if (p.m && p.m.fn) p.m.fn(); else if (p.m) this.out.push(p.m); } else rest.push(p); }
+    for (const p of this.pending) { if (p.at <= tk) { if (p.m && p.m.fn) p.m.fn(); else if (p.m) this.out.push(p.m.t === 'say' && p.m.k ? { t: 'say', d: p.m.d, b: p.m.b, s: this.speak(p.m.k, p.m.d !== undefined ? this.dots[p.m.d] : undefined, undefined, p.m.b !== undefined ? this.buildings[p.m.b] : undefined) } : p.m); } else rest.push(p); }
     this.pending = rest;
   }
   // chat grid
@@ -81,7 +81,7 @@ function step(this: World) {
   // tavern chatter
   for (const b of this.taverns) if (b.occ > 0 && tk % 25 === b.id % 25) {
     const o = this.pick(b.inside), lines = [[C.ME, C.WANT, C.DRINK], [C.HELLO], [C.ME, C.HAPPY], [C.YOU, C.GOOD], [C.DRINK, C.GOOD], [C.ME, C.LIKE, C.FRIEND]];
-    this.out.push({ t: 'say', b: b.id, k: this.pick(lines) });
+    this.sayB(b, this.pick(lines));
   }
 }
 

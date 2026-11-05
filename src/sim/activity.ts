@@ -38,7 +38,7 @@ function arrive(this: World, d: Dot) {
         let pr = d.adult ? this.mprice(b) : 0; if (d.adult && d.hunger > 85 && d.coin < pr && b.stock > 20) pr = 0;   // the starving get charity
         if (b.stock > 0 && d.coin >= pr) { b.stock--; d.coin -= pr; this.credit(b, pr); b.rev += pr; b.visits++; this.enter(d, b); d.timer = Math.round(14 * TS); this.stats.meals++; d.meals++; if (b.stock === 0) this.checkStock(b); }
         else if (b.stock > 0) { this.sayDelayed(d, [C.ME, C.BROKE]); d.phase = 'walk'; d.goal = null; d.shortAt = this.tick; }
-        else { d.belief[b.mi] = this.tick; this.sayDelayed(d, [2000 + b.id, C.NO, C.FOOD]); this.checkStock(b); d.phase = 'walk'; d.goal = null; }
+        else { d.belief[b.mi] = this.tick; this.sayDelayed(d, [K.TOK_PLACE + b.id, C.NO, C.FOOD]); this.checkStock(b); d.phase = 'walk'; d.goal = null; }
       }
       break;
     case 'work': {
@@ -79,7 +79,7 @@ function doing(this: World, d: Dot) {
     case 'work':
       if (d.job !== 0) this.payShiftHours(d, g, false);   // paid by the hour, so an interrupted shift still earns what was worked
       if (--d.timer <= 0) {
-        if (d.job === 0) { d.carry = tkLess(this.tick, this.blight) || this.tick < (this.S[this.buildings[d.home].sid].drought || 0) ? 0 : Math.max(1, Math.round(4 * YIELD[this.season()] * K.FARM_PRODUCTIVITY * (1 + 0.2 * eff(d, 'tool')) * (this.perf(d, 'farm') / 0.9))); if (d.carry) this.trainSkill(d, 'farm', 0.02); if (!d.carry) this.out.push({ t: 'say', d: d.id, k: [C.FARM, C.BAD] }); else if (d.carry > 1) { d.carry--; d.hunger = Math.max(0, d.hunger - 30); } }   // farm hands eat a share of the harvest on the spot
+        if (d.job === 0) { d.carry = tkLess(this.tick, this.blight) || this.tick < (this.S[this.buildings[d.home].sid].drought || 0) ? 0 : Math.max(1, Math.round(4 * YIELD[this.season()] * K.FARM_PRODUCTIVITY * (1 + 0.2 * eff(d, 'tool')) * (this.perf(d, 'farm') / 0.9))); if (d.carry) this.trainSkill(d, 'farm', 0.02); if (!d.carry) this.say(d, [C.FARM, C.BAD]); else if (d.carry > 1) { d.carry--; d.hunger = Math.max(0, d.hunger - 30); } }   // farm hands eat a share of the harvest on the spot
         else { this.buildings[g.b].visits++; this.payShiftHours(d, g, true); }
         this.finish(d);
       }

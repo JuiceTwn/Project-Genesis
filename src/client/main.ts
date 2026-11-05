@@ -10,8 +10,8 @@ declare const Sim: any;   // provided by demo.ts when running without a server
 const $ = s => document.querySelector(s);
 const LOCAL = !!window.__LOCAL__ || /[?&]local/.test(location.search);
 const JOBCOL = ['#7bd36b', '#f0a74a', '#b98cf0', '#59b6ee'];
-let W, H, tiles, wk, el, setts = [], blds = [], dots = [], lex = [], names = [], fams = [], bnames = [], JOBS = [], BTN = [];
-let tod = 0.3, day = 1, occ = [], sel = -1, follow = false, translate = true, bubbles = [], statsM = null;
+let W, H, tiles, wk, el, setts = [], blds = [], dots = [], names = [], fams = [], bnames = [], JOBS = [], BTN = [];
+let tod = 0.3, day = 1, occ = [], sel = -1, follow = false, bubbles = [], statsM = null;
 let stat = null, detail = null, ready = false, lastClock = '';
 const TRI = Object.fromEntries(CATALOG.map(t => [t.id, t.emoji]));
 const parts = [];
@@ -72,7 +72,7 @@ function handle(m: ServerMsg) {
   }
 }
 function init(m) {
-  W = m.W; H = m.H; tiles = m.tiles; wk = m.wk; setts = m.setts; blds = m.blds; lex = m.lex; JOBS = m.jobs; BTN = m.bt;
+  W = m.W; H = m.H; tiles = m.tiles; wk = m.wk; setts = m.setts; blds = m.blds; JOBS = m.jobs; BTN = m.bt;
   const bin = atob(m.el); el = new Uint8Array(W * H); for (let i = 0; i < el.length; i++) el[i] = bin.charCodeAt(i);
   dots = m.dots.map((d, i) => ({ id: i, name: d.n, job: d.j, home: d.h, traits: d.tr || [], col: colFor(d.n), x: 0, y: 0, tx: 0, ty: 0, fx: 0, fy: 0, t0: 0, fl: 0, seen: false }));
   names = dots.map(d => d.name); fams = m.dots.map(d => d.f || '');
@@ -174,14 +174,18 @@ function drawLabels(q, s) {
     }
   }
 }
-function tokWord(k) { return k >= 3000 ? (setts[k - 3000] ? setts[k - 3000].n : '?') : k >= 2000 ? ((blds[k - 2000] || {}).n || 'home') : k >= 1000 ? names[k - 1000] : lex[k][0]; }
-function tokGloss(k) { return k >= 3000 ? (setts[k - 3000] ? setts[k - 3000].n : '?') : k >= 2000 ? (bnames[k - 2000] || 'home') : k >= 1000 ? names[k - 1000] : lex[k][1]; }
 function say(m) {
-  const k = m.k, inv = k.map(tokWord).join(' '), en0 = k.map(tokGloss).join(' ');
-  const en = en0[0].toUpperCase() + en0.slice(1) + (lex[36] && k[0] === 36 ? '!' : '.');
+  const text = String(m.s || '');
+  if (!text) return;
   if (m.d !== undefined) { bubbles = bubbles.filter(b => b.d !== m.d); }
-  bubbles.push({ d: m.d, b: m.b, inv, en, t0: performance.now() });
+  bubbles.push({ d: m.d, b: m.b, text, t0: performance.now() });
   if (bubbles.length > 60) bubbles.shift();
+}
+/* Wrap a speech line to a few short rows so long sentences stay readable. */
+function wrapLine(c, text, maxW) {
+  const words = text.split(' '), rows = []; let row = '';
+  for (const wd of words) { const t = row ? row + ' ' + wd : wd; if (row && c.measureText(t).width > maxW) { rows.push(row); row = wd; } else row = t; }
+  if (row) rows.push(row); return rows.slice(0, 4);
 }
 function card() {
   const c = $('#card'); if (sel < 0 || !detail || detail.id !== sel) return;
@@ -477,21 +481,19 @@ function draw(now) {
     }
   }
   // bubbles
-  bubbles = bubbles.filter(b => now - b.t0 < (b.d === sel && sel >= 0 ? 5200 : 3400));
+  bubbles = bubbles.filter(b => now - b.t0 < (b.d === sel && sel >= 0 ? 5200 : 3200) + b.text.length * 40);
   const list = bubbles.length > 16 ? bubbles.slice(-16) : bubbles;
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   for (const b of list) {
     let wx, wy;
     if (b.d !== undefined) { const d = dots[b.d]; if (d.fl & 65) continue; wx = d.x; wy = d.y; } else { const B = blds[b.b]; wx = B.x + 1.5; wy = B.y + 0.5; }
-    const [x, y0] = toS(wx, wy), age = now - b.t0, a = age < 250 ? age / 250 : age > 3000 && !(b.d === sel) ? Math.max(0, 1 - (age - 3000) / 400) : 1;
+    const [x, y0] = toS(wx, wy), age = now - b.t0, life = (b.d === sel && sel >= 0 ? 5200 : 3200) + b.text.length * 40, a = age < 250 ? age / 250 : age > life - 400 && !(b.d === sel) ? Math.max(0, (life - age) / 400) : 1;
     const fs = Math.max(10, Math.min(13, s * 0.8)), y = y0 - R - 6 - Math.min(10, age / 60);
-    ctx.globalAlpha = a; ctx.font = `700 ${fs}px system-ui`; const w1 = ctx.measureText(b.inv).width;
-    let w2 = 0; if (translate) { ctx.font = `${fs - 2}px system-ui`; w2 = ctx.measureText(b.en).width; }
-    const w = Math.max(w1, w2) + 12, h = translate ? fs * 2 + 6 : fs + 8;
+    ctx.globalAlpha = a; ctx.font = `600 ${fs}px system-ui`;
+    const rows = wrapLine(ctx, b.text, 150), w = Math.max(...rows.map(r => ctx.measureText(r).width)) + 12, lh = fs + 2, h = rows.length * lh + 6;
     ctx.fillStyle = 'rgba(250,250,252,.95)'; rr(x - w / 2, y - h, w, h, 6); ctx.fill();
     ctx.beginPath(); ctx.moveTo(x - 4, y); ctx.lineTo(x + 4, y); ctx.lineTo(x, y + 5); ctx.fill();
-    ctx.fillStyle = '#1b2230'; ctx.font = `700 ${fs}px system-ui`; ctx.fillText(b.inv, x, y - h + (translate ? fs * 0.95 + 1 : h / 2));
-    if (translate) { ctx.fillStyle = '#5b6a82'; ctx.font = `${fs - 2}px system-ui`; ctx.fillText(b.en, x, y - 6 - (fs - 2) * 0.1); }
+    ctx.fillStyle = '#1b2230'; rows.forEach((r, i) => ctx.fillText(r, x, y - h + 3 + lh * (i + 0.5)));
     ctx.globalAlpha = 1;
   }
   const ct = `${stat ? ['🌱', '☀️', '🍂', '❄️'][stat.season] + ' Y' + stat.year + ' · ' : ''}Day <i>${day}</i> · <i>${clk()}</i>${stat && stat.weather ? (stat.weather === 2 ? ' ❄' : ' 🌧') : ''}`; if (ct !== lastClock) { lastClock = ct; $('#clock').innerHTML = ct; }
@@ -519,7 +521,6 @@ $('#bBlight').onclick = () => send({ t: 'act', n: 'blight' });
 $('#bCam').onclick = e => { auto = !auto; e.currentTarget.classList.toggle('on', auto); if (!auto && dirIds) { dirIds = null; pick_(-1, false); } };
 document.querySelectorAll<HTMLElement>('#tabs button').forEach(b => b.onclick = () => { tab = b.dataset.t; document.querySelectorAll('#tabs button').forEach(x => x.classList.toggle('on', x === b)); $('#ticker').style.display = tab === 'feed' ? '' : 'none'; $('#town').style.display = tab === 'town' ? 'block' : 'none'; $('#story').style.display = tab === 'story' ? 'block' : 'none'; $('#gazette').style.display = tab === 'gazette' ? 'block' : 'none'; $('#cast').style.display = tab === 'cast' ? 'block' : 'none'; if (tab === 'cast') { castTab(); send({ t: 'cast' }); } if (tab === 'town') town(); if (tab === 'story') storyTab(); if (tab === 'gazette') gazetteTab(); });
 cv.addEventListener('pointerdown', () => { userAt = performance.now(); });
-$('#bTr').onclick = e => { translate = !translate; e.currentTarget.classList.toggle('on', translate); };
 $('#bSpd').onclick = e => { localSpeed = localSpeed === 1 ? 4 : localSpeed === 4 ? 12 : 1; e.currentTarget.textContent = '⏩ ×' + localSpeed; };
 
 requestAnimationFrame(draw);

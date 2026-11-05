@@ -10,3 +10,4 @@ import './thoughts';
 import './skills';
 import './health';
 import './legend';
+import './speech';

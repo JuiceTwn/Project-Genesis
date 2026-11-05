@@ -42,7 +42,7 @@ function workFor(this: World, job, sid) {
 
 function makeDots(this: World) {
   const R = this.R, dots = this.dots = [];
-  const link = (a: Dot, b: Dot, v: number) => { a.aff.set(b.id, v); b.aff.set(a.id, v); this.pairs.add(Math.min(a.id, b.id) * 1000 + Math.max(a.id, b.id)); this.stats.friends++; };
+  const link = (a: Dot, b: Dot, v: number) => { a.aff.set(b.id, v); b.aff.set(a.id, v); this.pairs.add(Math.min(a.id, b.id) * K.TOK_PERSON + Math.max(a.id, b.id)); this.stats.friends++; };
   for (const s of this.S) {
     const houses = this.sbl[s.id].filter(b => b.type === BT.HOUSE); if (!houses.length) continue;
     const per = Math.ceil(s.pop0 / houses.length), nTav = this.sbl[s.id].filter(b => b.type === BT.TAVERN).length;
@@ -101,7 +101,7 @@ function die(this: World, d: Dot, cause) {
   d.partner = -1; d.coin = 0;
   this.inherit(d);
   const mourners = fr.slice(0, 6), park = this.nearest(this.parks, mourners[0] || d, 0);
-  for (const m of mourners) { m.grief = this.tick + Math.round(400 * TS); m.social = Math.max(0, m.social - 15); m.invite = { k: 'social', b: park.id, until: this.tick + 300 }; this.later(2 + ((this.rnd() * 10) | 0), { t: 'say', d: m.id, k: [1000 + d.id, C.DIE] }); }
+  for (const m of mourners) { m.grief = this.tick + Math.round(400 * TS); m.social = Math.max(0, m.social - 15); m.invite = { k: 'social', b: park.id, until: this.tick + 300 }; this.later(2 + ((this.rnd() * 10) | 0), { t: 'say', d: m.id, k: [K.TOK_PERSON + d.id, C.DIE] }); }
   this.stats.deaths++;
   this.ev('death', `🕯️ ${d.name} ${causeText(this, cause)} at ${Math.round(d.age)}.${mourners.length ? ` ${mourners.length} friend${mourners.length > 1 ? 's' : ''} mourn.` : ''}${heir && est > 0 ? ` ${heir.name} inherits ${K.usd(est)}.` : ''}`, [d.id].concat(mourners.slice(0, 1).map(m => m.id)), 0, 4);
 }

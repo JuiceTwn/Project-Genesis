@@ -87,6 +87,12 @@ aggregate shortcuts with individual agents and objects wherever the speed budget
 - Full suite: 48/48 pass. The two earlier failures were (a) a real bank bug: the same-day dividend stripped capital to ~80x leverage (now keeps equity >= deposits/6), and unpaid claims were wiped when the vault ran short (now only the paid part is deducted); (b) a test that was a coin flip on the RNG stream (the break could be 'quit' instead of 'drink'). Viral bank rumours can still cause runs, which is intended.
 - Next: fix those two tests, smaller test world for faster suite (it takes ~10 min), type the sim interfaces and un-`@ts-nocheck` the client, then deploy for real.
 
+## Language (done: English speech engine)
+- The invented lexicon is gone from speech (it is still used to name settlements, shops and people). Before: 32 distinct phrases in 121k utterances, 35% "hello"/"bye", listeners never understood anything. Now: ~19k distinct lines in 3 sim days.
+- `src/sim/speech.ts`: `BANK` of phrasings per act (tagged variants, more specific ones favoured), `voice()` (traits shape register, one stable tic per person via `ticOf`), recent-line memory, and `conversation(w, s, l)` which picks a topic from true state (thought, memory, work, family, gossip with real facts, town tax, weather) and a reply from the listener. Choices use a hash, never `w.rnd()`, so speech cannot change the sim (tested). Cost ~+0.2 ms/tick under tsx.
+- Wire: `say` messages carry `s` (English). Tokens never reach clients. Argument tokens are `TOK_PERSON/PLACE/SETT + id` (the old 1000/2000/3000 bases collided once dot ids passed 1000, so those dots greeted buildings).
+- Ideas next: lines that change beliefs (rumours as items people carry, fits step 3a); dialects per town; a second exchange in a chat; children learning phrases from parents; more topics from `health`, `skills`, `brand`, `media`; time-of-day shaping of topic weights.
+
 ## Typing (done in part)
 - `src/shared/protocol.ts` is the wire protocol: every server and client message, plus `parseClientMsg` which validates untrusted client JSON. The sim's init/stats/detail/cast/ev builders are checked against it.
 - The client is type-checked (no more `@ts-nocheck`). Worldgen is still `@ts-nocheck` on purpose (it is being rewritten for the larger map).

@@ -7,7 +7,7 @@ import type { Building } from '../shared/types';
      and resolves according to the characters' personalities. Nothing is scripted: the same arc ends differently for different people.
    - Chronicle: every arc beat, character change and yearly review is recorded and streamed to the client. */
 import { World } from './world';
-import { DAY_TICKS, BT, YEAR_DAYS, C } from '../shared/constants';
+import { DAY_TICKS, BT, YEAR_DAYS, C, TOK_PERSON } from '../shared/constants';
 import { epithet, rollTraits, shiftTraits, TRAIT } from './personality';
 import { KB, BUILD_COST, usd } from '../shared/reality';
 import type { Dot } from '../shared/types';
@@ -65,7 +65,7 @@ const rivalry: Kind = {
     const [x, y] = a.ids.map(i => w.dots[i]); if (!live(w, ...a.ids)) { beat(w, a, `The rivalry ended when one of them died.`); return close(w, a, 'death'); }
     if (a.stage === 0 && d >= 2) { a.stage = 1; beat(w, a, `😤 ${x.name} and ${y.name} are openly working against each other, and the town is taking sides.`); }
     if (a.stage === 1) {
-      if (w.rnd() < 0.4) { const sp = w.rnd() < 0.5 ? x : y, tg = sp === x ? y : x; for (const t of w.townAdults(a.sid).slice(0, 40)) if (t.id !== sp.id && w.rnd() < 0.2) t.aff.set(tg.id, (t.aff.get(tg.id) || 0) - 4); w.say(sp, [1000 + tg.id, C.BAD]); }
+      if (w.rnd() < 0.4) { const sp = w.rnd() < 0.5 ? x : y, tg = sp === x ? y : x; for (const t of w.townAdults(a.sid).slice(0, 40)) if (t.id !== sp.id && w.rnd() < 0.2) t.aff.set(tg.id, (t.aff.get(tg.id) || 0) - 4); w.say(sp, [TOK_PERSON + tg.id, C.BAD]); }
       if (d >= 6) {
         a.stage = 2; const calm = x.fx.forgive * y.fx.forgive >= 2.2, hot = Math.max(x.fx.temper, y.fx.temper) >= 1.5;
         if (calm) { warm(x, y, 45); beat(w, a, `🤝 ${x.name} and ${y.name} finally shook hands and buried their rivalry.`, true); close(w, a, 'peace'); }
@@ -96,7 +96,7 @@ const triangle: Kind = {
     if (!live(w, ...a.ids)) { beat(w, a, `The triangle ended in tragedy.`); return close(w, a, 'death'); }
     const [x, p, b] = a.ids.map(i => w.dots[i]);
     if (x.partner !== p.id) { beat(w, a, `${x.name} and ${p.name} are no longer together.`); return close(w, a, 'moved on'); }
-    if (a.stage === 0 && d >= 2) { a.stage = 1; p.aff.set(b.id, (p.aff.get(b.id) || 0) - 25); w.say(p, [1000 + b.id, C.JEALOUS]); beat(w, a, `😠 Word reaches ${p.name} that ${b.name} has been seeing a lot of ${x.name}.`); }
+    if (a.stage === 0 && d >= 2) { a.stage = 1; p.aff.set(b.id, (p.aff.get(b.id) || 0) - 25); w.say(p, [TOK_PERSON + b.id, C.JEALOUS]); beat(w, a, `😠 Word reaches ${p.name} that ${b.name} has been seeing a lot of ${x.name}.`); }
     if (a.stage === 1 && d >= 5) {
       a.stage = 2; const loyal = x.fx.loyalty >= 1.5 && x.fx.romance < 2.2;
       if (loyal) { b.social = Math.max(0, b.social - 40); b.rejectCd = 1500; b.aff.set(x.id, 10); if (w.rnd() < 0.5) w.shiftTrait(b, w.rnd() < 0.5 ? 'loner' : 'pessimist', `heartbroken over ${x.name}`); beat(w, a, `💔 ${x.name} stayed loyal to ${p.name} and turned ${b.name} away.`, true); close(w, a, 'loyal'); }
@@ -121,7 +121,7 @@ const feud: Kind = {
     if (!A.length || !B.length) { beat(w, a, `The feud faded as one family dwindled.`); return close(w, a, 'faded'); }
     a.ids = [A[0].id, B[0].id];
     if (a.stage === 0 && d >= 2) a.stage = 1;
-    if (a.stage === 1 && w.rnd() < 0.25) { const x = w.pick(A), y = w.pick(B); hostile(x, y, 4); w.say(x, [1000 + y.id, C.BAD]); if (w.rnd() < 0.3) beat(w, a, `😡 Another flare-up between ${x.name} (${a.data.fa}) and ${y.name} (${a.data.fb}).`); }
+    if (a.stage === 1 && w.rnd() < 0.25) { const x = w.pick(A), y = w.pick(B); hostile(x, y, 4); w.say(x, [TOK_PERSON + y.id, C.BAD]); if (w.rnd() < 0.3) beat(w, a, `😡 Another flare-up between ${x.name} (${a.data.fa}) and ${y.name} (${a.data.fb}).`); }
     if (a.stage === 1 && d >= 8) {
       a.stage = 2; const cross = A.find(x => x.partner >= 0 && B.some(y => y.id === x.partner)), mayor = w.dots[w.gov(w.S[a.sid]).mayor];
       if (cross) { const y = w.dots[cross.partner]; for (const x of A) for (const z of B) warm(x, z, 40); w.gov(w.S[a.sid]).festival = w.tick + 250; beat(w, a, `🕊️ ${cross.name} (${a.data.fa}) and ${y.name} (${a.data.fb}) are in love — the families made peace and held a feast.`, true); close(w, a, 'love'); }

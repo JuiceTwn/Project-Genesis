@@ -27,10 +27,10 @@ test('arcs: a run on the bank is tracked until it calms or the bank falls', () =
 test('arcs: a gang gets a story that ends in a bust; a pile-on victim gets a fall-and-forget arc', () => {
   const w: any = new World({ seed: 153, deterministic: true, pop: 400 });
   for (let i = 0; i < 3 * DAY_TICKS; i++) { w.step(); w.drain(); }
-  const sid = w.S.findIndex((s: any, i: number) => (w.sPop[i] || 0) >= 20), adults = w.townAdults(sid).slice(0, 5);
+  const sid = w.S.findIndex((s: any, i: number) => (w.sPop[i] || 0) >= 20), inArc = (id: number) => w.story.arcs.some((a: any) => !a.done && a.ids.includes(id)), adults = w.townAdults(sid).filter((d: any) => !inArc(d.id)).slice(0, 5);   /* people the storyteller has not already put in a story */
   const g = w.newGang(adults[0], adults.slice(1), sid); assert.ok(kind('gangster').weight(w) > 0);
   const a = kind('gangster').launch(w); assert.ok(a); g.loot = 20000; run(w, a, 3); assert.ok(a.stage >= 1);
   w.bust(g, 'test'); run(w, a, 2); assert.equal(a.outcome, 'busted');
-  const v = w.dots.find((x: any) => x.adult && !x.dead && !x.gang); v.ire = 40; assert.ok(kind('disgrace').weight(w) > 0);
+  const v = w.dots.find((x: any) => x.adult && !x.dead && !x.gang && !inArc(x.id)); v.ire = 40; assert.ok(kind('disgrace').weight(w) > 0);
   const c = kind('disgrace').launch(w); assert.ok(c); v.ire = 2; run(w, c, 12); assert.equal(c.outcome, 'forgotten');
 });

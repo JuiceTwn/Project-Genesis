@@ -25,4 +25,6 @@ export const TRAITS = ['thief','hothead','gossip','kind','romantic','jealous','c
 export const TRAIT_W = [0.025,0.12,0.15,0.15,0.2,0.1,0.12,0.15,0.1];
 export const DREAMS = ['rich','famous','love','family'];
 export const DREAM_TXT = { rich: 'get rich (250 coins)', famous: 'have 8 friends', love: 'find true love', family: 'raise 2 children', content: 'content with life' };
+/** Argument tokens inside an act: TOK_PERSON + dot id, TOK_PLACE + building id, TOK_SETT + settlement id. Well clear of the concept range and of each other (ids pass 1000). */
+export const TOK_PERSON = 100000, TOK_PLACE = 200000, TOK_SETT = 300000;
 export const C: Record<string, number> = {}; CON.forEach((c, i) => { C[c[0]] = i; });
