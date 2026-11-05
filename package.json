@@ -13,7 +13,8 @@
     "test": "tsx --test tests/*.test.ts",
     "map": "tsx src/tools/map.ts",
     "report": "python3 ml/balance_report.py",
-    "gazette": "tsx src/tools/gazette.ts"
+    "gazette": "tsx src/tools/gazette.ts",
+    "reality": "tsx src/tools/reality.ts"
   },
   "dependencies": {
     "@resvg/resvg-js": "^2.6.2",
