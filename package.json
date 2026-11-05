@@ -15,6 +15,7 @@
     "report": "python3 ml/balance_report.py",
     "gazette": "tsx src/tools/gazette.ts",
     "reality": "tsx src/tools/reality.ts",
+    "rates": "tsx src/tools/rates.ts",
     "longrun": "tsx src/tools/longrun.ts",
     "loadtest": "tsx src/tools/loadtest.ts",
     "longreport": "python3 ml/long_report.py",

@@ -51,14 +51,15 @@ function jealous(this: World, a: Dot, b: Dot) {
   if (a.partner < 0 || b.id === a.partner) return;
   const P = this.dots[a.partner]; if (P.dead || P.inside) return;
   const dx = P.x - a.x, dy = P.y - a.y, jt = P.fx.jealousy;
-  if (dx * dx + dy * dy > 64 || this.rnd() > Math.min(0.85, 0.06 * jt * jt)) return;
+  if ((P.jealCd || 0) > this.tick || dx * dx + dy * dy > 64 || this.rnd() > Math.min(0.85, 0.06 * jt * jt)) return;
+  P.jealCd = this.tick + 6 * DAY_TICKS; P.jealN = (this.tick - (P.jealAt || -1e9) < 30 * DAY_TICKS ? (P.jealN || 0) : 0) + 1; P.jealAt = this.tick;   // a flare-up at most every 6 days; a break-up needs it to keep happening
   P.aff.set(b.id, Math.min(P.aff.get(b.id) || 0, 0) - 25); this.say(P, [C.ME, C.JEALOUS]); if (!(P.bonds || []).some((x: any) => x.o === b.id && x.k === 'rival') && (jt >= 1.5 || this.rnd() < 0.08)) { this.bondAdd(P, b.id, 'rival'); this.addThought(P, 'jealous:' + b.id, -5, 6, `Jealous of ${b.name.replace(/ “[^”]*”$/, '').split(' ')[0]}.`, b.id); }
   this.ev('jealous', `😠 ${P.name} saw ${a.name} chatting with ${b.name}.`, [P.id, a.id], 15, 3);
-  if (this.rnd() < Math.min(0.6, 0.1 * jt)) this.breakup(P, a);
+  if (P.jealN >= 3 && this.rnd() < Math.min(0.6, 0.1 * jt)) this.breakup(P, a);
 }
 
 function kindness(this: World, a: Dot, b: Dot) {
-  if (b.coin < 15 * KB && a.coin > 50 * KB && this.rnd() < 0.25 * a.fx.generosity) { const g = 15 * KB * 0.4; a.coin -= g; b.coin += g; this.addAff(b, a, 8); this.say(b, [C.THANKS]); this.ev('kind', `💖 ${a.name} gave ${b.name} ${K.usd(g)}.`, [a.id, b.id], 40, 1); }
+  if (b.coin < 15 * KB && a.coin > 50 * KB && (a.giveCd || 0) < this.tick && this.rnd() < 0.06 * a.fx.generosity) { a.giveCd = this.tick + 2 * DAY_TICKS; const g = 15 * KB * 0.4; a.coin -= g; b.coin += g; this.addAff(b, a, 8); this.say(b, [C.THANKS]); this.ev('kind', `💖 ${a.name} gave ${b.name} ${K.usd(g)}.`, [a.id, b.id], 40, 1); }
 }
 
 function couples(this: World) {
