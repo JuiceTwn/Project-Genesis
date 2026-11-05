@@ -9,7 +9,7 @@ function step(this: World) {
   const tk = ++this.tick, tod = this.tod();
   // time-of-day events
   const tIn = tk % DAY_TICKS;
-  if (tIn === Math.floor(0.25 * DAY_TICKS)) this.dawn();
+  if (tIn === Math.floor(0.25 * DAY_TICKS)) this.dawn(); else if (this.dawnQ.length) this.dawnQ.shift()!();   // the rest of the day's jobs, one per tick
   if (tIn === Math.floor(0.88 * DAY_TICKS)) this.ev('night', '🌙 Night falls over the town.', [], 0);
   if (tk === this.festival) this.ev('fest', '🎈 The festival is winding down.', [], 0);
   if (tk === this.blight) this.ev('blight', '🌱 The blight has passed — crops recover.', [], 0);
@@ -85,29 +85,40 @@ function step(this: World) {
   }
 }
 
+/** Start of a new day. The daily jobs of every system are queued and run one per tick over the next ~dozen ticks (about two seconds), so no single tick has to do a whole day's work. */
 function dawn(this: World) {
-  this.mortality(); this.retirement();
-  if (this.day() % K.MONTH_DAYS === 0) { this.monthlyHousing(); this.mortgageMonth(); this.politicsMonth(); this.policeMonth(); }
-  this.budgetDawn(); this.gearDawn(); this.brandDawn(); this.bankDawn(); this.mortgageDawn(); this.crimeDawn(); this.mediaDay();
-  this.gazetteDawn();   // the paper goes to press with yesterday's news before today's begins
   const day = this.day();
-  const alive = this.dots.filter(d => !d.dead);
-  this.sPop = []; for (const d of alive) { const sid = this.buildings[d.home].sid; this.sPop[sid] = (this.sPop[sid] || 0) + 1; }
-  this.collectTaxes();
-  const se = this.season();
-  if (se !== this.lastSeason) {
-    this.lastSeason = se;
-    const msg = ['🌱 Spring has arrived. Fields are planted.', '☀️ Summer is here. Long days, good growth.', '🍂 Autumn: harvest season!', `❄️ Winter has set in. Food will be scarce — Year ${this.year()}.`][se];
-    this.ev('season', msg, [], 0, 3);
-  }
-  this.weather = this.rnd() < RAIN_P[se] ? (se === 3 ? 2 : 1) : 0;
-  if (this.weather) this.ev('weather', this.weather === 2 ? '❄️ Snow falls on the town.' : '🌧️ It\'s raining today.', [], 0, 1);
-  for (const s of this.S) this.mayorDawn(s);
-  this.nationDawn(); this.economyDawn(); this.storyDawn();
-  let mood = 0; for (const d of alive) mood += this.mood(d);
-  const top = alive.reduce((a, b) => (this.friends(a).length >= this.friends(b).length ? a : b));
-  const s = this.stats;
-  this.ev('dawn', `☀️ Day ${day} begins. Mood ${Math.round(mood / alive.length)}/100 · ${alive.length} alive · ${s.births} born, ${s.deaths} died · most popular: ${top.name} (${this.friends(top).length}).`, [top.id], 0, 0);
+  this.dawnQ = [
+    () => { this.mortality(); this.retirement(); },
+    () => { if (day % K.MONTH_DAYS === 0) { this.monthlyHousing(); this.mortgageMonth(); } },
+    () => { if (day % K.MONTH_DAYS === 0) { this.politicsMonth(); this.policeMonth(); } },
+    () => { this.budgetDawn(); this.gearDawn(); this.brandDawn(); },
+    () => { this.bankDawn(); this.mortgageDawn(); },
+    () => { this.crimeDawn(); this.mediaDay(); },
+    () => this.gazetteDawn(),   // the paper goes to press with yesterday's news
+    () => {
+      this.sPop = []; for (const d of this.dots) if (!d.dead) { const sid = this.buildings[d.home].sid; this.sPop[sid] = (this.sPop[sid] || 0) + 1; }
+      this.collectTaxes();
+      const se = this.season();
+      if (se !== this.lastSeason) {
+        this.lastSeason = se;
+        const msg = ['🌱 Spring has arrived. Fields are planted.', '☀️ Summer is here. Long days, good growth.', '🍂 Autumn: harvest season!', `❄️ Winter has set in. Food will be scarce — Year ${this.year()}.`][se];
+        this.ev('season', msg, [], 0, 3);
+      }
+      this.weather = this.rnd() < RAIN_P[se] ? (se === 3 ? 2 : 1) : 0;
+      if (this.weather) this.ev('weather', this.weather === 2 ? '❄️ Snow falls on the town.' : '🌧️ It\'s raining today.', [], 0, 1);
+    },
+    () => { for (const s of this.S) this.mayorDawn(s); this.nationDawn(); },
+    () => this.economyDawn(),
+    () => this.storyDawn(),
+    () => {
+      const alive = this.dots.filter(d => !d.dead); if (!alive.length) return;
+      let mood = 0; for (const d of alive) mood += this.mood(d);
+      const top = alive.reduce((a, b) => (this.friends(a).length >= this.friends(b).length ? a : b)), s = this.stats;
+      this.ev('dawn', `☀️ Day ${day} begins. Mood ${Math.round(mood / alive.length)}/100 · ${alive.length} alive · ${s.births} born, ${s.deaths} died · most popular: ${top.name} (${this.friends(top).length}).`, [top.id], 0, 0);
+    },
+  ];
+  this.dawnQ.shift()!();
 }
 
 Object.assign(World.prototype, { step, dawn });
