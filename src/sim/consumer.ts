@@ -16,6 +16,7 @@ function budgetDawn(this: World) {
 
 /** On arrival at a store: spend the budget (up to a cap), the store books the sale and pays for its goods. */
 function shopAt(this: World, d, b) {
+  if (this.buyGear(d, b) > 0) return 0;   // a trip to the store can mean a new coat instead of everyday goods
   const amt = Math.min(d.budget || 0, d.coin, 3 * R.DAY_WAGE);
   if (amt < 0.05 * R.DAY_WAGE) return 0;
   d.coin -= amt; d.budget = (d.budget || 0) - amt;

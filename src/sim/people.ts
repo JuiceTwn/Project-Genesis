@@ -1,4 +1,5 @@
 import { World } from './world';
+import { eff } from './gear';
 import { rollTraits, inheritTraits, fxOf } from './personality';
 import { makeField, b64, tkLess, mk } from '../shared/util';
 import * as K from '../shared/constants';
@@ -172,7 +173,7 @@ function mortality(this: World) {
   for (const d of this.dots) {
     if (d.dead) continue;
     const old = d.age > d.life * 0.8 ? 1 + (d.age / d.life - 0.8) * 25 : 1;
-    const p = 0.000025 * old * winter * (d.hunger > 85 ? 3 : 1) * (d.age < 2 ? 2.5 : 1) * (d.fx.risk > 1.6 ? 1.2 : 1);
+    const p = 0.000025 * old * winter * (winter > 1 ? 1 - 0.5 * eff(d, 'coat') : 1) * (d.hunger > 85 ? 3 : 1) * (d.age < 2 ? 2.5 : 1) * (d.fx.risk > 1.6 ? 1.2 : 1);
     if (this.rnd() < p) { this.die(d, 'illness'); continue; }
     if (d.adult && (d.job === 0 || d.job === 1) && this.rnd() < 0.000002 * d.fx.risk) this.die(d, 'accident');
   }

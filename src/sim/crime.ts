@@ -1,4 +1,5 @@
 import { World } from './world';
+import { eff } from './gear';
 import { makeField, b64, tkLess, mk } from '../shared/util';
 import * as K from '../shared/constants';
 import * as Gen from '../worldgen';
@@ -19,7 +20,7 @@ function stealTick(this: World) {
 }
 
 function steal(this: World, t, v) {
-  const amt = Math.min(v.coin * 0.5, (8 + this.rnd() * 14) * KB * 0.15); /* a pickpocket's haul: $100-300 */ v.coin -= amt; t.coin += amt; t.theftCd = Math.round(YEAR_TICKS * (0.6 + this.rnd() * 1.2));   // a thief strikes roughly once a year or two
+  const amt = Math.min(v.coin * 0.5, (8 + this.rnd() * 14) * KB * 0.15 * (1 - 0.6 * eff(v, 'bag'))); /* a pickpocket's haul: $100-300 */ v.coin -= amt; t.coin += amt; t.theftCd = Math.round(YEAR_TICKS * (0.6 + this.rnd() * 1.2));   // a thief strikes roughly once a year or two
   const wit = [];
   for (const o of this.dots) { if (o === t || o === v || o.dead || o.inside) continue; const dx = o.x - t.x, dy = o.y - t.y; if (dx * dx + dy * dy <= 36 && this.rnd() < 0.5) wit.push(o); }
   const noticed = this.rnd() < 0.45;

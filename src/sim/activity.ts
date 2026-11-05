@@ -1,4 +1,5 @@
 import { World } from './world';
+import { eff } from './gear';
 import { makeField, b64, tkLess, mk } from '../shared/util';
 import * as K from '../shared/constants';
 import * as Gen from '../worldgen';
@@ -77,7 +78,7 @@ function doing(this: World, d) {
     case 'work':
       if (d.job !== 0) this.payShiftHours(d, g, false);   // paid by the hour, so an interrupted shift still earns what was worked
       if (--d.timer <= 0) {
-        if (d.job === 0) { d.carry = tkLess(this.tick, this.blight) || this.tick < (this.S[this.buildings[d.home].sid].drought || 0) ? 0 : Math.max(1, Math.round(4 * YIELD[this.season()] * K.FARM_PRODUCTIVITY)); if (!d.carry) this.out.push({ t: 'say', d: d.id, k: [C.FARM, C.BAD] }); else if (d.carry > 1) { d.carry--; d.hunger = Math.max(0, d.hunger - 30); } }   // farm hands eat a share of the harvest on the spot
+        if (d.job === 0) { d.carry = tkLess(this.tick, this.blight) || this.tick < (this.S[this.buildings[d.home].sid].drought || 0) ? 0 : Math.max(1, Math.round(4 * YIELD[this.season()] * K.FARM_PRODUCTIVITY * (1 + 0.2 * eff(d, 'tool')))); if (!d.carry) this.out.push({ t: 'say', d: d.id, k: [C.FARM, C.BAD] }); else if (d.carry > 1) { d.carry--; d.hunger = Math.max(0, d.hunger - 30); } }   // farm hands eat a share of the harvest on the spot
         else { this.buildings[g.b].visits++; this.payShiftHours(d, g, true); }
         this.finish(d);
       }

@@ -1,4 +1,5 @@
 import { World } from './world';
+import { eff } from './gear';
 import { makeField, b64, tkLess, mk } from '../shared/util';
 import * as K from '../shared/constants';
 import * as Gen from '../worldgen';
@@ -130,7 +131,7 @@ function startChat(this: World, a, b) {
     for (const f of fx) f();
     const bonus = 12 / TS;
     a.social = Math.min(100, a.social + bonus); b.social = Math.min(100, b.social + bonus);
-    this.addAff(a, b, 7 + this.rnd() * 4); this.addAff(b, a, 7 + this.rnd() * 4); this.stats.chats++;
+    this.addAff(a, b, 7 + this.rnd() * 4 + 3 * eff(b, 'clothes')); this.addAff(b, a, 7 + this.rnd() * 4 + 3 * eff(a, 'clothes')); this.stats.chats++;
     this.jealous(a, b); this.jealous(b, a); this.kindness(a, b); this.kindness(b, a);
   } });
 }
