@@ -53,7 +53,7 @@ function mediaSpread(this: World) {
   const A = share(this), bk = this.bank;
   for (const p of this.posts) {
     if (p.done) continue; p.steps++;
-    const a = this.dots[p.author], vir = 0.22 + 0.75 * Math.abs(p.charge) + Math.min(0.6, ((a && a.fame) || 0) / 80) - 0.03 * p.steps;
+    const a = this.dots[p.author], vir = 0.22 + (this.mediaOpen[this.S.length ? (a ? this.buildings[a.home].sid : 0) : 0] ? 0.1 : 0) + 0.75 * Math.abs(p.charge) + Math.min(0.6, ((a && a.fame) || 0) / 80) - 0.03 * p.steps;
     if (vir <= 0 || p.reach >= A) { p.done = true; continue; }
     const nr = Math.min(A, p.reach * (1 + vir)), s = (nr - p.reach) / A, ch = p.charge; p.reach = nr; p.applied += s;
     switch (p.topic) {

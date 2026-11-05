@@ -70,7 +70,7 @@ function thoughtDay(this: World) {
     if (d.th && d.th.length) d.th = d.th.filter((t: Thought) => t.until > this.tick);
     if ((d.breakCd || 0) > this.tick) continue;
     const m = this.mood(d);
-    if (m >= BREAK_MOOD) continue;
+    if (m >= BREAK_MOOD - (this.attr(d, 'wil') - 10) * 0.8) continue;   // strong-willed people hold out longer
     if (this.rnd() < 0.18 + 0.01 * (BREAK_MOOD - m) + (d.fx.temper > 1.4 ? 0.1 : 0)) this.mentalBreak(d, m);
   }
 }

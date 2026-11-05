@@ -1,6 +1,5 @@
 import { World } from './world';
 import { eff } from './gear';
-import { skillFor } from './skills';
 import { makeField, b64, tkLess, mk } from '../shared/util';
 import * as K from '../shared/constants';
 import * as Gen from '../worldgen';
@@ -79,7 +78,7 @@ function doing(this: World, d) {
     case 'work':
       if (d.job !== 0) this.payShiftHours(d, g, false);   // paid by the hour, so an interrupted shift still earns what was worked
       if (--d.timer <= 0) {
-        if (d.job === 0) { d.carry = tkLess(this.tick, this.blight) || this.tick < (this.S[this.buildings[d.home].sid].drought || 0) ? 0 : Math.max(1, Math.round(4 * YIELD[this.season()] * K.FARM_PRODUCTIVITY * (1 + 0.2 * eff(d, 'tool')) * (1 + 0.5 * this.skillLevel(d, 'farm') / 20))); if (d.carry) this.trainSkill(d, 'farm', 0.02); if (!d.carry) this.out.push({ t: 'say', d: d.id, k: [C.FARM, C.BAD] }); else if (d.carry > 1) { d.carry--; d.hunger = Math.max(0, d.hunger - 30); } }   // farm hands eat a share of the harvest on the spot
+        if (d.job === 0) { d.carry = tkLess(this.tick, this.blight) || this.tick < (this.S[this.buildings[d.home].sid].drought || 0) ? 0 : Math.max(1, Math.round(4 * YIELD[this.season()] * K.FARM_PRODUCTIVITY * (1 + 0.2 * eff(d, 'tool')) * (this.perf(d, 'farm') / 0.9))); if (d.carry) this.trainSkill(d, 'farm', 0.02); if (!d.carry) this.out.push({ t: 'say', d: d.id, k: [C.FARM, C.BAD] }); else if (d.carry > 1) { d.carry--; d.hunger = Math.max(0, d.hunger - 30); } }   // farm hands eat a share of the harvest on the spot
         else { this.buildings[g.b].visits++; this.payShiftHours(d, g, true); }
         this.finish(d);
       }
@@ -121,9 +120,9 @@ function payShiftHours(this: World, d, g, final: boolean) {
   if (n <= 0.001) return;
   d.paidH = (d.paidH || 0) + n;
   const day = K.WAGE[wb.type] || K.DAY_WAGE * 0.6;
-  if (wb.state === 'ok' && K.REV[wb.type]) this.exportIn(wb, K.REV[wb.type] * n / 8);
+  if (wb.state === 'ok' && K.REV[wb.type]) this.exportIn(wb, K.REV[wb.type] * n / 8 * this.firmPerf(wb));
   const net = this.payWage(wb, d, day * n / 8); d.coin += net; d.earn = (d.earn || 0) + net;
-  this.trainSkill(d, skillFor(wb.type), 0.02 * n / 8);
+  this.trainSkill(d, this.skillAt(wb), 0.02 * n / 8);
 }
 
 Object.assign(World.prototype, { payShiftHours, move, arrive, doing, finish, checkStock, enter, leave, sayDelayed });

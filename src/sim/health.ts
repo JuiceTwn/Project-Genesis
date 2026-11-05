@@ -37,7 +37,7 @@ function healthDay(this: World) {
   for (const d of this.dots) {
     if (d.dead) continue;
     // new illness
-    if (!(d.hp || []).some((x: Cond) => x.k === 'flu') && this.rnd() < 0.0012 * winter * (1 - 0.5 * eff(d, 'coat')) * (d.hunger > 70 ? 2 : 1) * (d.age < 4 || d.age > d.life * 0.8 ? 1.8 : 1))
+    if (!(d.hp || []).some((x: Cond) => x.k === 'flu') && this.rnd() < 0.0012 * winter * (1.25 - 0.025 * this.attr(d, 'end')) * (1 - 0.5 * eff(d, 'coat')) * (d.hunger > 70 ? 2 : 1) * (d.age < 4 || d.age > d.life * 0.8 ? 1.8 : 1))
       this.hurt(d, 'flu', 0.25 + this.rnd() * 0.35, 'winter fever');
     if (d.hunger > 90) this.hurt(d, 'malnutrition', 0.5, 'starvation'); else if (d.hunger < 50) { const m = (d.hp || []).find((x: Cond) => x.k === 'malnutrition'); if (m) m.sev -= 0.1; }
     if (d.adult && (d.job === 0 || d.job === 1) && d.phase === 'do' && this.rnd() < 0.00025 * d.fx.risk) this.hurt(d, 'injury', 0.2 + this.rnd() * 0.5, d.job === 0 ? 'a farming accident' : 'an accident at work');
@@ -47,12 +47,15 @@ function healthDay(this: World) {
     // treatment at the town clinic: the sick who can pay go
     const open = c.some((x: Cond) => !x.treated && x.sev >= 0.35);
     if (open && d.adult) {
-      const fee = 0.3 * R.DAY_WAGE, g = this.gov(this.S[town]);
-      if (d.coin >= fee * 1.5 && this.rnd() < 0.6) { d.coin -= fee; g.treasury += fee; for (const x of c) x.treated = true; this.stats.treated = (this.stats.treated || 0) + 1; }
+      const fee = 0.3 * R.DAY_WAGE, g = this.gov(this.S[town]), clinic = this.clinicNear(town);
+      if (d.coin >= fee * 1.5 && this.rnd() < 0.6) {
+        d.coin -= fee; if (clinic) { clinic.cash += fee; clinic.rev += fee; clinic.visits++; } else g.treasury += fee;   // a staffed clinic is paid; otherwise the town's public surgery
+        for (const x of c) { x.treated = true; x.skill = clinic ? Math.min(1.6, clinic.perf || 1) : 0.9; } this.stats.treated = (this.stats.treated || 0) + 1;
+      }
     }
     const rested = d.phase === 'do' && d.goal && d.goal.k === 'sleep';
     for (const x of c.slice()) {
-      const heal = (x.treated ? 0.18 : 0.06) * (rested ? 1.4 : 1) * (d.hunger < 60 ? 1 : 0.4) * (x.k === 'flu' ? 1.3 : 1);
+      const heal = (x.treated ? 0.18 * (x.skill || 1) : 0.06) * (0.85 + 0.03 * this.attr(d, 'end')) * (rested ? 1.4 : 1) * (d.hunger < 60 ? 1 : 0.4) * (x.k === 'flu' ? 1.3 : 1);
       x.sev -= heal;
       if (x.k === 'injury' && !x.treated && this.tick - x.since > 5 * DAY && this.rnd() < 0.12) { c.splice(c.indexOf(x), 1); this.hurt(d, 'infection', Math.max(0.5, x.sev + 0.25), 'a wound gone septic'); continue; }
       if (x.sev <= 0) { c.splice(c.indexOf(x), 1); if (x.k !== 'malnutrition') this.addThought(d, 'well', 5, 5, 'Back on my feet.'); continue; }
@@ -63,10 +66,16 @@ function healthDay(this: World) {
   for (const s of this.S) { const P = this.sPop[s.id] || 0, n = sick[s.id] || 0; if (P >= 12 && n >= Math.max(5, 0.12 * P)) this.ev('epidemic' + s.id, `🤒 EPIDEMIC in ${s.name}: ${n} of its ${P} people are sick. The clinic is overrun.`, [], 40, 4); }
 }
 
+/** The nearest open, staffed clinic within a town or nearby. */
+function clinicNear(this: World, sid: number) {
+  for (const b of this.sbl[sid] || []) if (b.state === 'ok' && b.type === K.BT.OFFICE && this.specOf(b) && b.spec === 'clinic' && (b.staff || 0) > 0 && b.owner >= 0) return b;
+  return null;
+}
+
 function healthLines(this: World): string[] {
   let n = 0; for (const d of this.dots) if (!d.dead && d.hp && d.hp.length && this.sickLevel(d) >= 0.3) n++;
   return n ? [`${n} people are ill or injured (${this.stats.treated || 0} treated so far this history, ${this.stats.sickDeaths || 0} died of untreated illness).`] : [];
 }
 
-Object.assign(World.prototype, { sickLevel, hurt, catchFrom, healthDay, healthLines });
-declare module './world' { interface World { sickLevel: typeof sickLevel; hurt: typeof hurt; catchFrom: typeof catchFrom; healthDay: typeof healthDay; healthLines: typeof healthLines } }
+Object.assign(World.prototype, { clinicNear, sickLevel, hurt, catchFrom, healthDay, healthLines });
+declare module './world' { interface World { clinicNear: typeof clinicNear; sickLevel: typeof sickLevel; hurt: typeof hurt; catchFrom: typeof catchFrom; healthDay: typeof healthDay; healthLines: typeof healthLines } }

@@ -36,6 +36,7 @@ function wantedSlot(this: World, d): Slot | null {
 function buyGear(this: World, d, b): number {
   if (!d.adult || b.state !== 'ok') return 0;
   const slot = this.wantedSlot(d); if (!slot) return 0;
+  { const sp = this.specOf(b); if (!sp || !sp.sells || !sp.sells.includes(slot)) return 0; }   // only clothiers, hardware stores and general stores sell gear
   const q = Math.max(0.2, Math.min(1, 0.35 + 0.5 * Math.min(1, (d.inc || 0) / (2 * R.DAY_WAGE)) + (this.rnd() - 0.5) * 0.3)), price = itemPrice(slot, q);
   if ((d.budget || 0) < price || d.coin < price) return 0;
   d.coin -= price; d.budget -= price; this.credit(b, price); b.rev += price; b.visits++;

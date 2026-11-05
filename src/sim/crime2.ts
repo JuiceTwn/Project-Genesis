@@ -17,7 +17,10 @@ const clearRate = (w: World, sid: number) => Math.min(0.85, 0.08 + 0.35 * cops(w
 
 /** Send someone to prison: they lose their job, and sit in the cells for `days`. */
 function sentence(this: World, d, crime: string, days: number) {
-  if (d.dead) return; d.jailUntil = this.tick + days * DAY_TICKS; d.job = 3; d.work = -1; d.cop = false; d.social = Math.max(0, d.social - 20);
+  if (d.dead) return;
+  { const sid = this.buildings[d.home].sid, firm = (this.sbl[sid] || []).find(b => b.state === 'ok' && b.spec === 'law' && (b.staff || 0) > 0 && b.owner >= 0), fee = 0.6 * R.DAY_WAGE;
+    if (firm && d.coin > fee * 2) { d.coin -= fee; firm.cash += fee; firm.rev += fee; firm.visits++; days = Math.max(1, Math.round(days * Math.max(0.35, 0.8 - 0.25 * (firm.perf || 1)))); } }   // a lawyer talks the sentence down
+  d.jailUntil = this.tick + days * DAY_TICKS; d.job = 3; d.work = -1; d.cop = false; d.social = Math.max(0, d.social - 20);
   this.stats.convictions = (this.stats.convictions || 0) + 1;
   this.ev('jail' + d.id, `⛓️ ${d.name} was sentenced to ${days} days in prison for ${crime}.`, [d.id], 0, 3);
   if (this.scar(d, 'jailed', 2)) this.shiftTrait(d, 'thief', 'a hard stretch inside');

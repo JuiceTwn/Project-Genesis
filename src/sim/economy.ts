@@ -1,6 +1,5 @@
 import { World } from './world';
 import { rollTraits } from './personality';
-import { skillFor } from './skills';
 import { makeField, b64, tkLess, mk } from '../shared/util';
 import * as K from '../shared/constants';
 import * as Gen from '../worldgen';
@@ -39,10 +38,10 @@ function payWage(this: World, b, d, w: number): number {
   const [o, k] = this.till(b);
   if (o[k] >= w) { o[k] -= w; b.wage += w; d.unpaid = 0; return this.withhold(b, w); }
   const frac = w / (K.WAGE[b.type] || K.DAY_WAGE); d.unpaid = (d.unpaid || 0) + frac; this.biz.unpaid += frac;
-  this.ev('unpaid' + b.id, `💸 ${b.name} ${BT_NAME[b.type]} in ${this.S[b.sid].name} missed payroll — ${d.name} went home unpaid.`, [d.id, b.owner], 2 * DAY_TICKS, 2);
+  this.ev('unpaid' + b.id, `💸 ${b.name} ${this.kindName(b)} in ${this.S[b.sid].name} missed payroll — ${d.name} went home unpaid.`, [d.id, b.owner], 2 * DAY_TICKS, 2);
   if (d.unpaid >= 3 && d.job !== 3 && d.work === b.id) {
     d.job = 3; d.work = -1; d.unpaid = 0; b.staff = Math.max(0, (b.staff || 1) - 1); this.biz.quit++;
-    this.ev('quit', `🚪 ${d.name} quit ${b.name} ${BT_NAME[b.type]} after weeks of missed pay.`, [d.id], 3 * DAY_TICKS, 3); this.say(d, [C.ME, C.ANGRY]);
+    this.ev('quit', `🚪 ${d.name} quit ${b.name} ${this.kindName(b)} after weeks of missed pay.`, [d.id], 3 * DAY_TICKS, 3); this.say(d, [C.ME, C.ANGRY]);
   }
   return 0;
 }
@@ -76,7 +75,7 @@ function settle(this: World) {
 function fail(this: World, b, visits) {
   const o = this.dots[b.owner], s = this.S[b.sid], rivals = this.sbl[b.sid].filter(x => x !== b && x.type === b.type).length;
   const why = b.type === BT.FARM && this.tick - this.blightAt < 4 * DAY_TICKS ? 'the blight wrecked the harvest' : (b.type === BT.FARM || b.type === BT.WORKSHOP || b.type === BT.TAVERN) && (b.staff || 0) === 0 ? 'nobody was working there' : rivals >= 2 ? 'too many rivals in town' : visits < 4 ? 'hardly any customers' : o.traits.includes('lazy') ? 'the owner never kept it up' : 'costs outran takings';
-  this.ev('bankrupt', `📉 ${o.name}'s ${BT_NAME[b.type].toLowerCase()} ${b.name} in ${s.name} went bankrupt — ${why}.`, [o.id], 0, 4);
+  this.ev('bankrupt', `📉 ${o.name}'s ${this.kindName(b).toLowerCase()} ${b.name} in ${s.name} went bankrupt — ${why}.`, [o.id], 0, 4);
   { const fee = Math.min(20 * KB, o.coin); o.coin -= fee; this.gov(s).treasury += fee; } o.social = Math.max(0, o.social - 25); this.say(o, [C.ME, C.BROKE]); this.shiftTrait(o, this.rnd() < 0.55 ? 'frugal' : 'pessimist', 'burned by bankruptcy');   // court costs go to the town
   this.liquidate(b); b.state = 'vacant'; b.vac = 0; b.owner = -1; if (b.type === BT.MARKET) b.stock = 0;
   this.biz.closed++; this.unstaff(b); this.rebuild(); this.fgen++; this.pushBld(b, 'upd');
@@ -100,7 +99,7 @@ function hire(this: World) {
         let best = -1, bd = 45; for (const k of Object.keys(pools)) { const o = this.S[+k]; if (!pools[+k].length) continue; const dd = Math.hypot(o.x - town.x, o.y - town.y); if (dd < bd) { bd = dd; best = +k; } }
         if (best < 0) break; pool = pools[best];
       }
-      const d = pool.splice(this.bestOf(pool, skillFor(b.type)), 1)[0]; d.job = job; d.work = b.id; need--; b.staff++;
+      const d = pool.splice(this.bestOf(pool, this.skillAt(b)), 1)[0]; d.job = job; d.work = b.id; need--; b.staff++;
     }
   }
   // construction is a job too: every building site hires a crew of builders from the same labour pool, paid a day's wage per shift out of the site's escrow
@@ -143,16 +142,16 @@ function tryFound(this: World, d) {
   if (vac) {
     const cost = Math.round(K.BUILD_COST[type] * 0.35); if (d.coin < cost + 30 * KB) return false;
     d.coin -= cost; const cap0 = Math.max(0, Math.min(50 * KB, d.coin - 10 * KB)); d.coin -= cap0; vac.cash = (vac.cash || 0) + cap0; const was = BT_NAME[vac.type].toLowerCase();
-    vac.type = type; vac.open = type === BT.FARM; vac.state = 'build'; vac.need = Math.max(2, Math.ceil(BUILD_SHIFTS[type] * 0.4)); vac.prog = 0; vac.escrow = cost * K.LABOUR_SHARE; this.ledger.outflow += cost * (1 - K.LABOUR_SHARE); this.ledger.flow.materials = (this.ledger.flow.materials || 0) - cost * (1 - K.LABOUR_SHARE); vac.owner = d.id; vac.vac = 0; vac.name = this.word(2, 2, true); vac.hist = [];
+    const spec = this.pickSpec(type, s.id, d); vac.spec = spec.id; vac.type = type; vac.open = type === BT.FARM; vac.state = 'build'; vac.need = Math.max(2, Math.ceil(BUILD_SHIFTS[type] * 0.4)); vac.prog = 0; vac.escrow = cost * K.LABOUR_SHARE; this.ledger.outflow += cost * (1 - K.LABOUR_SHARE); this.ledger.flow.materials = (this.ledger.flow.materials || 0) - cost * (1 - K.LABOUR_SHARE); vac.owner = d.id; vac.vac = 0; vac.name = this.word(2, 2, true); vac.hist = [];
     if (type === BT.MARKET && vac.mi < 0) vac.mi = this.mcount++;
     this.sites.push(vac); this.rebuild(); this.fgen++; this.pushBld(vac, 'upd');
-    this.ev('refit', `♻️ ${d.name} (${why}) is turning the empty ${was} in ${s.name} into a ${BT_NAME[type].toLowerCase()}.`, [d.id], 0, 3); return true;
+    this.ev('refit', `♻️ ${d.name} (${why}) is turning the empty ${was} in ${s.name} into a ${this.specOf(vac).name.toLowerCase()}.`, [d.id], 0, 3); return true;
   }
   const kind = type === BT.DOCK ? 'dock' : type === BT.FARM ? 'farm' : (type === BT.WORKSHOP || type === BT.BUILDER || type === BT.OFFICE || type === BT.FACTORY || type === BT.STORE) ? 'shop' : 'center', cost = K.BUILD_COST[type];
   if (d.coin < cost + 40 * KB) return false;
   const plot = this.plotFor(s, kind); if (!plot) return false;
-  d.coin -= cost; const nb = this.startBuild(plot, type, d.id, cost); { const cap = Math.max(0, Math.min(50 * KB, d.coin - 10 * KB)); d.coin -= cap; nb.cash += cap; }
-  this.ev('found', `🏗️ ${d.name} (${why}) is building a ${BT_NAME[type].toLowerCase()} in ${s.name}.`, [d.id], 0, 3); return true;
+  d.coin -= cost; const spec = this.pickSpec(type, s.id, d), nb = this.startBuild(plot, type, d.id, cost); nb.spec = spec.id; { const cap = Math.max(0, Math.min(50 * KB, d.coin - 10 * KB)); d.coin -= cap; nb.cash += cap; }
+  this.ev('found', `🏗️ ${d.name} (${why}) is building a ${spec.name.toLowerCase()} in ${s.name}.`, [d.id], 0, 3); return true;
 }
 
 function housing(this: World) {
@@ -190,7 +189,7 @@ function sales(this: World) {
   const price = Math.max(40 * KB, Math.round(avg * 5)), buyer = this.dots.filter(x => !x.dead && x.adult && x.id !== o.id && x.coin > price * 1.2 && this.buildings[x.home].sid === b.sid).sort((x, y) => y.coin - x.coin)[0];
   if (!buyer || (o.coin > 60 * KB && avg > 0 && this.rnd() > 0.15)) return;
   buyer.coin -= price; o.coin += price; b.owner = buyer.id; this.biz.sold++; this.brandAcquired(b, o, buyer); this.pushBld(b, 'upd');
-  this.ev('sale', `🔑 ${o.name} sold ${b.name} ${BT_NAME[b.type]} to ${buyer.name} for ${K.usd(price)}.`, [o.id, buyer.id], 0, 2);
+  this.ev('sale', `🔑 ${o.name} sold ${b.name} ${this.kindName(b)} to ${buyer.name} for ${K.usd(price)}.`, [o.id, buyer.id], 0, 2);
 }
 
 function disasters(this: World) {

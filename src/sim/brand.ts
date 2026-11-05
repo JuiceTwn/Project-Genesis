@@ -36,13 +36,13 @@ function branchesOf(this: World, id: number) { return this.stores.filter(b => b.
 
 /** Pick a store to shop at: closer, better, cheaper, better known and recommended stores win. Returns a building or null. */
 function pickStore(this: World, d) {
-  let best = null, bv = -1e9;
+  let best = null, bv = -1e9; const want = d.adult ? this.wantedSlot(d) : null;
   for (const b of this.stores) {
     if (b.state !== 'ok') continue;
     const dist = this.F(b)[d.y * W + d.x]; if (dist >= K.INF) continue;
     const br = b.brand !== undefined && b.brand >= 0 ? this.brands[b.brand] : null;
     const appeal = br ? 1.4 * br.quality + 0.9 * br.awareness - 1.3 * (br.price - 1) + (d.fav === br.id ? 0.55 : 0) + 0.8 * br.rep : 0.3;
-    const v = appeal * 40 - dist + this.rnd() * 8;
+    const sp = want ? this.specOf(b) : null, v = appeal * 40 - dist + this.rnd() * 8 + (sp && sp.sells && sp.sells.includes(want) ? 30 : 0);   // shoppers who need a coat go where coats are sold
     if (v > bv) { bv = v; best = b; }
   }
   return best;
@@ -82,8 +82,8 @@ function brandDawn(this: World) {
     // advertising: a profitable branch with spare cash buys a campaign from outside agencies
     for (const x of bs) if (x.cash > 60 * KB && profit > 0) { const spend = Math.min(x.cash * 0.04, 8 * KB), paid = this.toAbroad(x, 'cash', spend, 'advertising'); br.ads += paid; br.awareness = Math.min(1, br.awareness + 0.02 * paid / (4 * KB)); }
     // quality: reinvestment lifts it, losses and a long lead (complacency) erode it
-    const staff = this.dots.filter(d => !d.dead && bs.some(x => x.id === d.work)), crew = staff.length ? staff.reduce((t, d) => t + this.skillLevel(d, 'trade'), 0) / staff.length : 5;
-    br.quality = Math.max(0.05, Math.min(1, br.quality + (profit > 0 ? 0.0015 : -0.002) + 0.0006 * (crew - 6) / 6 - (br.awareness > 0.6 ? 0.0015 : 0) + (this.rnd() - 0.5) * 0.004));
+    const staff = this.dots.filter(d => !d.dead && bs.some(x => x.id === d.work)), crew = staff.length ? staff.reduce((t, d) => t + this.perf(d, 'trade'), 0) / staff.length : 0.9;
+    br.quality = Math.max(0.05, Math.min(1, br.quality + (profit > 0 ? 0.0015 : -0.002) + 0.0009 * (crew - 0.9) - (br.awareness > 0.6 ? 0.0015 : 0) + (this.rnd() - 0.5) * 0.004));
     // price war: a brand losing money cuts price; a comfortable one creeps it up
     br.price = Math.max(0.75, Math.min(1.4, br.price + (profit < 0 ? -0.006 : 0.002)));
     br.rep = br.rep * 0.98 + (br.quality - 0.5) * 0.02;
