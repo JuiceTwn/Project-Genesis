@@ -21,7 +21,7 @@ function shopAt(this: World, d, b) {
   if (amt < 0.05 * R.DAY_WAGE) return 0;
   d.coin -= amt; d.budget = (d.budget || 0) - amt;
   this.credit(b, amt); b.rev += amt; b.visits++;
-  const [o, k] = this.till(b); this.toAbroad(o, k, amt * R.COGS, 'goods');
+  { const br = b.brand >= 0 && this.brands[b.brand]; const [o, k] = this.till(b); this.toAbroad(o, k, amt * R.COGS / (br ? br.price : 1), 'goods'); this.brandSale(d, b, amt); }
   this.stats.purchases = (this.stats.purchases || 0) + 1; this.stats.spent = (this.stats.spent || 0) + amt;
   return amt;
 }

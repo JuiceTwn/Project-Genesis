@@ -171,7 +171,7 @@ function sales(this: World) {
   const b = this.pick(cand), o = this.dots[b.owner], avg = b.hist.length ? b.hist.reduce((x, y) => x + y, 0) / b.hist.length : 0;
   const price = Math.max(40 * KB, Math.round(avg * 5)), buyer = this.dots.filter(x => !x.dead && x.adult && x.id !== o.id && x.coin > price * 1.2 && this.buildings[x.home].sid === b.sid).sort((x, y) => y.coin - x.coin)[0];
   if (!buyer || (o.coin > 60 * KB && avg > 0 && this.rnd() > 0.15)) return;
-  buyer.coin -= price; o.coin += price; b.owner = buyer.id; this.biz.sold++; this.pushBld(b, 'upd');
+  buyer.coin -= price; o.coin += price; b.owner = buyer.id; this.biz.sold++; this.brandAcquired(b, o, buyer); this.pushBld(b, 'upd');
   this.ev('sale', `🔑 ${o.name} sold ${b.name} ${BT_NAME[b.type]} to ${buyer.name} for ${K.usd(price)}.`, [o.id, buyer.id], 0, 2);
 }
 

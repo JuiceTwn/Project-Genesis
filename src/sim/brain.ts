@@ -54,7 +54,7 @@ function setGoal(this: World, d, k, mk, inv) {
       if (inv && inv.k === 'social') d.invite = null;
       g = { k, b: b.id, enter: false }; break;
     }
-    case 'shop': { const b = this.nearest(this.stores, d, 40); g = { k, b: b.id, enter: true }; break; }
+    case 'shop': { const b = this.pickStore(d) || this.nearest(this.stores, d, 40); g = { k, b: b.id, enter: true }; break; }
     case 'drink': {
       let b = (inv && inv.k === 'drink') ? this.buildings[inv.b] : this.nearest(this.taverns, d, 25);
       if (inv && inv.k === 'drink') d.invite = null;
