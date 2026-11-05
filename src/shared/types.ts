@@ -8,7 +8,7 @@ export interface Dot {
   aff: Map<number, number>; belief: Int32Array; carry: number; invite: any; starvedDay: number; rich: boolean; meals: number;
   traits: string[]; done: Set<string>; isThief: boolean; age: number; life: number; partner: number; married: boolean; since: number; thieves: Set<number>; dead: boolean;
   grief: number; starveT: number; theftCd: number; dream: string | null; dreams: number; adult: boolean; kids: number; rejectCd: number;
-  shortAt?: number; unpaid?: number; shiftTicks?: number; paidH?: number; earn?: number; inc?: number; budget?: number; fx: Fx; th?: any[]; breakCd?: number; fame?: number; ire?: number; endorses?: number; cop?: boolean; jailUntil?: number; gang?: number; party?: string; fav?: number; dep?: number; gear?: Record<string, { q: number; w: number; brand: number }>; scars: Record<string, number>;
+  shortAt?: number; unpaid?: number; shiftTicks?: number; paidH?: number; earn?: number; inc?: number; budget?: number; fx: Fx; sk?: Record<string, number>; masters?: string[]; th?: any[]; breakCd?: number; fame?: number; ire?: number; endorses?: number; cop?: boolean; jailUntil?: number; gang?: number; party?: string; fav?: number; dep?: number; gear?: Record<string, { q: number; w: number; brand: number }>; scars: Record<string, number>;
 }
 export interface Building {
   id: number; type: number; x: number; y: number; door: number[]; open: boolean; occ: number; stock: number; inside: Dot[]; name: string; flag: boolean; sid: number;

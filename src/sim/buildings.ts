@@ -150,10 +150,10 @@ function buildStep(this: World, d, b) {
   const firm = b.contractor >= 0 ? this.buildings[b.contractor] : null;
   if (firm && firm.state === 'ok' && d.work === firm.id) {   // a firm's employee: the client pays the firm from escrow, the firm pays its worker through normal payroll
     const r = Math.min(K.DAY_WAGE * (1 + R.CONTRACT_MARGIN), Math.max(0, b.escrow)); b.escrow -= r; firm.cash += r; firm.rev += r; firm.visits++;
-    const net = this.payWage(firm, d, K.DAY_WAGE); d.coin += net; d.earn = (d.earn || 0) + net; b.prog++;
+    const net = this.payWage(firm, d, K.DAY_WAGE); d.coin += net; d.earn = (d.earn || 0) + net; b.prog += this.rnd() < this.skillLevel(d, 'build') / 40 ? 2 : 1; this.trainSkill(d, 'build', 0.03);
     if (b.prog >= b.need) this.completeBuild(b); return;
   }
-  const w = Math.min(K.DAY_WAGE, Math.max(0, b.escrow)); b.escrow -= w; d.coin += this.withhold(b, w); b.prog++;
+  const w = Math.min(K.DAY_WAGE, Math.max(0, b.escrow)); b.escrow -= w; d.coin += this.withhold(b, w); b.prog += this.rnd() < this.skillLevel(d, 'build') / 40 ? 2 : 1; this.trainSkill(d, 'build', 0.03);
   if (b.prog >= b.need) this.completeBuild(b);
 }
 

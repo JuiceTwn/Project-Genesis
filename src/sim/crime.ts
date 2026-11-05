@@ -44,8 +44,9 @@ function fight(this: World, a, b, ctx) {
 
 function resolveFight(this: World, a, b, ctx) {
   if (a.dead || b.dead) return;
-  const pw = d => d.energy * 0.3 + (d.fx.temper > 1.5 ? 25 : 0) + d.fx.courage * 15 + this.rnd() * 40 + (d.isThief ? 8 : 0);
+  const pw = d => this.skillLevel(d, 'fight') * 1.5 + d.energy * 0.3 + (d.fx.temper > 1.5 ? 25 : 0) + d.fx.courage * 15 + this.rnd() * 40 + (d.isThief ? 8 : 0);
   const aw = pw(a) >= pw(b), w = aw ? a : b, l = aw ? b : a;
+  this.trainSkill(w, 'fight', 0.4); this.trainSkill(l, 'fight', 0.15);
   w.energy = Math.max(0, w.energy - 6); l.energy = Math.max(0, l.energy - 16);
   this.addAff(a, b, -15); this.addAff(b, a, -15); this.stats.fights++;
   if (ctx) {

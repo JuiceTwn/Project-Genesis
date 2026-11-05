@@ -131,7 +131,7 @@ function startChat(this: World, a, b) {
     for (const f of fx) f();
     const bonus = 12 / TS;
     a.social = Math.min(100, a.social + bonus); b.social = Math.min(100, b.social + bonus);
-    this.addAff(a, b, 7 + this.rnd() * 4 + 3 * eff(b, 'clothes')); this.addAff(b, a, 7 + this.rnd() * 4 + 3 * eff(a, 'clothes')); this.stats.chats++; this.wordOfMouth(a, b);
+    this.addAff(a, b, (7 + this.rnd() * 4 + 3 * eff(b, 'clothes')) * (1 + this.skillLevel(a, 'social') / 60)); this.addAff(b, a, (7 + this.rnd() * 4 + 3 * eff(a, 'clothes')) * (1 + this.skillLevel(b, 'social') / 60)); this.trainSkill(a, 'social', 0.01); this.trainSkill(b, 'social', 0.01); this.stats.chats++; this.wordOfMouth(a, b);
     this.jealous(a, b); this.jealous(b, a); this.kindness(a, b); this.kindness(b, a);
   } });
 }

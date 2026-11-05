@@ -1,5 +1,6 @@
 import { World } from './world';
 import { rollTraits } from './personality';
+import { skillFor } from './skills';
 import { makeField, b64, tkLess, mk } from '../shared/util';
 import * as K from '../shared/constants';
 import * as Gen from '../worldgen';
@@ -99,7 +100,7 @@ function hire(this: World) {
         let best = -1, bd = 45; for (const k of Object.keys(pools)) { const o = this.S[+k]; if (!pools[+k].length) continue; const dd = Math.hypot(o.x - town.x, o.y - town.y); if (dd < bd) { bd = dd; best = +k; } }
         if (best < 0) break; pool = pools[best];
       }
-      const d = pool.splice((this.rnd() * pool.length) | 0, 1)[0]; d.job = job; d.work = b.id; need--; b.staff++;
+      const d = pool.splice(this.bestOf(pool, skillFor(b.type)), 1)[0]; d.job = job; d.work = b.id; need--; b.staff++;
     }
   }
   // construction is a job too: every building site hires a crew of builders from the same labour pool, paid a day's wage per shift out of the site's escrow
