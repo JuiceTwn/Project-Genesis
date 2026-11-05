@@ -8,7 +8,7 @@ import { W, H } from "../shared/dims";
 
 function economyDawn(this: World) {
   this.sPop = []; for (const d of this.dots) if (!d.dead) { const sid = this.buildings[d.home].sid; this.sPop[sid] = (this.sPop[sid] || 0) + 1; }
-  this.settle(); this.hire(); this.disasters(); this.housing(); this.entrepreneurs(); this.sales(); this.immigration(); this.vacancies();
+  this.settle(); this.hire(); this.disasters(); this.housing(); this.contractors(); this.entrepreneurs(); this.sales(); this.immigration(); this.vacancies();
 }
 
 /** Pay a shift's wage out of the employer's pocket. Returns what the worker actually received.

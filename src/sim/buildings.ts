@@ -133,8 +133,17 @@ function startBuild(this: World, plot, type, owner, cost) {
 
 function buildStep(this: World, d, b) {
   if (!b || b.state !== 'build') return;
-  const w = Math.min(K.DAY_WAGE, Math.max(0, b.escrow)); b.escrow -= w; d.coin += w; b.prog++;
+  const w = Math.min(K.DAY_WAGE, Math.max(0, b.escrow)); b.escrow -= w; d.coin += w; b.prog++; b.lastProg = this.tick;
   if (b.prog >= b.need) this.completeBuild(b);
+}
+
+/** At dawn: a site nobody local worked on for a day gets a crew from abroad for a shift (their wage leaves the country), so a full labour market cannot stall construction. */
+function contractors(this: World) {
+  for (const b of this.sites.slice()) {
+    if (b.state !== 'build' || this.tick - (b.lastProg || b.started || 0) < K.DAY_TICKS) continue;
+    const w = Math.min(K.DAY_WAGE, Math.max(0, b.escrow)); if (w > 0) this.toAbroad(b, 'escrow', w, 'contractors');
+    b.prog++; b.lastProg = this.tick; if (b.prog >= b.need) this.completeBuild(b);
+  }
 }
 
 function completeBuild(this: World, b) {
@@ -180,7 +189,7 @@ function vacancies(this: World) {
   }
 }
 
-Object.assign(World.prototype, { evictFields, mkBuilding, placeOn, rebuild, F, nameBuilding, buildMap, bldMsg, pushBld, pushTiles, footprint, siteFor, freePlot, expandSettlement, plotFor, startBuild, buildStep, completeBuild, moveIn, demolish, isBiz, burn, vacancies });
+Object.assign(World.prototype, { contractors, evictFields, mkBuilding, placeOn, rebuild, F, nameBuilding, buildMap, bldMsg, pushBld, pushTiles, footprint, siteFor, freePlot, expandSettlement, plotFor, startBuild, buildStep, completeBuild, moveIn, demolish, isBiz, burn, vacancies });
 declare module './world' { interface World {
   mkBuilding: (...args: any[]) => any;
   placeOn: (...args: any[]) => any;
@@ -200,6 +209,7 @@ declare module './world' { interface World {
   startBuild: (...args: any[]) => any;
   buildStep: (...args: any[]) => any;
   completeBuild: (...args: any[]) => any;
+  contractors: (...args: any[]) => any;
   moveIn: (...args: any[]) => any;
   demolish: (...args: any[]) => any;
   isBiz: (...args: any[]) => any;
