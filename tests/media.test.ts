@@ -26,7 +26,8 @@ test('media: pile-on fires, drops friends, brands suffer; sponsorship deal pays 
   const store = w.branchesOf(br.id)[0]; store.cash += 100000; w.mint(100000, 'test');
   const star = w.dots.find((d: any) => d.adult && !d.dead && d.id !== br.founder); star.fame = 60;
   const s0 = base(w);
-  w.newDeals(); assert.ok(w.deals.length >= 1 || store.cash < 100000 + 1, 'a deal was struck');
+  for (let i = 0; i < 60 && !w.deals.length; i++) w.newDeals();   // a brand only bites half the time
+  assert.ok(w.deals.length >= 1, 'a deal was struck');
   assert.ok(Math.abs(base(w) - s0) < 1e-3, 'deal money only moved');
   const founder = w.dots[br.founder]; const rep0 = br.rep;
   for (const f of w.dots.slice(0, 20)) f.aff.set(founder.id, 40);
