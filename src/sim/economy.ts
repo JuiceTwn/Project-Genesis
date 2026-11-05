@@ -156,7 +156,7 @@ function housing(this: World) {
 function immigration(this: World) {
   if (this.dots.filter(d => !d.dead).length >= this.maxPop || !this.markets.length) return;
   { const ad = this.dots.filter(d => !d.dead && d.adult && d.age < d.life * K.RETIRE_FRAC), jl = ad.filter(d => d.job === 3 && d.work < 0).length; if (jl > 0.07 * ad.length) return; }   // people only move to where there is work
-  const avg = this.markets.reduce((a, m) => a + m.stock, 0) / this.markets.length; if (avg < 130 || this.rnd() > 0.3) return;
+  const avg = this.markets.reduce((a, m) => a + m.stock, 0) / this.markets.length; if (avg < 130 || this.rnd() > 0.08) return;
   const w = this.S.map(s => { const sp = this.sbl[s.id].filter(b => b.type === BT.HOUSE && this.residents(b.id) <= 2).length; return (s.tier === 0 ? 3 : s.tier === 1 ? 1.5 : 1) * (1 + sp) * (this.sbl[s.id].some(b => b.type === BT.HOUSE) ? 1 : 0); });
   let r = this.rnd() * w.reduce((a, b) => a + b, 0), s = this.S[0]; for (let i = 0; i < w.length; i++) { r -= w[i]; if (r <= 0) { s = this.S[i]; break; } }
   const houses = this.sbl[s.id].filter(b => b.type === BT.HOUSE).sort((a, b) => this.residents(a.id) - this.residents(b.id)); if (!houses.length) return;

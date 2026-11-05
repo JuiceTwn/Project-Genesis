@@ -70,8 +70,8 @@ export const RENT_MONTH = HOUSE_VALUE * RENT_YIELD / 12;          // ~$1,400 per
 export const PROPERTY_TAX = 0.01, MAINTENANCE = 0.01;             // of value, per year, paid monthly
 export const LANDLORD_SHARE = 0.30;                               // share of houses owned by someone who does not live in them
 /* ---- consumer spending ---- */
-export const CONSUME_SHARE = 0.30;                                // of net income spent on goods and services (on top of rent and food)
+export const CONSUME_SHARE = 0.40;                                // of net income spent on goods and services (on top of rent and food)
 export const WEALTH_SPEND = 0.0016;                               // of liquid wealth per day (about 10% a year)
-export const BILLS_SHARE = 0.10;                                  // of net income per month on utilities, transport, health and insurance (paid to outside suppliers)
+export const BILLS_SHARE = 0.16;                                  // of net income per month on utilities, transport, health and insurance (paid to outside suppliers)
 export const NIGHT_OUT = 0.15 * DAY_WAGE;                         // a visit to the tavern
-export const COGS = 0.55;                                         // share of a shop sale paid abroad for the goods
+export const COGS = 0.65;                                         // share of a shop sale paid abroad for the goods
