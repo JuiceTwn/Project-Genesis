@@ -8,6 +8,7 @@ import type { View } from '../sim/output';
 import { Archive } from './archive';
 import { route } from './pages';
 import { coalesce } from '../shared/feed';
+import { parseClientMsg, type CastMsg } from '../shared/protocol';
 import { loadState, saveState } from './store';
 import zlib from 'node:zlib';
 
@@ -74,12 +75,14 @@ wss.on('connection', (raw: WebSocket, req: http.IncomingMessage) => {
   ws.send(getInit());
   ws.on('message', data => {
     if (ws.budget-- <= 0) return;             // flood guard
-    let m: any; try { m = JSON.parse(data.toString()); } catch { return; }
-    if (m.t === 'sel') ws.sel = Number.isInteger(m.id) && m.id >= 0 && m.id < world.dots.length ? m.id : -1;
-    else if (m.t === 'view') { const n = [m.x0, m.y0, m.x1, m.y1]; ws.view = n.every(Number.isFinite) ? { x0: n[0], y0: n[1], x1: n[2], y1: n[3] } : null; }
-    else if (m.t === 'cast') ws.send(JSON.stringify({ t: 'cast', list: world.cast(14) }));
-    else if (m.t === 'watch' && Number.isInteger(m.id) && m.id >= 0 && m.id < world.dots.length) { if (m.on === false) ws.watch.delete(m.id); else if (ws.watch.size < 8) ws.watch.add(m.id); }
-    else if (m.t === 'act' && typeof m.n === 'string') { const now = Date.now(); if (now - (lastAct.get(ws.ip) || 0) < ACT_GAP_MS) return; lastAct.set(ws.ip, now); world.act(m.n, Number.isInteger(m.id) ? m.id : -1); }
+    const m = parseClientMsg(data.toString(), world.dots.length); if (!m) return;
+    switch (m.t) {
+      case 'sel': ws.sel = m.id; break;
+      case 'view': ws.view = Number.isFinite(m.x0) ? { x0: m.x0, y0: m.y0, x1: m.x1, y1: m.y1 } : null; break;   // null = zoomed-out overview
+      case 'cast': ws.send(JSON.stringify({ t: 'cast', list: world.cast(14) } satisfies CastMsg)); break;
+      case 'watch': if (m.on === false) ws.watch.delete(m.id); else if (ws.watch.size < 8) ws.watch.add(m.id); break;
+      case 'act': { const now = Date.now(); if (now - (lastAct.get(ws.ip) || 0) < ACT_GAP_MS) return; lastAct.set(ws.ip, now); world.act(m.n, m.id ?? -1); break; }
+    }
   });
   ws.on('error', () => {});
 });

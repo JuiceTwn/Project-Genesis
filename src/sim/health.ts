@@ -1,3 +1,4 @@
+import type { Dot, Building } from '../shared/types';
 /* Health. People catch the flu (more in winter, more when hungry or coatless, and from each other in conversation), get hurt in fights and at work,
    and can be malnourished. Injuries left untreated turn septic. Everything has a severity that recovers with rest and, much faster, with treatment at
    the town clinic (a fee paid to the town treasury), which the poor often cannot afford. Severe untreated conditions kill. Sick people stay home and
@@ -11,11 +12,11 @@ export interface Cond { k: string; sev: number; since: number; treated: boolean 
 const LABEL: Record<string, string> = { flu: 'the flu', injury: 'an injury', infection: 'a septic wound', malnutrition: 'malnutrition' };
 const DAY = K.DAY_TICKS;
 
-const conds = (d): Cond[] => d.hp || (d.hp = []);
+const conds = (d: Dot): Cond[] => d.hp || (d.hp = []);
 /** The worst severity among a person's conditions (0 = healthy). */
-function sickLevel(this: World, d): number { const c = d.hp; if (!c || !c.length) return 0; let m = 0; for (const x of c) if (x.sev > m) m = x.sev; return m; }
+function sickLevel(this: World, d: Dot): number { const c = d.hp; if (!c || !c.length) return 0; let m = 0; for (const x of c) if (x.sev > m) m = x.sev; return m; }
 
-function hurt(this: World, d, kind: string, sev: number, why: string) {
+function hurt(this: World, d: Dot, kind: string, sev: number, why: string) {
   if (!d || d.dead) return; const c = conds(d), cur = c.find(x => x.k === kind);
   if (cur) { cur.sev = Math.min(1, Math.max(cur.sev, sev)); return; }
   c.push({ k: kind, sev: Math.min(1, sev), since: this.tick, treated: false }); this.stats.ailments = (this.stats.ailments || 0) + 1;
@@ -24,7 +25,7 @@ function hurt(this: World, d, kind: string, sev: number, why: string) {
 }
 
 /** Called when two people talk: the flu travels (a coat helps in winter). */
-function catchFrom(this: World, a, b) {
+function catchFrom(this: World, a: Dot, b: Dot) {
   for (const [s, t] of [[a, b], [b, a]]) {
     const f = s.hp && s.hp.find((x: Cond) => x.k === 'flu'); if (!f || t.hp?.some((x: Cond) => x.k === 'flu')) continue;
     if (this.rnd() < 0.2 * (this.season() === 3 ? 1.5 : 1) * (1 - 0.4 * eff(t, 'coat'))) this.hurt(t, 'flu', 0.3 + this.rnd() * 0.3, 'caught it from ' + s.name);

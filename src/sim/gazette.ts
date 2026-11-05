@@ -57,7 +57,7 @@ const QUOTES: Record<string, [string, Tone][]> = {
   charming: Q(["You couldn't help liking {n}. Everyone does."], ["Smile like that and you can get away with anything."]),
 };
 function quote(w: World, subject: Dot, tone: Tone = 'any'): string | undefined {
-  const pool: Dot[] = w.friends(subject).map(f => w.dots[f[0]]).filter(Boolean).concat(w.townAdults(w.buildings[subject.home].sid).slice(0, 12)).filter(d => d && !d.dead && d.adult && d.id !== subject.id);
+  const pool: Dot[] = w.friends(subject).map(f => w.dots[f[0]]).filter(Boolean).concat(w.townAdults(w.buildings[subject.home].sid).slice(0, 12)).filter((d: Dot) => d && !d.dead && d.adult && d.id !== subject.id);
   if (!pool.length) return undefined;
   const wit = w.pick(pool);
   for (const t of wit.traits) {

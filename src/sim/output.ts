@@ -1,3 +1,4 @@
+import type { Dot } from '../shared/types';
 import { World } from './world';
 import { makeField, b64, tkLess, mk } from '../shared/util';
 import * as K from '../shared/constants';
@@ -5,8 +6,9 @@ import * as Gen from '../worldgen';
 const { TS, YEAR_TICKS, HOUR_TICKS, KB, MEAL_UNIT, TICK_HZ, DAY_TICKS, INF, TILE, COST, BT, BT_NAME, BUILD_SHIFTS, UPKEEP, STAFF, MAXM, JOBS, FOOD_PRICE, DRINK_PRICE, STOCK_CAP, ADULT, YEAR_DAYS, SEASON_DAYS, SEASONS, YIELD, RAIN_P, CON, C, TRAITS, TRAIT_W, DREAMS, DREAM_TXT } = K;
 import { W, H } from "../shared/dims";
 import { coalesce } from '../shared/feed';
+import type { InitMsg, StatsMsg, DetailMsg } from '../shared/protocol';
 
-function initMsg(this: World) {
+function initMsg(this: World): InitMsg {
   const m = this.map, el = new Uint8Array(W * H); for (let i = 0; i < el.length; i++) el[i] = Math.round(Math.min(1, m.h[i]) * 255);
   return { t: 'init', W, H, hz: TICK_HZ, tiles: Array.from(this.tiles).join(''), wk: Array.from(m.wk).join(''), el: b64(el), tick: this.tick,
     setts: this.S.map(s => ({ i: s.id, n: s.name, t: s.tier, x: s.x, y: s.y })),
@@ -14,7 +16,7 @@ function initMsg(this: World) {
     hist: coalesce(this.hist.slice(-40)), chron: this.story.chron.slice(-60), issue: this.issues[this.issues.length - 1] || null, arcs: this.arcsMsg(), dots: this.dots.map(d => ({ n: d.name, f: d.fam, j: d.job, h: d.home, tr: d.traits })), lex: this.lex, jobs: JOBS, bt: BT_NAME };
 }
 
-function actCode(this: World, d) {
+function actCode(this: World, d: Dot) {
   if (d.phase === 'chat') return 7; if (d.phase === 'walk' || !d.goal) return 1;
   switch (d.goal.k) { case 'sleep': return 2; case 'work': case 'deliver': case 'build': return 3; case 'eat': return 4; case 'social': return 5; case 'drink': return 6; default: return 0; }
 }
@@ -25,7 +27,7 @@ const BUCKET = 16, DENS = 8;
 export const OVERVIEW_SPAN = 130;
 export interface View { x0: number; y0: number; x1: number; y1: number }
 
-function dotFlags(this: World, d) { return (d.inside ? 1 : 0) | (this.actCode(d) << 1) | (d.carry > 0 ? 16 : 0) | (d.fight ? 32 : 0) | (d.adult ? 0 : 128); }
+function dotFlags(this: World, d: Dot) { return (d.inside ? 1 : 0) | (this.actCode(d) << 1) | (d.carry > 0 ? 16 : 0) | (d.fight ? 32 : 0) | (d.adult ? 0 : 128); }
 
 /** Spatial index + density grid, rebuilt once per tick no matter how many viewers there are. */
 function indexDots(this: World) {
@@ -85,23 +87,23 @@ function computeRep(this: World) {
   this.rep = rep;
 }
 
-function statsMsg(this: World) {
+function statsMsg(this: World): StatsMsg {
   this.computeRep();
   const alive = this.dots.filter(d => !d.dead), n = alive.length || 1;
   let mood = 0, coin = 0; for (const d of alive) { mood += this.mood(d); coin += d.coin; }
-  const top = (f, k = 3, desc = true) => alive.map(d => [d.id, Math.round(f(d))]).sort((a, b) => desc ? b[1] - a[1] : a[1] - b[1]).slice(0, k);
+  const top = (f, k = 3, desc = true) => alive.map(d => [d.id, Math.round(f(d))] as [number, number]).sort((a, b) => desc ? b[1] - a[1] : a[1] - b[1]).slice(0, k);
   const cdl = k => Math.max(0, (this.cd[k] + (k === 'festival' || k === 'blight' ? 225 : 100) - this.tick) / TICK_HZ | 0);
   return { t: 'stats', arcs: this.arcsMsg(), tension: Math.round(this.story.tension * 10) / 10, day: this.day(), pop: alive.length, food: this.markets.map(m => m.stock), mk: this.markets.map(m => this.S[m.sid].name),
     towns: this.S.map(s => { const g = this.gov(s); return [s.name, s.tier, this.sPop[s.id] || 0, g.mayor, Math.round(g.treasury), g.tax, g.next]; }), biz: { open: this.buildings.filter(b => b.state === 'ok' && this.isBiz(b)).length, built: this.biz.built, closed: this.biz.closed, sold: this.biz.sold, fires: this.biz.fires, arrived: this.biz.arrived, unpaid: this.biz.unpaid, quit: this.biz.quit, benefits: this.biz.benefits, jobless: alive.filter(d => d.adult && d.job === 3 && d.work < 0).length, sites: this.sites.length, vacant: this.buildings.filter(b => b.state === 'vacant').length }, mood: Math.round(mood / n), coin: Math.round(coin / n),
     meals: this.stats.meals, chats: this.stats.chats, friends: this.stats.friends, births: this.stats.births, deaths: this.stats.deaths, thefts: this.stats.thefts, fights: this.stats.fights,
     couples: alive.filter(d => d.partner >= 0).length / 2,
-    lead: { rich: top(d => d.coin), loved: top(d => this.rep[d.id]), hated: top(d => this.rep[d.id], 3, false), old: top(d => d.age) },
+    lead: { rich: top((d: Dot) => d.coin), loved: top((d: Dot) => this.rep[d.id]), hated: top((d: Dot) => this.rep[d.id], 3, false), old: top((d: Dot) => d.age) },
     cd: { festival: cdl('festival'), blight: cdl('blight'), gift: cdl('gift'), zap: cdl('zap'), cupid: cdl('cupid') },
     fest: this.tick < this.festival, blight: this.tick < this.blight,
     season: this.season(), year: this.year(), weather: this.weather, money: { supply: Math.round(this.moneySupply()), minted: Math.round(this.ledger.minted), inflow: Math.round(this.ledger.inflow), outflow: Math.round(this.ledger.outflow), flow: Object.fromEntries(Object.entries(this.ledger.flow).map(([k, v]) => [k, Math.round(v as number)])) }, nation: Math.round(this.nation.treasury), treasury: Math.round(this.townTreasury()) };
 }
 
-function doingText(this: World, d) {
+function doingText(this: World, d: Dot) {
   const g = d.goal, b = g ? this.buildings[g.b] : null, nm = b ? (b.name ? `${b.name} ${BT_NAME[b.type]}` : 'home') : '';
   if (d.phase === 'chat') return 'chatting';
   if (!g) return 'thinking';
@@ -119,7 +121,7 @@ function doingText(this: World, d) {
   }
 }
 
-function thought(this: World, d) {
+function thought(this: World, d: Dot) {
   const e = this.believedEmpty(d), tod = this.tod();
   { const tt = this.topThought(d); if (tt && this.rnd() < 0.7) return tt; const cb = this.callback(d); if (cb) return cb; }
   if (this.tick < d.grief) return 'Missing someone.';
@@ -135,7 +137,7 @@ function thought(this: World, d) {
   return 'Just getting on with it.';
 }
 
-function detail(this: World, id) {
+function detail(this: World, id): DetailMsg | null {
   const d = this.dots[id]; if (!d) return null;
   const p = d.partner >= 0 ? this.dots[d.partner] : null;
   return { t: 'detail', id, name: d.name, fam: d.fam, mayor: this.isMayor(id), dead: d.dead, job: d.adult ? JOBS[d.job] : 'child', age: Math.round(d.age), traits: d.traits,

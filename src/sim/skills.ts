@@ -1,3 +1,4 @@
+import type { Dot, Building } from '../shared/types';
 /* Attributes, skills and trades.
    ATTRIBUTES (rolled once, shaped by traits, drifting with age and hard work): strength, dexterity, intellect, endurance, charm, willpower (3-18, 10 = average).
    SKILLS (18 trades, level 0-20): learning gets exponentially harder near the top, and performance rises exponentially toward mastery, so an expert is worth
@@ -46,7 +47,7 @@ const SPEC_BY_ID: Record<string, Spec> = {}; for (const l of Object.values(SPECS
 export const perfOf = (L: number) => 0.7 + 1.8 * (Math.exp(0.12 * L) - 1) / (Math.exp(2.4) - 1);
 
 /** The specialisation of a building (chosen lazily the first time anyone asks, from what the town has and wants). */
-function specOf(this: World, b): Spec | null {
+function specOf(this: World, b: Building): Spec | null {
   if (b.spec && SPEC_BY_ID[b.spec]) return SPEC_BY_ID[b.spec];
   const list = SPECS[b.type]; if (!list) return null;
   b.spec = this.pickSpec(b.type, b.sid, b.owner >= 0 ? this.dots[b.owner] : null).id; return SPEC_BY_ID[b.spec];
@@ -68,27 +69,27 @@ function pickSpec(this: World, type: number, sid: number, founder): Spec {
 }
 
 /** What to call a business: its specialisation, else its type. */
-function kindName(this: World, b): string { const s = this.specOf(b); return s ? s.name : K.BT_NAME[b.type]; }
+function kindName(this: World, b: Building): string { const s = this.specOf(b); return s ? s.name : K.BT_NAME[b.type]; }
 /** The skill a worker in this building uses. */
 export function skillFor(type: number): Skill { const l = SPECS[type]; return l && l.length ? l[0].skill : 'craft'; }
-function skillAt(this: World, b): Skill { const s = this.specOf(b); return s ? s.skill : skillFor(b.type); }
+function skillAt(this: World, b: Building): Skill { const s = this.specOf(b); return s ? s.skill : skillFor(b.type); }
 
 /** A person's attributes, rolled lazily: a bell around 10, plus trait effects. Children of the same stock vary but stay in range. */
-function attrs(this: World, d): number[] {
+function attrs(this: World, d: Dot): number[] {
   if (d.at) return d.at;
   const roll = () => 10 + (this.rnd() + this.rnd() + this.rnd() - 1.5) * 4, a = [roll(), roll(), roll(), roll(), roll(), roll()];
   for (const t of d.traits) { const m = T_ATTR[t]; if (m) for (const k in m) a[AI[k as Attr]] += m[k as Attr]!; }
   return (d.at = a.map(v => Math.max(3, Math.min(18, v))));
 }
 /** Current attribute, accounting for age: the body peaks around 25-40 and declines after 55; a child is weaker. */
-function attr(this: World, d, k: Attr): number {
+function attr(this: World, d: Dot, k: Attr): number {
   const v = this.attrs(d)[AI[k]];
   if (k === 'str' || k === 'dex' || k === 'end') { const a = d.age; return v * (a < K.ADULT ? 0.55 + 0.45 * (a / K.ADULT) : a > 55 ? Math.max(0.5, 1 - 0.015 * (a - 55)) : 1); }
   return v;
 }
 
 /** A person's skill levels; created lazily from age, attributes and current work so old saves and newborns need no migration. */
-function skills(this: World, d): Record<string, number> {
+function skills(this: World, d: Dot): Record<string, number> {
   if (d.sk) { for (const k of SKILLS) if (d.sk[k] === undefined) d.sk[k] = 0; return d.sk; }
   const yrs = Math.max(0, d.age - K.ADULT), base = Math.min(10, yrs * 0.25), r = () => 0.4 + this.rnd() * 0.9;
   const sk: Record<string, number> = {}; for (const k of SKILLS) sk[k] = 0;
@@ -101,19 +102,19 @@ function skills(this: World, d): Record<string, number> {
   return sk;
 }
 
-const level = (w: World, d, k: Skill): number => w.skills(d)[k] || 0;
+const level = (w: World, d: Dot, k: Skill): number => w.skills(d)[k] || 0;
 /** How well someone does a task of this kind right now: the exponential level curve times the governing attribute. */
-function perf(this: World, d, k: Skill): number { return perfOf(level(this, d, k)) * (0.7 + 0.03 * this.attr(d, GOV[k])); }
+function perf(this: World, d: Dot, k: Skill): number { return perfOf(level(this, d, k)) * (0.7 + 0.03 * this.attr(d, GOV[k])); }
 
 /** How quickly this person picks up this skill. */
-function learnRate(this: World, d, k: Skill): number {
+function learnRate(this: World, d: Dot, k: Skill): number {
   let r = 0.7 + 0.06 * this.attr(d, 'int'); for (const t of d.traits) { r += T_LEARN[t] || 0; const s = T_SKILL[t]; if (s && s[k]) r += s[k]!; }
   if (d.age < 30 && this.schoolOpen && this.schoolOpen[this.buildings[d.home].sid]) r += 0.15;   // a school in town
   return Math.max(0.25, r);
 }
 
 /** Practice: progress is slower the higher you already are (exponentially), faster with intellect and the right traits. The body hardens with hard work. */
-function trainSkill(this: World, d, k: Skill, amt: number) {
+function trainSkill(this: World, d: Dot, k: Skill, amt: number) {
   if (!d || d.dead || !d.adult) return; const sk = this.skills(d), was = sk[k];
   sk[k] = Math.min(20, was + amt * this.learnRate(d, k) * Math.exp(-0.09 * was));
   const g = GOV[k], at = this.attrs(d), i = AI[g]; if (at[i] < 17 && (g === 'str' || g === 'end' || g === 'dex')) at[i] = Math.min(17, at[i] + amt * 0.04 * Math.exp(-0.15 * (at[i] - 10)));
@@ -136,7 +137,7 @@ function skillDay(this: World) {
 }
 
 /** Output multiplier for a business: how skilled its staff are (normalised so a typical crew is 1.0) times what its specialisation earns. */
-function firmPerf(this: World, b): number { const s = this.specOf(b); return Math.max(0.5, Math.min(2.5, (b.perf || 0.85) / 0.85)) * (s && s.rev !== undefined ? s.rev : 1); }
+function firmPerf(this: World, b: Building): number { const s = this.specOf(b); return Math.max(0.5, Math.min(2.5, (b.perf || 0.85) / 0.85)) * (s && s.rev !== undefined ? s.rev : 1); }
 
 /** The best of a few random candidates for a job, by the relevant skill. */
 function bestOf(this: World, pool: any[], k: Skill) {
@@ -145,7 +146,7 @@ function bestOf(this: World, pool: any[], k: Skill) {
   return bi;
 }
 
-Object.assign(World.prototype, { specOf, pickSpec, kindName, skillAt, attrs, attr, skills, perf, learnRate, trainSkill, skillDay, firmPerf, bestOf, skillLevel: function (this: World, d, k: Skill) { return level(this, d, k); } });
+Object.assign(World.prototype, { specOf, pickSpec, kindName, skillAt, attrs, attr, skills, perf, learnRate, trainSkill, skillDay, firmPerf, bestOf, skillLevel: function (this: World, d: Dot, k: Skill) { return level(this, d, k); } });
 declare module './world' { interface World {
   specOf: typeof specOf; pickSpec: typeof pickSpec; kindName: typeof kindName; skillAt: typeof skillAt; attrs: typeof attrs; attr: typeof attr; skills: typeof skills; perf: typeof perf; learnRate: typeof learnRate;
   trainSkill: typeof trainSkill; skillDay: typeof skillDay; firmPerf: typeof firmPerf; bestOf: typeof bestOf; skillLevel: (d: any, k: Skill) => number;

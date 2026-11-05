@@ -1,3 +1,4 @@
+import type { Building } from '../shared/types';
 /* The storyteller. A director that watches the world and nudges it toward stories, Rimworld-style.
    - Tension: recent drama (weighty events) raises it, time lowers it. The storyteller wants tension to follow a slow
      wave: when the country is calmer than the wave asks for, it starts a new story arc; when it is hotter, it lets things breathe.
@@ -147,7 +148,7 @@ const protege: Kind = {
     const [p, r] = a.ids.map(i => w.dots[i]);
     if (a.stage === 0) { if (w.tryFound(p)) { a.stage = 1; a.data.since = d; beat(w, a, `🏗️ ${p.name} broke ground on a new business.`); } else if (d >= 4) { beat(w, a, `${p.name} never found a viable opening and returned the money.`); const back = Math.min(p.coin, a.data.loan); p.coin -= back; r.coin += back; return close(w, a, 'no site'); } }
     else if (a.stage === 1 && d - a.data.since >= 10) {
-      const biz = w.ownedBy(p.id).find(b => b.state === 'ok');
+      const biz = w.ownedBy(p.id).find((b: Building) => b.state === 'ok');
       if (biz) { const back = Math.min(p.coin * 0.5, a.data.loan); p.coin -= back; r.coin += back; warm(p, r, 40); beat(w, a, `🌟 ${p.name}'s ${biz.name} is thriving. They repaid ${r.name} ${usd(back)} and the town calls it a rags-to-riches story.`, true); close(w, a, 'success'); }
       else { r.aff.set(p.id, (r.aff.get(p.id) || 0) - 25); w.shiftTrait(p, 'cautious', 'the venture failed'); beat(w, a, `📉 ${p.name}'s venture collapsed. ${r.name} lost faith.`, true); close(w, a, 'failure'); }
     }
@@ -183,7 +184,7 @@ const investor: Kind = {
   step(w, a, d) {
     if (!live(w, ...a.ids)) return close(w, a, 'death'); const p = w.dots[a.ids[0]];
     if (a.stage === 0) { if (w.tryFound(p)) { a.stage = 1; a.data.since = d; beat(w, a, `🏢 ${p.name} began building in ${w.S[a.sid].name} — new jobs are coming.`); } else if (d >= 4) { beat(w, a, `${p.name} could not find a suitable site and settled in as an ordinary resident.`); close(w, a, 'settled'); } }
-    else if (a.stage === 1 && d - a.data.since >= 10) { const biz = w.ownedBy(p.id).find(b => b.state === 'ok'); beat(w, a, biz ? `📈 ${p.name}'s ${biz.name} ${['', 'Farm', 'Market', 'Tavern', 'Workshop', '', '', 'Dock', 'Office', 'Factory', 'Store'][biz.type]} now employs ${biz.staff || 0} people.` : `📉 ${p.name}'s investment came to nothing.`, true); close(w, a, biz ? 'success' : 'failure'); }
+    else if (a.stage === 1 && d - a.data.since >= 10) { const biz = w.ownedBy(p.id).find((b: Building) => b.state === 'ok'); beat(w, a, biz ? `📈 ${p.name}'s ${biz.name} ${['', 'Farm', 'Market', 'Tavern', 'Workshop', '', '', 'Dock', 'Office', 'Factory', 'Store'][biz.type]} now employs ${biz.staff || 0} people.` : `📉 ${p.name}'s investment came to nothing.`, true); close(w, a, biz ? 'success' : 'failure'); }
   },
 };
 
@@ -198,7 +199,7 @@ const comeback: Kind = {
   },
   step(w, a, d) {
     if (!live(w, ...a.ids)) return close(w, a, 'death'); const p = w.dots[a.ids[0]];
-    const owns = w.ownedBy(p.id).some(b => b.state === 'ok'), up = p.coin - a.data.c0;
+    const owns = w.ownedBy(p.id).some((b: Building) => b.state === 'ok'), up = p.coin - a.data.c0;
     if (a.stage === 0 && d >= 6 && (p.job !== 3 || owns)) { a.stage = 1; beat(w, a, `🔨 ${p.name} found work${owns ? ' in their own business' : ''}. A first foothold.`); }
     if (a.stage === 1 && d >= 14 && (up > 60 * KB * 10 || owns)) { beat(w, a, `🏆 ${p.name} is back on top: from “${a.data.nick}” to someone the town respects again.`, true); w.giveNick(p, 'Comeback Kid', 65); p.fame = (p.fame || 0) + 10; w.addThought(p, 'comeback', 15, 40, 'Proved them all wrong.'); return close(w, a, 'success'); }
     if (w.mood(p) < 20 && a.stage < 2 && d >= 4) { a.stage = Math.max(a.stage, 1); a.data.low = (a.data.low || 0) + 1; if (a.data.low === 1) beat(w, a, `😔 ${p.name} came close to giving up for good.`); }

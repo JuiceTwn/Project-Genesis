@@ -1,3 +1,4 @@
+import type { Building } from '../shared/types';
 import { World } from './world';
 import { makeField, b64, tkLess, mk } from '../shared/util';
 import * as K from '../shared/constants';
@@ -9,7 +10,7 @@ function makeLexicon(this: World) {
   const R = this.R, used = new Set();
   const C1 = 'ptkbdgmnslrvz', V1 = 'aeiou';
   const syl = () => C1[(R() * C1.length) | 0] + V1[(R() * V1.length) | 0];
-  const word = (a, b, cap) => { for (;;) { let w = ''; const n = a + ((R() * (b - a + 1)) | 0); for (let i = 0; i < n; i++) w += syl(); if (R() < 0.25) w += 'n'; if (!used.has(w)) { used.add(w); return cap ? w[0].toUpperCase() + w.slice(1) : w; } } };
+  const word = (a: number, b: number, cap: boolean) => { for (;;) { let w = ''; const n = a + ((R() * (b - a + 1)) | 0); for (let i = 0; i < n; i++) w += syl(); if (R() < 0.25) w += 'n'; if (!used.has(w)) { used.add(w); return cap ? w[0].toUpperCase() + w.slice(1) : w; } } };
   this.word = word;
   this.lex = CON.map(c => [word(1, 2, false), c[1]]);
   /* People get names you can say out loud: a chunky start, an optional link, a friendly ending ("Pimbert", "Wobkin", "Gusley", "Zedina"). Families get comic surnames. */

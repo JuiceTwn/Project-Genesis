@@ -1,3 +1,4 @@
+import type { Dot } from '../shared/types';
 /* Politics. Three parties with different platforms compete for every mayoralty. Voters choose by personal affinity, party loyalty and the issues
    (jobs, crime, the state of the budget). The winner's platform sets taxes, police and benefits. Mayors can be corrupt (skimming the treasury, getting
    caught, being removed and jailed), populists can promise what the treasury cannot pay and get recalled when it runs dry. */
@@ -14,7 +15,7 @@ const PLATFORM: Record<string, { tax: number; police: number; benefit: number; l
 };
 
 /** A person's party, decided once from their circumstances and temperament. */
-function partyOf(this: World, d): string {
+function partyOf(this: World, d: Dot): string {
   if (d.party) return d.party;
   const r = this.rnd(), rich = d.coin > 200 * R.KB, poor = d.job === 3 || d.coin < 20 * R.KB;
   d.party = (rich ? r < 0.6 : r < 0.15) ? 'Order' : (poor ? r < 0.55 : r < 0.3) ? 'Progress' : (d.fx.temper > 1.4 || r > 0.8) ? 'Commons' : this.pick(PARTIES as any);

@@ -1,3 +1,4 @@
+import type { Dot, Building } from '../shared/types';
 import { World } from './world';
 import { eff } from './gear';
 import { makeField, b64, tkLess, mk } from '../shared/util';
@@ -6,7 +7,7 @@ import * as Gen from '../worldgen';
 const { TS, YEAR_TICKS, HOUR_TICKS, KB, MEAL_UNIT, TICK_HZ, DAY_TICKS, INF, TILE, COST, BT, BT_NAME, BUILD_SHIFTS, UPKEEP, STAFF, MAXM, JOBS, FOOD_PRICE, DRINK_PRICE, STOCK_CAP, ADULT, YEAR_DAYS, SEASON_DAYS, SEASONS, YIELD, RAIN_P, CON, C, TRAITS, TRAIT_W, DREAMS, DREAM_TXT } = K;
 import { W, H } from "../shared/dims";
 
-function addAff(this: World, a, b, v) {
+function addAff(this: World, a: Dot, b: Dot, v) {
   v /= TS; const prev = a.aff.get(b.id) || 0, nv = Math.max(-100, Math.min(100, prev + v));
   a.aff.set(b.id, nv);
   if (a.aff.size > 14) { let mk = -1, mv = 1e9; for (const [k, x] of a.aff) if (Math.abs(x) < mv && k !== b.id) { mv = Math.abs(x); mk = k; } a.aff.delete(mk); }
@@ -16,11 +17,11 @@ function addAff(this: World, a, b, v) {
   }
 }
 
-function friends(this: World, d) { const r = []; for (const [k, v] of d.aff) if (v >= 25 && !this.dots[k].dead) r.push([k, v]); return r.sort((a, b) => b[1] - a[1]); }
+function friends(this: World, d: Dot) { const r = []; for (const [k, v] of d.aff) if (v >= 25 && !this.dots[k].dead) r.push([k, v]); return r.sort((a, b) => b[1] - a[1]); }
 
-function mood(this: World, d) { return Math.max(0, Math.min(100, Math.round(100 - Math.max(0, d.hunger - 40) * 0.8 - Math.max(0, 60 - d.energy) * 0.5 - Math.max(0, 60 - d.social) * 0.5 + Math.min(10, this.friends(d).length * 2) - (this.tick < d.grief ? 25 : 0)))); }
+function mood(this: World, d: Dot) { return Math.max(0, Math.min(100, Math.round(100 - Math.max(0, d.hunger - 40) * 0.8 - Math.max(0, 60 - d.energy) * 0.5 - Math.max(0, 60 - d.social) * 0.5 + Math.min(10, this.friends(d).length * 2) - (this.tick < d.grief ? 25 : 0)))); }
 
-function couple(this: World, a, b) {
+function couple(this: World, a: Dot, b: Dot) {
   if (a.dead || b.dead || a.partner >= 0 || b.partner >= 0) return;
   a.partner = b.id; b.partner = a.id; a.since = b.since = this.tick; a.social = b.social = 100;
   const park = this.nearest(this.parks, a, 10), inv = { k: 'social', b: park.id, until: this.tick + 300 }; a.invite = inv; b.invite = Object.assign({}, inv);
@@ -32,12 +33,12 @@ function reject(this: World, s, l) {
   this.ev('reject', `💔 ${s.name} confessed to ${l.name} and got turned down.`, [s.id, l.id], 0, 3);
 }
 
-function breakup(this: World, a, b) {
+function breakup(this: World, a: Dot, b: Dot) {
   a.partner = b.partner = -1; a.married = b.married = false; a.social = Math.max(0, a.social - 30); b.social = Math.max(0, b.social - 30);
   this.ev('breakup', `💔 ${a.name} and ${b.name} broke up.`, [a.id, b.id], 0, 3);
 }
 
-function wedding(this: World, a, b) {
+function wedding(this: World, a: Dot, b: Dot) {
   a.married = b.married = true; for (const x of [a, b]) if (this.rnd() < 0.3) this.shiftTrait(x, 'loyal', 'after the wedding');
   const park = this.nearest(this.parks, a, 10), inv = { k: 'social', b: park.id, until: this.tick + 400 };
   const guests = this.friends(a).slice(0, 6).concat(this.friends(b).slice(0, 6)).map(f => this.dots[f[0]]);
@@ -46,7 +47,7 @@ function wedding(this: World, a, b) {
   this.ev('wedding', `💍 ${a.name} and ${b.name} got married! ${guests.length} guests head to the park.`, [a.id, b.id], 0, 4);
 }
 
-function jealous(this: World, a, b) {
+function jealous(this: World, a: Dot, b: Dot) {
   if (a.partner < 0 || b.id === a.partner) return;
   const P = this.dots[a.partner]; if (P.dead || P.inside) return;
   const dx = P.x - a.x, dy = P.y - a.y, jt = P.fx.jealousy;
@@ -56,7 +57,7 @@ function jealous(this: World, a, b) {
   if (this.rnd() < Math.min(0.6, 0.1 * jt)) this.breakup(P, a);
 }
 
-function kindness(this: World, a, b) {
+function kindness(this: World, a: Dot, b: Dot) {
   if (b.coin < 15 * KB && a.coin > 50 * KB && this.rnd() < 0.25 * a.fx.generosity) { const g = 15 * KB * 0.4; a.coin -= g; b.coin += g; this.addAff(b, a, 8); this.say(b, [C.THANKS]); this.ev('kind', `💖 ${a.name} gave ${b.name} ${K.usd(g)}.`, [a.id, b.id], 40, 1); }
 }
 
@@ -72,7 +73,7 @@ function couples(this: World) {
   }
 }
 
-function dialogue(this: World, a, b) {
+function dialogue(this: World, a: Dot, b: Dot) {
   const tk = this.tick, nm = x => 1000 + x.id;
   const L = [];
   L.push([a, [C.HELLO].concat(this.rnd() < 0.4 ? [nm(b)] : [])]);
@@ -121,7 +122,7 @@ function dialogue(this: World, a, b) {
   return { L, fx };
 }
 
-function startChat(this: World, a, b) {
+function startChat(this: World, a: Dot, b: Dot) {
   const { L, fx } = this.dialogue(a, b);
   L.forEach(([s, k], i) => this.later(1 + i * 4, { t: 'say', d: s.id, k }));
   const dur = 4 + L.length * 4 + 2;

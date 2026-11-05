@@ -1,8 +1,9 @@
-// @ts-nocheck -- TODO: type the client incrementally (state shapes are in src/shared/protocol.ts once written)
+// Client for Dotville. Messages are typed by ../shared/protocol.ts.
 import { CATALOG, TRAIT } from '../sim/personality';
 import { renderIssue, GAZETTE_CSS } from '../shared/gazette';
 import { rollKey } from '../shared/feed';
 import { DAY_TICKS } from '../shared/reality';
+import type { ServerMsg, ClientMsg, EvMsg } from '../shared/protocol';
 declare const Sim: any;   // provided by demo.ts when running without a server
 (() => {
 'use strict';
@@ -14,7 +15,7 @@ let tod = 0.3, day = 1, occ = [], sel = -1, follow = false, translate = true, bu
 let stat = null, detail = null, ready = false, lastClock = '';
 const TRI = Object.fromEntries(CATALOG.map(t => [t.id, t.emoji]));
 const parts = [];
-let castList = [], watched = new Set(JSON.parse(localStorage.getItem('dv-watch') || '[]')), auto = true, userAt = -1e9, dirUntil = 0, dirIds = null, lastShot = -1e9, deadTimer = null, tab = 'feed';
+let castList = [], watched = new Set<number>(JSON.parse(localStorage.getItem('dv-watch') || '[]')), auto = true, userAt = -1e9, dirUntil = 0, dirIds = null, lastShot = -1e9, deadTimer = null, tab = 'feed';
 const colFor = n => { let x = 7; for (let i = 0; i < n.length; i++) x = (x * 31 + n.charCodeAt(i)) % 3600; return `hsl(${x / 10},68%,62%)`; };
 const cam = { x: 0, y: 0, z: 1 }; let camTarget = null;
 const cv = $('#c'), ctx = cv.getContext('2d');
@@ -22,7 +23,7 @@ let cssW = 300, cssH = 200, fit = 5, dpr = 1;
 
 /* ---------- transport ---------- */
 let ws = null, localWorld = null, localSpeed = 1;
-function send(m) { if (LOCAL) localSend(m); else if (ws && ws.readyState === 1) ws.send(JSON.stringify(m)); }
+function send(m: ClientMsg) { if (LOCAL) localSend(m); else if (ws && ws.readyState === 1) ws.send(JSON.stringify(m)); }
 function connect() {
   ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host);
   ws.binaryType = 'arraybuffer';
@@ -52,7 +53,7 @@ function startLocal() {
 function localSend(m) { if (m.t === 'act') localWorld.act(m.n, m.id); else if (m.t === 'view') curView = m; else if (m.t === 'cast') handle({ t: 'cast', list: localWorld.cast(14) }); }
 
 /* ---------- messages ---------- */
-function handle(m) {
+function handle(m: ServerMsg) {
   switch (m.t) {
     case 'init': init(m); break;
     case 'batch': for (const x of m.m) handle(x); break;
@@ -110,7 +111,7 @@ let sentView = '', lastViewAt = 0, curView = null;
 function reportView(now) {
   if (now - lastViewAt < 250) return; lastViewAt = now;
   const s = sc(), vw = cssW / s, vh = cssH / s, mx = vw * 0.15, my = vh * 0.15;
-  const m = { t: 'view', x0: Math.floor(cam.x - vw / 2 - mx), y0: Math.floor(cam.y - vh / 2 - my), x1: Math.ceil(cam.x + vw / 2 + mx), y1: Math.ceil(cam.y + vh / 2 + my) };
+  const m: ClientMsg & { t: 'view' } = { t: 'view', x0: Math.floor(cam.x - vw / 2 - mx), y0: Math.floor(cam.y - vh / 2 - my), x1: Math.ceil(cam.x + vw / 2 + mx), y1: Math.ceil(cam.y + vh / 2 + my) };
   const key = m.x0 + ',' + m.y0 + ',' + m.x1 + ',' + m.y1; if (key === sentView) return; sentView = key; curView = m; send(m);
 }
 async function gunzip(buf) { const r = new Response(new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'))); return r.text(); }
@@ -126,14 +127,16 @@ function hud() {
 /* Feed rollup: events that differ only by names/amounts ("X gave Y $521") merge into one row
    with a count. Matches within the newest ROLL_WINDOW rows; important events (weight >= 4) never merge. */
 const ROLL_WINDOW = 14;
-function ticker(m, live) {
+/** A feed row: the element plus the rollup key and how many events it stands for. */
+interface FeedRow extends HTMLDivElement { _key?: string; _n?: number }
+function ticker(m: EvMsg, live?: boolean) {
   if (live !== false) director(m);
   const w = m.w || 1, t = $('#ticker'), key = w >= 4 ? null : rollKey(m.x);
   const body = m.x.replace(/</g, '&lt;'), stamp = m.tk !== undefined ? `${clk((m.tk % DAY_TICKS) / DAY_TICKS)} · day ${Math.floor(m.tk / DAY_TICKS) + 1}` : `${clk()} · day ${day}`;
   if (key) {
     const kids = t.children;
     for (let i = 0; i < kids.length && i < ROLL_WINDOW; i++) {
-      const el = kids[i]; if (el._key !== key) continue;
+      const el = kids[i] as FeedRow; if (el._key !== key) continue;
       el._n = (el._n || 1) + (m.n || 1);
       el.innerHTML = body + (el._n > 1 ? ` <b class="x">×${el._n}</b>` : '') + `<small>${stamp}</small>`;
       el.onclick = m.ids && m.ids.length ? () => select(m.ids[0]) : null;
@@ -142,7 +145,7 @@ function ticker(m, live) {
       return;
     }
   }
-  const el = document.createElement('div'); el.className = w >= 4 ? 'big' : w >= 3 ? 'hot' : '';
+  const el = document.createElement('div') as FeedRow; el.className = w >= 4 ? 'big' : w >= 3 ? 'hot' : '';
   el._key = key; el._n = m.n || 1;
   el.innerHTML = body + (el._n > 1 ? ` <b class="x">×${el._n}</b>` : '') + `<small>${stamp}</small>`;
   if (m.ids && m.ids.length) el.onclick = () => select(m.ids[0]);
@@ -514,7 +517,7 @@ $('#zo').onclick = () => { camTarget = Math.max(1, cam.z / 1.6); };
 $('#bFest').onclick = () => send({ t: 'act', n: 'festival' });
 $('#bBlight').onclick = () => send({ t: 'act', n: 'blight' });
 $('#bCam').onclick = e => { auto = !auto; e.currentTarget.classList.toggle('on', auto); if (!auto && dirIds) { dirIds = null; pick_(-1, false); } };
-document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => { tab = b.dataset.t; document.querySelectorAll('#tabs button').forEach(x => x.classList.toggle('on', x === b)); $('#ticker').style.display = tab === 'feed' ? '' : 'none'; $('#town').style.display = tab === 'town' ? 'block' : 'none'; $('#story').style.display = tab === 'story' ? 'block' : 'none'; $('#gazette').style.display = tab === 'gazette' ? 'block' : 'none'; $('#cast').style.display = tab === 'cast' ? 'block' : 'none'; if (tab === 'cast') { castTab(); send({ t: 'cast' }); } if (tab === 'town') town(); if (tab === 'story') storyTab(); if (tab === 'gazette') gazetteTab(); });
+document.querySelectorAll<HTMLElement>('#tabs button').forEach(b => b.onclick = () => { tab = b.dataset.t; document.querySelectorAll('#tabs button').forEach(x => x.classList.toggle('on', x === b)); $('#ticker').style.display = tab === 'feed' ? '' : 'none'; $('#town').style.display = tab === 'town' ? 'block' : 'none'; $('#story').style.display = tab === 'story' ? 'block' : 'none'; $('#gazette').style.display = tab === 'gazette' ? 'block' : 'none'; $('#cast').style.display = tab === 'cast' ? 'block' : 'none'; if (tab === 'cast') { castTab(); send({ t: 'cast' }); } if (tab === 'town') town(); if (tab === 'story') storyTab(); if (tab === 'gazette') gazetteTab(); });
 cv.addEventListener('pointerdown', () => { userAt = performance.now(); });
 $('#bTr').onclick = e => { translate = !translate; e.currentTarget.classList.toggle('on', translate); };
 $('#bSpd').onclick = e => { localSpeed = localSpeed === 1 ? 4 : localSpeed === 4 ? 12 : 1; e.currentTarget.textContent = '⏩ ×' + localSpeed; };

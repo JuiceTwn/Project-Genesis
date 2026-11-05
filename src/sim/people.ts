@@ -1,3 +1,4 @@
+import type { Dot, Building } from '../shared/types';
 import { World } from './world';
 import { eff } from './gear';
 import { rollTraits, inheritTraits, fxOf } from './personality';
@@ -24,7 +25,7 @@ function makeDot(this: World, id, o, rf) {
   return d;
 }
 
-function pickDream(this: World, d, rf, not) {
+function pickDream(this: World, d: Dot, rf, not) {
   const w = [d.traits.includes('ambitious') ? 3 : 1, d.traits.includes('gossip') ? 3 : 1, d.traits.includes('romantic') ? 3 : 1, 1];
   const ks: [string, number][] = DREAMS.map((k, i) => [k, k === not || d.done.has(k) ? 0 : w[i]]); const tot = ks.reduce((a, b) => a + b[1], 0);
   if (!tot) return 'content';
@@ -41,11 +42,11 @@ function workFor(this: World, job, sid) {
 
 function makeDots(this: World) {
   const R = this.R, dots = this.dots = [];
-  const link = (a, b, v) => { a.aff.set(b.id, v); b.aff.set(a.id, v); this.pairs.add(Math.min(a.id, b.id) * 1000 + Math.max(a.id, b.id)); this.stats.friends++; };
+  const link = (a: Dot, b: Dot, v: number) => { a.aff.set(b.id, v); b.aff.set(a.id, v); this.pairs.add(Math.min(a.id, b.id) * 1000 + Math.max(a.id, b.id)); this.stats.friends++; };
   for (const s of this.S) {
     const houses = this.sbl[s.id].filter(b => b.type === BT.HOUSE); if (!houses.length) continue;
     const per = Math.ceil(s.pop0 / houses.length), nTav = this.sbl[s.id].filter(b => b.type === BT.TAVERN).length;
-    const near = l => l.some(b => b.sid === s.id || Math.hypot(b.x - s.x, b.y - s.y) <= 34), hasFarm = near(this.farms), hasShop = near(this.workshops);
+    const near = l => l.some((b: Building) => b.sid === s.id || Math.hypot(b.x - s.x, b.y - s.y) <= 34), hasFarm = near(this.farms), hasShop = near(this.workshops);
     let left = s.pop0, keepers = nTav * 3;
     for (const home of houses) for (let k = 0; k < per && left > 0; k++, left--) {
       const id = dots.length, r = R(), life = K.lifespan(R);
@@ -87,7 +88,7 @@ function ownedBy(this: World, id, types) { return this.buildings.filter(b => b.o
 const CAUSES: Record<string, string[]> = { hunger: ['starved'], age: ['died of old age', 'passed away peacefully in their sleep', 'died of old age'], illness: ['died of pneumonia', 'died after a long illness', 'succumbed to a winter fever', 'died of a sudden fever'], violence: ['was killed in a gang shooting', 'was stabbed in a street fight', 'was found dead after a gang feud'], infection: ['died of an untreated infection', 'died after a wound turned septic', 'was lost to blood poisoning'], accident: ['was killed in a farming accident', 'died after a fall at work', 'died in a workplace accident', 'was lost in a cart accident'] };
 function causeText(w: World, cause: string) { return w.pick(CAUSES[cause] || CAUSES.age); }
 
-function die(this: World, d, cause) {
+function die(this: World, d: Dot, cause) {
   if (d.dead) return;
   if (d.inside && d.goal) this.leave(d);
   d.inside = false; d.dead = true; d.goal = null; d.phase = 'walk'; d.nx = -1; d.prog = 0; d.fight = false;
@@ -105,7 +106,7 @@ function die(this: World, d, cause) {
   this.ev('death', `🕯️ ${d.name} ${causeText(this, cause)} at ${Math.round(d.age)}.${mourners.length ? ` ${mourners.length} friend${mourners.length > 1 ? 's' : ''} mourn.` : ''}${heir && est > 0 ? ` ${heir.name} inherits ${K.usd(est)}.` : ''}`, [d.id].concat(mourners.slice(0, 1).map(m => m.id)), 0, 4);
 }
 
-function spawn(this: World, a, b) {
+function spawn(this: World, a: Dot, b: Dot) {
   const slot = this.dots.find(x => x.dead) || (this.dots.length < this.maxPop && this.residents(a.home) < 7 ? { id: this.dots.length } : null); if (!slot) return false;
   if (this.rep.length <= slot.id) this.rep = new Float32Array(this.dots.length + 8);
   const traits = inheritTraits(a.traits, b.traits, this.rnd);
@@ -122,9 +123,9 @@ function spawn(this: World, a, b) {
 
 function newName(this: World) { const taken = new Set(this.dots.map(d => d.name)); for (let i = 0; i < 60; i++) { const w = this.nameGen(); if (!taken.has(w)) return w; } return this.nameGen() + 'x'; }
 
-function grow(this: World, d) { d.adult = true; d.job = d.future; { const w = d.job === 3 || d.job === 2 ? null : this.workFor(d.job, this.buildings[d.home].sid); d.work = w ? w.id : -1; if (!w && d.job < 2) d.job = 3; } this.ev('grow', `🎓 ${d.name} grew up and became a ${JOBS[d.job]}.`, [d.id], 60, 1); }
+function grow(this: World, d: Dot) { d.adult = true; d.job = d.future; { const w = d.job === 3 || d.job === 2 ? null : this.workFor(d.job, this.buildings[d.home].sid); d.work = w ? w.id : -1; if (!w && d.job < 2) d.job = 3; } this.ev('grow', `🎓 ${d.name} grew up and became a ${JOBS[d.job]}.`, [d.id], 60, 1); }
 
-function dreamCheck(this: World, d) {
+function dreamCheck(this: World, d: Dot) {
   if (d.dream === 'content') return;
   const ok = d.dream === 'rich' ? d.coin >= K.RICH : d.dream === 'famous' ? this.friends(d).length >= 8 : d.dream === 'family' ? d.kids >= 2 : d.partner >= 0;
   if (!ok) return;
@@ -142,7 +143,7 @@ function residents(this: World, hid) { let n = 0; for (const d of this.dots) if 
 
 function unemployed(this: World, sid) { let n = 0; for (const d of this.dots) if (!d.dead && d.adult && d.job === 3 && this.buildings[d.home].sid === sid) n++; return n; }
 
-function unstaff(this: World, b) {
+function unstaff(this: World, b: Building) {
   for (const d of this.dots) if (!d.dead && d.work === b.id) {
     d.work = -1; const w = d.job === 3 || d.job === 2 ? null : this.workFor(d.job, b.sid);
     if (w && w.id !== b.id) d.work = w.id; else d.job = 3;
@@ -150,7 +151,7 @@ function unstaff(this: World, b) {
   b.staff = 0;
 }
 
-function inherit(this: World, d) {
+function inherit(this: World, d: Dot) {
   for (const b of this.buildings) if (b.owner === d.id && b.state !== 'gone') {
     const heir = (d.partner >= 0 && !this.dots[d.partner].dead && this.dots[d.partner]) || this.dots.find(k => !k.dead && k.adult && k.home === d.home && k.id !== d.id) || this.friends(d).map(f => this.dots[f[0]]).find(k => k.adult) || null;
     if (b.type !== BT.HOUSE && heir) { b.owner = heir.id; this.ev('inherit', `📜 ${heir.name} inherits ${b.name} ${BT_NAME[b.type]}.`, [heir.id], 40, 2); } else b.owner = heir ? heir.id : -1;

@@ -1,3 +1,4 @@
+import type { Dot } from '../shared/types';
 import { World } from './world';
 import { makeField, b64, tkLess, mk } from '../shared/util';
 import * as K from '../shared/constants';
@@ -5,7 +6,7 @@ import * as Gen from '../worldgen';
 const { TS, YEAR_TICKS, HOUR_TICKS, KB, MEAL_UNIT, TICK_HZ, DAY_TICKS, INF, TILE, COST, BT, BT_NAME, BUILD_SHIFTS, UPKEEP, STAFF, MAXM, JOBS, FOOD_PRICE, DRINK_PRICE, STOCK_CAP, ADULT, YEAR_DAYS, SEASON_DAYS, SEASONS, YIELD, RAIN_P, CON, C, TRAITS, TRAIT_W, DREAMS, DREAM_TXT } = K;
 import { W, H } from "../shared/dims";
 
-function decide(this: World, d) {
+function decide(this: World, d: Dot) {
   const tk = this.tick, tod = this.tod(), night = this.isNight(d), hours = tod > 0.27 && tod < 0.80;
   if ((d.jailUntil || 0) > tk) { const h = this.nearest(this.halls, d, 0) || this.buildings[d.home]; this.setGoal(d, 'sleep', h.id, null); return; }   // in prison
   if (d.adult && this.sickLevel(d) >= 0.5 && d.hunger < 85) { this.setGoal(d, 'sleep', d.home, null); return; }   // too ill to go anywhere: bed rest at home
@@ -37,7 +38,7 @@ function decide(this: World, d) {
   this.setGoal(d, bk, mk, inv);
 }
 
-function setGoal(this: World, d, k, mk, inv) {
+function setGoal(this: World, d: Dot, k, mk, inv) {
   let g;
   switch (k) {
     case 'sleep': g = { k, b: d.home, enter: true }; break;
@@ -69,9 +70,9 @@ function setGoal(this: World, d, k, mk, inv) {
   d.goal = g; d.phase = 'walk'; d.nx = -1; d.prog = 0;
 }
 
-function believedEmpty(this: World, d) { let n = 0; for (const m of this.markets) { const b = d.belief[m.mi]; if (b >= 0 && this.tick - b < 300 * TS && this.F(m)[d.y * W + d.x] < 160) n++; } return n; }
+function believedEmpty(this: World, d: Dot) { let n = 0; for (const m of this.markets) { const b = d.belief[m.mi]; if (b >= 0 && this.tick - b < 300 * TS && this.F(m)[d.y * W + d.x] < 160) n++; } return n; }
 
-function pickMarket(this: World, d) {
+function pickMarket(this: World, d: Dot) {
   let best = -1, bv = 1e9;
   for (const m of this.markets) { const b = d.belief[m.mi]; if (b >= 0 && this.tick - b < 300 * TS) continue; const v = this.F(m)[d.y * W + d.x]; if (v < bv) { bv = v; best = m.id; } }
   return best;

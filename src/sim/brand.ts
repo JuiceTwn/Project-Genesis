@@ -1,3 +1,4 @@
+import type { Dot, Building } from '../shared/types';
 /* Companies and brands as entities. A brand is a name people know, with a quality, a price level, an awareness (how many have heard of it), a reputation
    and a set of branches (store buildings). Customers choose a store by distance, quality, price, awareness and what their friends recommend, so a
    newcomer can overtake an incumbent: incumbents drift (complacency, scandals, price wars) unless they keep investing. Money still lives in the
@@ -35,7 +36,7 @@ function newBrand(this: World, founder, sid: number): Brand {
 function branchesOf(this: World, id: number) { return this.stores.filter(b => b.brand === id && b.state === 'ok'); }
 
 /** Pick a store to shop at: closer, better, cheaper, better known and recommended stores win. Returns a building or null. */
-function pickStore(this: World, d) {
+function pickStore(this: World, d: Dot) {
   let best = null, bv = -1e9; const want = d.adult ? this.wantedSlot(d) : null;
   for (const b of this.stores) {
     if (b.state !== 'ok') continue;
@@ -49,14 +50,14 @@ function pickStore(this: World, d) {
 }
 
 /** After a purchase: the customer notes whether they were satisfied and may start recommending the brand. */
-function brandSale(this: World, d, b, amt: number) {
+function brandSale(this: World, d: Dot, b: Building, amt: number) {
   const br = b.brand !== undefined && b.brand >= 0 ? this.brands[b.brand] : null; if (!br) return;
   br.sales += amt; br.awareness = Math.min(1, br.awareness + 0.002);
   if (br.quality + this.rnd() * 0.4 - br.price * 0.4 > 0.5) d.fav = br.id; else if (d.fav === br.id) d.fav = -1;
 }
 
 /** Called when two people chat: a happy customer talks the other round. */
-function wordOfMouth(this: World, a, b) {
+function wordOfMouth(this: World, a: Dot, b: Dot) {
   for (const [s, t] of [[a, b], [b, a]]) {
     if (s.fav === undefined || s.fav < 0 || this.rnd() > 0.2) continue;
     const br = this.brands[s.fav]; if (!br || br.dead) continue;
@@ -96,7 +97,7 @@ function brandDawn(this: World) {
 }
 
 /** A store changes hands: when the buyer already runs a brand the shop joins it (an acquisition). */
-function brandAcquired(this: World, b, seller, buyer) {
+function brandAcquired(this: World, b: Building, seller, buyer) {
   if (b.type !== BT.STORE || b.brand === undefined || b.brand < 0) return;
   const mine = this.stores.find(x => x !== b && x.state === 'ok' && x.owner === buyer.id && x.brand >= 0 && x.brand !== b.brand && !this.brands[x.brand].dead);
   if (!mine) return;

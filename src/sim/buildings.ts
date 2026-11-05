@@ -1,3 +1,4 @@
+import type { Dot, Plot } from '../shared/types';
 import { World } from './world';
 import * as R from '../shared/reality';
 import type { Building } from '../shared/types';
@@ -33,7 +34,7 @@ function rebuild(this: World) {
   }
 }
 
-function F(this: World, b) {   // distance field to a building: computed on demand, refreshed (a few per tick) when the map changes, evicted LRU
+function F(this: World, b: Building) {   // distance field to a building: computed on demand, refreshed (a few per tick) when the map changes, evicted LRU
   b.fuse = this.tick;
   if (!b.field) {
     b.field = makeField(this.tiles, b.src); b.fgen = this.fgen; this.fieldHolders.push(b);
@@ -48,7 +49,7 @@ function evictFields(this: World) {
   this.fieldHolders = keep.slice(0, n);
 }
 
-function nameBuilding(this: World, b, owner) { if (b.type === BT.HOUSE) b.fam = owner ? owner.fam : this.word(2, 3, true); else if (!b.name) b.name = this.word(2, 2, true); }
+function nameBuilding(this: World, b: Building, owner) { if (b.type === BT.HOUSE) b.fam = owner ? owner.fam : this.word(2, 3, true); else if (!b.name) b.name = this.word(2, 2, true); }
 
 function buildMap(this: World) {
   const map = this.map = Gen.generate(this.seed, { pop: this.pop, ...COUNTRY });
@@ -65,7 +66,7 @@ function buildMap(this: World) {
     const sq = this.mkBuilding(BT.PARK, s.x - (sw >> 1), s.y - (sh >> 1), [s.x, s.y], true, s.id);   // the square is the town green
     sq.w = sw; sq.h = sh; sq.sqPark = true; sq.src = []; for (let b = 0; b < sh; b++) for (let a = 0; a < sw; a++) sq.src.push((sq.y + b) * W + sq.x + a);
     const mine = (s.plots || []).map(id => plots[id]);
-    const urban = mine.filter(p => !p.rural).sort((a, b) => a.dc - b.dc), rural = mine.filter(p => p.rural).sort((a, b) => (b.fert - a.fert) + (a.dc - b.dc) * 0.045);
+    const urban = mine.filter(p => !p.rural).sort((a: Plot, b: Plot) => a.dc - b.dc), rural = mine.filter(p => p.rural).sort((a: Plot, b: Plot) => (b.fert - a.fert) + (a.dc - b.dc) * 0.045);
     const take = (list, pred?) => { for (const p of list) if (!p.used && (!pred || pred(p))) return p; return null; };
     const put = (type, p) => (p ? this.placeOn(p, type) : null);
     const nMarket = tier === 0 ? 2 : tier <= 2 ? 1 : 0, nTavern = tier === 0 ? Math.max(2, Math.round(P / 55)) : tier === 1 ? 1 : (tier === 2 && P >= 12 ? 1 : 0);
@@ -89,15 +90,15 @@ function buildMap(this: World) {
   for (const m of this.markets) m.stock = 90;
 }
 
-function bldMsg(this: World, b) { return { i: b.id, ty: b.type, x: b.x, y: b.y, n: b.name, d: b.door, w: b.w, h: b.h, st: b.state === 'ok' ? 0 : b.state === 'build' ? 1 : b.state === 'vacant' ? 2 : 3, o: b.owner, s: b.sid, f: b.fam || '', ow: b.owner >= 0 && this.dots[b.owner] ? this.dots[b.owner].name : '' }; }
+function bldMsg(this: World, b: Building) { return { i: b.id, ty: b.type, x: b.x, y: b.y, n: b.name, d: b.door, w: b.w, h: b.h, st: b.state === 'ok' ? 0 : b.state === 'build' ? 1 : b.state === 'vacant' ? 2 : 3, o: b.owner, s: b.sid, f: b.fam || '', ow: b.owner >= 0 && this.dots[b.owner] ? this.dots[b.owner].name : '' }; }
 
-function pushBld(this: World, b, op) { this.out.push({ t: 'bld', op, b: this.bldMsg(b) }); }
+function pushBld(this: World, b: Building, op) { this.out.push({ t: 'bld', op, b: this.bldMsg(b) }); }
 
 function pushTiles(this: World, list) { if (list.length) this.out.push({ t: 'tiles', c: list.map(i => [i, this.tiles[i]]) }); }
 
-function footprint(this: World, b) { const r = []; for (let dy = 0; dy < b.h; dy++) for (let dx = 0; dx < b.w; dx++) r.push((b.y + dy) * W + b.x + dx); return r; }
+function footprint(this: World, b: Building) { const r = []; for (let dy = 0; dy < b.h; dy++) for (let dx = 0; dx < b.w; dx++) r.push((b.y + dy) * W + b.x + dx); return r; }
 
-function siteFor(this: World, d) {
+function siteFor(this: World, d: Dot) {
   { const mine = d.work >= 0 && this.buildings[d.work]; if (mine && mine.state === 'build') return mine; if (mine && mine.type === BT.BUILDER && mine.state === 'ok') return this.siteOfFirm(mine); }   // a hired builder goes to their own site
   const sid = this.buildings[d.home].sid; let best = null, bv = 1e9;
   for (const st of this.sites) { if (st.contractor >= 0 && this.buildings[st.contractor] && this.buildings[st.contractor].state === 'ok') continue; const v = (st.sid === sid ? 0 : 30) + Math.hypot(st.x - d.x, st.y - d.y); if (v < bv && v < 60) { bv = v; best = st; } }
@@ -105,14 +106,14 @@ function siteFor(this: World, d) {
 }
 
 function freePlot(this: World, s, kind) {
-  const pl = (s.plots || []).map(id => this.map.plots[id]).filter(p => !p.used), dc = (a, b) => a.dc - b.dc;
+  const pl = (s.plots || []).map(id => this.map.plots[id]).filter(p => !p.used), dc = (a: Plot, b: Plot) => a.dc - b.dc;
   const urban = pl.filter(p => !p.rural), rural = pl.filter(p => p.rural);
   switch (kind) {
     case 'center': return urban.filter(p => p.sq).sort(dc)[0] || urban.sort(dc)[0] || null;
     case 'house': return urban.filter(p => !p.sq).sort(dc)[0] || rural.sort(dc)[0] || null;
     case 'dock': return urban.filter(p => p.quay)[0] || null;
     case 'shop': { const f = urban.filter(p => !p.sq).sort(dc); return f.length ? f[Math.floor(f.length * 0.55)] : null; }
-    case 'farm': return rural.sort((a, b) => (b.fert - a.fert) + (a.dc - b.dc) * 0.045)[0] || urban.sort((a, b) => b.dc - a.dc)[0] || null;
+    case 'farm': return rural.sort((a: Plot, b: Plot) => (b.fert - a.fert) + (a.dc - b.dc) * 0.045)[0] || urban.sort((a: Plot, b: Plot) => b.dc - a.dc)[0] || null;
   }
   return null;
 }
@@ -145,7 +146,7 @@ function contractorFor(this: World, site) {
 /** The site a builders' firm is working on right now (the oldest open contract). */
 function siteOfFirm(this: World, f) { return this.sites.find(x => x.state === 'build' && x.contractor === f.id) || null; }
 
-function buildStep(this: World, d, b) {
+function buildStep(this: World, d: Dot, b: Building) {
   if (!b || b.state !== 'build') return;
   const firm = b.contractor >= 0 ? this.buildings[b.contractor] : null;
   if (firm && firm.state === 'ok' && d.work === firm.id) {   // a firm's employee: the client pays the firm from escrow, the firm pays its worker through normal payroll
@@ -157,7 +158,7 @@ function buildStep(this: World, d, b) {
   if (b.prog >= b.need) this.completeBuild(b);
 }
 
-function completeBuild(this: World, b) {
+function completeBuild(this: World, b: Building) {
   for (const x of this.dots) if (!x.dead && x.work === b.id && x.job === 1) { x.job = 3; x.work = -1; }   // the crew is released
   b.state = 'ok'; b.born = this.tick; this.sites = this.sites.filter(x => x !== b); this.biz.built++; this.rebuild(); this.fgen++; this.pushBld(b, 'upd');
   const o = b.owner >= 0 ? this.dots[b.owner] : null, s = this.S[b.sid], nm = BT_NAME[b.type].toLowerCase();
@@ -167,14 +168,14 @@ function completeBuild(this: World, b) {
   this.ev('opened', `${o ? '🏪' : '🏛️'} ${b.name} ${BT_NAME[b.type]} opens in ${s.name}${o ? ` — owner ${o.name}` : ' — a public works project'}!`, o ? [o.id] : [], 0, 3);
 }
 
-function moveIn(this: World, b) {
+function moveIn(this: World, b: Building) {
   const o = this.dots[b.owner]; if (!o || o.dead) return; const old = o.home, grp = [o];
   if (o.partner >= 0 && !this.dots[o.partner].dead && this.dots[o.partner].home === old) grp.push(this.dots[o.partner]);
   for (const k of this.dots) if (!k.dead && !k.adult && k.home === old && k.fam === o.fam) grp.push(k);
   for (const m of grp) m.home = b.id; b.fam = o.fam;
 }
 
-function demolish(this: World, b) {
+function demolish(this: World, b: Building) {
   this.liquidate(b);
   for (const d of b.inside.slice()) { d.inside = false; d.phase = 'walk'; d.goal = null; } b.inside.length = 0; b.occ = 0;
   b.state = 'gone'; b.stock = 0; const p = this.map.plots[b.plot]; if (p) { p.used = false; p.bid = -1; }
@@ -182,9 +183,9 @@ function demolish(this: World, b) {
   this.sites = this.sites.filter(x => x !== b); this.rebuild(); this.fgen++; this.pushBld(b, 'del'); this.pushTiles(fp);
 }
 
-function isBiz(this: World, b) { return b.type === BT.OFFICE || b.type === BT.FACTORY || b.type === BT.STORE || b.type === BT.MARKET || b.type === BT.TAVERN || b.type === BT.WORKSHOP || b.type === BT.FARM || b.type === BT.DOCK || b.type === BT.BUILDER; }
+function isBiz(this: World, b: Building) { return b.type === BT.OFFICE || b.type === BT.FACTORY || b.type === BT.STORE || b.type === BT.MARKET || b.type === BT.TAVERN || b.type === BT.WORKSHOP || b.type === BT.FARM || b.type === BT.DOCK || b.type === BT.BUILDER; }
 
-function burn(this: World, b) {
+function burn(this: World, b: Building) {
   const o = b.owner >= 0 ? this.dots[b.owner] : null, s = this.S[b.sid]; let homeless = 0;
   if (b.type === BT.HOUSE) {
     const alt = this.sbl[b.sid].filter(x => x.type === BT.HOUSE && x !== b).sort((x, y) => this.residents(x.id) - this.residents(y.id))[0];
@@ -231,7 +232,7 @@ declare module './world' { interface World {
 } }
 
 /** Pay back whatever is left of a finished building's construction budget. */
-function liquidateEscrow(this: World, b) {
+function liquidateEscrow(this: World, b: Building) {
   const left = Math.max(0, b.escrow || 0); b.escrow = 0; if (left <= 0) return;
   const o = b.owner >= 0 ? this.dots[b.owner] : null; if (o && !o.dead) o.coin += left; else this.gov(this.S[b.sid]).treasury += left;
 }

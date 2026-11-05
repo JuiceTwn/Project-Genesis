@@ -1,3 +1,4 @@
+import type { Dot } from '../shared/types';
 /* Mortgages and the housing market. Renters with a steady income and a deposit buy their home from its owner with a bank mortgage; investors buy
    extra houses the same way. A house price index (hpi) drifts with credit, momentum and jobs, and can bubble and burst. When prices fall below what is
    owed, or the borrower loses their income, they default: the bank forecloses, sells the house at a discount (or holds it) and eats the loss, which can
@@ -48,7 +49,7 @@ function mortgageDawn(this: World) {
 }
 
 /** Buyer gets the house with a mortgage; the seller (landlord or town) is paid in full. */
-function buyHouse(this: World, d, h, p: number, loan: number) {
+function buyHouse(this: World, d: Dot, h, p: number, loan: number) {
   const bk = this.bank, down = p - loan, seller = h.owner >= 0 ? this.dots[h.owner] : null;
   d.coin -= down; bk.cash -= loan;
   if (seller && !seller.dead) seller.coin += p; else this.gov(this.S[h.sid]).treasury += p;

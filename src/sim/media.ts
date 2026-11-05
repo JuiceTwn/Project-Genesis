@@ -1,3 +1,4 @@
+import type { Dot } from '../shared/types';
 /* Fame, social media and influencers. One currency, attention, links the whole simulation.
    - Fame is computed: notable events ping the people in them; it decays about 1% a day. Infamy (`ire`) is the angry kind and has its own consequences.
    - Posts travel through the population (the friend graph, summarised as reach). Bad news about the bank raises its fear (so rumours cause runs), bad news
@@ -91,7 +92,7 @@ function pileOn(this: World, t, p: Post) {
 }
 
 /** Take a worker off their job. */
-function unstaffDot(this: World, d) { const b = this.buildings[d.work]; d.job = 3; d.work = -1; if (b) b.staff = Math.max(0, (b.staff || 1) - 1); }
+function unstaffDot(this: World, d: Dot) { const b = this.buildings[d.work]; d.job = 3; d.work = -1; if (b) b.staff = Math.max(0, (b.staff || 1) - 1); }
 
 /** Daily: fame decays, rumours start, endorsement deals pay and work. */
 function mediaDay(this: World) {

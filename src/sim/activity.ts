@@ -1,3 +1,4 @@
+import type { Dot, Building } from '../shared/types';
 import { World } from './world';
 import { eff } from './gear';
 import { makeField, b64, tkLess, mk } from '../shared/util';
@@ -6,7 +7,7 @@ import * as Gen from '../worldgen';
 const { TS, YEAR_TICKS, HOUR_TICKS, KB, MEAL_UNIT, TICK_HZ, DAY_TICKS, INF, TILE, COST, BT, BT_NAME, BUILD_SHIFTS, UPKEEP, STAFF, MAXM, JOBS, FOOD_PRICE, DRINK_PRICE, STOCK_CAP, ADULT, YEAR_DAYS, SEASON_DAYS, SEASONS, YIELD, RAIN_P, CON, C, TRAITS, TRAIT_W, DREAMS, DREAM_TXT } = K;
 import { W, H } from "../shared/dims";
 
-function move(this: World, d) {
+function move(this: World, d: Dot) {
   const f = this.F(this.buildings[d.goal.b]);
   if (d.nx < 0) {
     const cur = f[d.y * W + d.x];
@@ -26,7 +27,7 @@ function move(this: World, d) {
   if (d.prog >= 1) { d.x = d.nx; d.y = d.ny; d.nx = -1; d.prog = 0; if (f[d.y * W + d.x] === 0) this.arrive(d); }
 }
 
-function arrive(this: World, d) {
+function arrive(this: World, d: Dot) {
   const g = d.goal, b = this.buildings[g.b];
   if ((b.state === 'gone' || b.state === 'vacant') && g.k !== 'wander' && g.k !== 'social') { d.phase = 'walk'; d.goal = null; return; }
   d.phase = 'do';
@@ -66,7 +67,7 @@ function arrive(this: World, d) {
   }
 }
 
-function doing(this: World, d) {
+function doing(this: World, d: Dot) {
   const g = d.goal;
   switch (g.k) {
     case 'sleep': {
@@ -94,7 +95,7 @@ function doing(this: World, d) {
   }
 }
 
-function finish(this: World, d) {
+function finish(this: World, d: Dot) {
   this.leave(d);
   const was = d.goal; d.goal = null; d.phase = 'walk';
   if (was.k === 'work' && d.job === 0 && d.carry > 0) {
@@ -103,19 +104,19 @@ function finish(this: World, d) {
   }
 }
 
-function checkStock(this: World, b) {
+function checkStock(this: World, b: Building) {
   if (b.stock <= 0 && !b.flag) { b.flag = true; this.ev('empty' + b.id, `🍞 ${b.name} Market has run out of food!`, [], 40, 2); }
   else if (b.stock >= 25 && b.flag) { b.flag = false; this.ev('restock' + b.id, `🌾 ${b.name} Market is stocked again.`, [], 40); }
 }
 
-function enter(this: World, d, b) { d.inside = true; b.occ++; b.inside.push(d); }
+function enter(this: World, d: Dot, b: Building) { d.inside = true; b.occ++; b.inside.push(d); }
 
-function leave(this: World, d) { if (!d.inside) return; const b = this.buildings[d.goal.b]; d.inside = false; b.occ--; const i = b.inside.indexOf(d); if (i >= 0) b.inside.splice(i, 1); }
+function leave(this: World, d: Dot) { if (!d.inside) return; const b = this.buildings[d.goal.b]; d.inside = false; b.occ--; const i = b.inside.indexOf(d); if (i >= 0) b.inside.splice(i, 1); }
 
-function sayDelayed(this: World, d, k) { this.later(1, { t: 'say', d: d.id, k }); }
+function sayDelayed(this: World, d: Dot, k) { this.later(1, { t: 'say', d: d.id, k }); }
 
 /** Pay (and book export revenue for) the hours worked so far in this shift; `final` settles the remainder. A shift is 8 hours = one day's wage. */
-function payShiftHours(this: World, d, g, final: boolean) {
+function payShiftHours(this: World, d: Dot, g, final: boolean) {
   const wb = this.buildings[g.b], total = (d.shiftTicks || HOUR_TICKS * 8) / HOUR_TICKS, done = final ? total : Math.floor(((d.shiftTicks || 0) - d.timer) / HOUR_TICKS), n = done - (d.paidH || 0);
   if (n <= 0.001) return;
   d.paidH = (d.paidH || 0) + n;

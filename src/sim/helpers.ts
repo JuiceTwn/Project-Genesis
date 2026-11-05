@@ -1,3 +1,5 @@
+import type { Dot, Building } from '../shared/types';
+import type { EvMsg } from '../shared/protocol';
 import { World } from './world';
 import { makeField, b64, tkLess, mk } from '../shared/util';
 import * as K from '../shared/constants';
@@ -15,15 +17,15 @@ function tod(this: World) { return (this.tick % DAY_TICKS) / DAY_TICKS; }
 
 function day(this: World) { return Math.floor(this.tick / DAY_TICKS) + 1; }
 
-function isNight(this: World, d) { const t = this.tod(); return t < 0.22 + d.off || t > 0.88 + d.off; }
+function isNight(this: World, d: Dot) { const t = this.tod(); return t < 0.22 + d.off || t > 0.88 + d.off; }
 
-function say(this: World, d, k) { this.out.push({ t: 'say', d: d.id, k }); }
+function say(this: World, d: Dot, k) { this.out.push({ t: 'say', d: d.id, k }); }
 
-function sayB(this: World, b, k) { this.out.push({ t: 'say', b: b.id, k }); }
+function sayB(this: World, b: Building, k) { this.out.push({ t: 'say', b: b.id, k }); }
 
 function ev(this: World, kind, text, ids, gap = 0, w = 1) {
   if (gap && this.tick - (this.lastEv[kind] || -1e9) < gap) return;
-  this.lastEv[kind] = this.tick; if (this.dayLog.length < 600) this.dayLog.push({ k: kind, x: text, ids: ids || [], w, tick: this.tick }); if (this.story) this.story.heat += w >= 4 ? 1 : w === 3 ? 0.15 : 0; const m = { t: 'ev', k: kind, x: text, ids: ids || [], w, tk: this.tick }; this.out.push(m); this.hist.push(m); if (this.hist.length > 40) this.hist.shift();
+  this.lastEv[kind] = this.tick; if (this.dayLog.length < 600) this.dayLog.push({ k: kind, x: text, ids: ids || [], w, tick: this.tick }); if (this.story) this.story.heat += w >= 4 ? 1 : w === 3 ? 0.15 : 0; const m: EvMsg = { t: 'ev', k: kind, x: text, ids: ids || [], w, tk: this.tick }; this.out.push(m); this.hist.push(m); if (this.hist.length > 40) this.hist.shift();
   if (this.mediaHook) this.mediaHook(kind, text, ids || [], w);
   if (this.thoughtHook) this.thoughtHook(kind, text, ids || [], w);
   if (this.legendHook) this.legendHook(kind, text, ids || [], w);
@@ -31,9 +33,9 @@ function ev(this: World, kind, text, ids, gap = 0, w = 1) {
 
 function later(this: World, dt, m) { this.pending.push({ at: this.tick + dt, m }); }
 
-function fieldAt(this: World, b, d) { return this.F(this.buildings[b])[d.y * W + d.x]; }
+function fieldAt(this: World, b: number, d: Dot) { return this.F(this.buildings[b])[d.y * W + d.x]; }
 
-function nearest(this: World, list, d, jitter = 0) { let best = null, bv = 1e9; for (const b of list) { const v = this.F(b)[d.y * W + d.x] + this.rnd() * jitter; if (v < bv) { bv = v; best = b; } } return best; }
+function nearest(this: World, list, d: Dot, jitter = 0) { let best = null, bv = 1e9; for (const b of list) { const v = this.F(b)[d.y * W + d.x] + this.rnd() * jitter; if (v < bv) { bv = v; best = b; } } return best; }
 
 Object.assign(World.prototype, { dayIdx, season, year, tod, day, isNight, say, sayB, ev, later, fieldAt, nearest });
 declare module './world' { interface World {

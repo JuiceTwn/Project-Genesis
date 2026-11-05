@@ -1,3 +1,4 @@
+import type { Dot, Building } from '../shared/types';
 import { World } from './world';
 import { rollTraits } from './personality';
 import { makeField, b64, tkLess, mk } from '../shared/util';
@@ -15,7 +16,7 @@ function economyDawn(this: World) {
     A private firm that cannot cover payroll misses it; after three missed shifts in a row the worker quits.
     Publicly run buildings are paid for by the town treasury (and, when that is dry, the wage is still honoured). */
 /** Taxes come out of every paycheque: a local income tax set by the mayor and a national one. Returns the take-home pay. */
-function withhold(this: World, b, w: number): number {
+function withhold(this: World, b: Building, w: number): number {
   const g = this.gov(this.S[b.sid]), local = w * g.tax / 100, nat = w * K.NATION_TAX;
   g.treasury += local; this.nation.treasury += nat; this.stats.taxLocal = (this.stats.taxLocal || 0) + local; this.stats.taxNation = (this.stats.taxNation || 0) + nat; return w - local - nat;
 }
@@ -33,7 +34,7 @@ function restockMarkets(this: World) {
   }
 }
 
-function payWage(this: World, b, d, w: number): number {
+function payWage(this: World, b: Building, d: Dot, w: number): number {
   if (b.state !== 'ok' || !this.isBiz(b)) return 0;   // nobody pays wages out of thin air: site crews are paid from escrow (buildStep), a closed workplace pays nothing
   const [o, k] = this.till(b);
   if (o[k] >= w) { o[k] -= w; b.wage += w; d.unpaid = 0; return this.withhold(b, w); }
@@ -72,7 +73,7 @@ function settle(this: World) {
   }
 }
 
-function fail(this: World, b, visits) {
+function fail(this: World, b: Building, visits) {
   const o = this.dots[b.owner], s = this.S[b.sid], rivals = this.sbl[b.sid].filter(x => x !== b && x.type === b.type).length;
   const why = b.type === BT.FARM && this.tick - this.blightAt < 4 * DAY_TICKS ? 'the blight wrecked the harvest' : (b.type === BT.FARM || b.type === BT.WORKSHOP || b.type === BT.TAVERN) && (b.staff || 0) === 0 ? 'nobody was working there' : rivals >= 2 ? 'too many rivals in town' : visits < 4 ? 'hardly any customers' : o.traits.includes('lazy') ? 'the owner never kept it up' : 'costs outran takings';
   this.ev('bankrupt', `📉 ${o.name}'s ${this.kindName(b).toLowerCase()} ${b.name} in ${s.name} went bankrupt — ${why}.`, [o.id], 0, 4);
@@ -125,7 +126,7 @@ function entrepreneurs(this: World) {
   }
 }
 
-function tryFound(this: World, d) {
+function tryFound(this: World, d: Dot) {
   const home = this.buildings[d.home], s = this.S[home.sid], P = this.sPop[s.id] || 1, L = this.sbl[s.id];
   const cnt = t => L.filter(b => b.type === t).length, nm = this.nearest(this.markets, d, 0), starved = nm && nm.stock < 60 ? 0.5 : 0;
   const opts = [[BT.MARKET, P / 85 - cnt(BT.MARKET) + starved + (s.tier <= 1 ? 0.1 : -0.25)], [BT.TAVERN, P / 60 - cnt(BT.TAVERN)], [BT.WORKSHOP, P / 40 - cnt(BT.WORKSHOP) + this.unemployed(s.id) / 12], [BT.FARM, P * K.FARMERS_SHARE / 4 - this.farms.filter(f => f.sid === s.id).length + starved]];
@@ -160,8 +161,8 @@ function housing(this: World) {
   let did = 0;
   for (const [hid, list] of res) {
     if (list.length < 5 || did >= 2) continue; const h = this.buildings[hid]; if (h.state !== 'ok') continue;
-    const ad = list.filter(d => d.adult && d.id !== h.owner && !this.sites.some(x => x.owner === d.id));
-    const mover = ad.find(d => d.partner >= 0 && list.includes(this.dots[d.partner])) || ad.sort((a, b) => b.coin - a.coin)[0]; if (!mover) continue;
+    const ad = list.filter((d: Dot) => d.adult && d.id !== h.owner && !this.sites.some(x => x.owner === d.id));
+    const mover = ad.find((d: Dot) => d.partner >= 0 && list.includes(this.dots[d.partner])) || ad.sort((a: Dot, b: Dot) => b.coin - a.coin)[0]; if (!mover) continue;
     const cost = K.BUILD_COST[BT.HOUSE]; const tg = this.gov(this.S[h.sid]); if (mover.coin < cost * 0.4 && tg.treasury < cost * 3) continue;
     const s = this.S[h.sid], plot = this.plotFor(s, 'house'); if (!plot) continue;
     const own = Math.max(0, Math.min(cost, mover.coin - 5 * KB)); mover.coin -= own; if (own < cost) tg.treasury -= cost - own;
@@ -200,9 +201,9 @@ function disasters(this: World) {
   }
 }
 
-function mprice(this: World, b) { return MEAL_UNIT * (b.stock < 25 ? 8 : b.stock < 60 ? 6 : b.stock < 120 ? 4 : b.stock < 260 ? 3 : 2); }
+function mprice(this: World, b: Building) { return MEAL_UNIT * (b.stock < 25 ? 8 : b.stock < 60 ? 6 : b.stock < 120 ? 4 : b.stock < 260 ? 3 : 2); }
 
-function price(this: World, d) { return d.adult ? 2 * MEAL_UNIT : 0; }
+function price(this: World, d: Dot) { return d.adult ? 2 * MEAL_UNIT : 0; }
 
 Object.assign(World.prototype, { restockMarkets, withhold, payWage, economyDawn, settle, fail, hire, entrepreneurs, tryFound, housing, immigration, sales, disasters, mprice, price });
 declare module './world' { interface World {

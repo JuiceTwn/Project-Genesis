@@ -1,3 +1,4 @@
+import type { Dot, Building } from '../shared/types';
 /* Items and gear. Every adult can carry four things: clothes, a coat, a tool and a bag. Each has a quality (0-1), wear (0-1, 1 = worn out) and a brand
    (-1 = no-name). Dots buy gear at stores out of their spending budget (the money moves exactly like any other sale: till in, goods paid abroad), and
    gear wears out and gets replaced. Effects: a coat cuts winter illness, a bag limits what a pickpocket gets, a tool raises a farmer's harvest, and good
@@ -17,10 +18,10 @@ export const BASE: Record<Slot, { price: number; life: number }> = {
 
 export const itemPrice = (slot: Slot, q: number) => BASE[slot].price * R.DAY_WAGE * (0.6 + 0.8 * q);
 /** How well an item works right now: quality times the share of its life left. 0 when nothing is carried. */
-export const eff = (d, slot: Slot): number => { const it = d.gear && d.gear[slot]; return it ? it.q * (1 - it.w) : 0; };
+export const eff = (d: Dot, slot: Slot): number => { const it = d.gear && d.gear[slot]; return it ? it.q * (1 - it.w) : 0; };
 
 /** The slot a dot most wants to buy next, or null: an empty slot, or an item more than 80% worn. Winter makes the coat urgent. */
-function wantedSlot(this: World, d): Slot | null {
+function wantedSlot(this: World, d: Dot): Slot | null {
   let best: Slot | null = null, bs = 0;
   for (const s of SLOTS) {
     const it = d.gear && d.gear[s];
@@ -33,7 +34,7 @@ function wantedSlot(this: World, d): Slot | null {
 }
 
 /** At a store with a budget: buy the wanted piece of gear if it is affordable. Returns the price paid (0 if nothing bought). Called before ordinary shopping. */
-function buyGear(this: World, d, b): number {
+function buyGear(this: World, d: Dot, b: Building): number {
   if (!d.adult || b.state !== 'ok') return 0;
   const slot = this.wantedSlot(d); if (!slot) return 0;
   { const sp = this.specOf(b); if (!sp || !sp.sells || !sp.sells.includes(slot)) return 0; }   // only clothiers, hardware stores and general stores sell gear

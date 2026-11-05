@@ -1,3 +1,4 @@
+import type { Building } from '../shared/types';
 /* Money. The rules:
    - Coins only ever MOVE between accounts: people (coin), firm tills (cash), construction escrow, town treasuries
      and the national treasury. A transfer never creates or destroys anything.
@@ -12,8 +13,8 @@ import { usd } from '../shared/reality';
 type Acct = Record<string, any>;
 
 /** Whose pocket a building's takings go into: the owner's firm till, or the town treasury for a public building. */
-function till(this: World, b): [Acct, string] { return b.owner >= 0 ? [b, 'cash'] : [this.gov(this.S[b.sid]), 'treasury']; }
-function credit(this: World, b, amt: number) { const [o, k] = this.till(b); o[k] += amt; }
+function till(this: World, b: Building): [Acct, string] { return b.owner >= 0 ? [b, 'cash'] : [this.gov(this.S[b.sid]), 'treasury']; }
+function credit(this: World, b: Building, amt: number) { const [o, k] = this.till(b); o[k] += amt; }
 /** Take up to `amt` from an account; returns what was actually available. */
 function takeUpTo(this: World, o: Acct, k: string, amt: number): number { const p = Math.max(0, Math.min(amt, o[k])); o[k] -= p; return p; }
 
@@ -25,7 +26,7 @@ function toAbroad(this: World, o: Acct, k: string, amt: number, why: string): nu
   this.ledger.outflow += p; this.ledger.flow[why] = (this.ledger.flow[why] || 0) - p; return p;
 }
 /** Foreign buyers pay a business (export revenue). */
-function exportIn(this: World, b, amt: number) { const [o, k] = this.till(b); this.fromAbroad(o, k, amt, 'exports'); b.rev += amt; }
+function exportIn(this: World, b: Building, amt: number) { const [o, k] = this.till(b); this.fromAbroad(o, k, amt, 'exports'); b.rev += amt; }
 
 /** The government explicitly creates new money. Always visible: it is announced and recorded. */
 function mint(this: World, amt: number, why: string) {
@@ -42,7 +43,7 @@ function spendLocal(this: World, sid: number, amt: number) {
 }
 
 /** Return a building's till and unspent construction escrow to its owner (or the town) when it is closed down. */
-function liquidate(this: World, b) {
+function liquidate(this: World, b: Building) {
   const sum = Math.max(0, b.cash || 0) + Math.max(0, b.escrow || 0); b.cash = 0; b.escrow = 0; b.debt = 0;
   if (sum <= 0) return;
   const o = b.owner >= 0 ? this.dots[b.owner] : null;

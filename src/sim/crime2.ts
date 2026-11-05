@@ -1,3 +1,4 @@
+import type { Dot } from '../shared/types';
 /* Organised crime and the law. Poverty and joblessness breed burglars; thieves band into gangs that shake down shops and torch the stubborn; a corrupt
    banker can run off with the vault. The police (paid from the town treasury, sized by the mayor's platform) clear cases with a probability that grows
    with officers per head; the guilty go to prison (they lose their job and sit in the town hall's cells). Money only moves between pockets. */
@@ -16,7 +17,7 @@ const cops = (w: World, sid: number) => { let n = 0; for (const d of w.dots) if 
 const clearRate = (w: World, sid: number) => Math.min(0.85, 0.08 + 0.35 * cops(w, sid));
 
 /** Send someone to prison: they lose their job, and sit in the cells for `days`. */
-function sentence(this: World, d, crime: string, days: number) {
+function sentence(this: World, d: Dot, crime: string, days: number) {
   if (d.dead) return;
   { const sid = this.buildings[d.home].sid, firm = (this.sbl[sid] || []).find(b => b.state === 'ok' && b.spec === 'law' && (b.staff || 0) > 0 && b.owner >= 0), fee = 0.6 * R.DAY_WAGE;
     if (firm && d.coin > fee * 2) { d.coin -= fee; firm.cash += fee; firm.rev += fee; firm.visits++; days = Math.max(1, Math.round(days * Math.max(0.35, 0.8 - 0.25 * (firm.perf || 1)))); } }   // a lawyer talks the sentence down

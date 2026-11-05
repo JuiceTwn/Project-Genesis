@@ -1,3 +1,4 @@
+import type { Dot } from '../shared/types';
 /* Thoughts and mental breaks (the RimWorld engine). Mood is no longer only hunger, tiredness and loneliness: every person carries a short list of dated
    thoughts, each caused by something that happened to them ("heartbroken", "lost my home", "robbed", "new baby"), each fading over days. Mood is the base
    plus the sum of fading thoughts. When mood collapses, a person has a break, and what they do depends on who they are: a hothead picks a fight, a
@@ -27,7 +28,7 @@ const MAP: Record<string, [string, number, number, string]> = {
 };
 const BASEKIND = (k: string) => k.replace(/\d+$/, '');
 
-function addThought(this: World, d, k: string, v: number, days: number, txt: string) {
+function addThought(this: World, d: Dot, k: string, v: number, days: number, txt: string) {
   if (!d || d.dead) return; const th: Thought[] = d.th || (d.th = []), now = this.tick;
   const i = th.findIndex(t => t.k === k);
   if (i >= 0) { th[i].v = Math.abs(v) > Math.abs(th[i].v) ? v : th[i].v; th[i].until = Math.max(th[i].until, now + days * DAY); th[i].from = now; th[i].txt = txt; return; }
@@ -36,7 +37,7 @@ function addThought(this: World, d, k: string, v: number, days: number, txt: str
 }
 
 /** The mood a person's thoughts add right now: each fades linearly to zero by its end. */
-function thoughtMood(this: World, d): number {
+function thoughtMood(this: World, d: Dot): number {
   const th: Thought[] | undefined = d.th; if (!th || !th.length) return 0; let s = 0;
   for (const t of th) { const left = t.until - this.tick; if (left <= 0) continue; s += t.v * Math.min(1, left / Math.max(1, t.until - t.from)); }
   return Math.max(-45, Math.min(30, s));
@@ -56,7 +57,7 @@ function thoughtHook(this: World, kind: string, text: string, ids: number[], w: 
 }
 
 /** The most vivid thought right now (for speech bubbles and character cards). */
-function topThought(this: World, d): string | null {
+function topThought(this: World, d: Dot): string | null {
   const th: Thought[] | undefined = d.th; if (!th) return null; let best = null, bv = 2.5;
   for (const t of th) { const left = t.until - this.tick; if (left <= 0) continue; const v = Math.abs(t.v) * Math.min(1, left / Math.max(1, t.until - t.from)); if (v > bv) { bv = v; best = t.txt; } }
   return best;
@@ -75,7 +76,7 @@ function thoughtDay(this: World) {
   }
 }
 
-function mentalBreak(this: World, d, m: number) {
+function mentalBreak(this: World, d: Dot, m: number) {
   d.breakCd = this.tick + 8 * DAY; this.stats.breaks = (this.stats.breaks || 0) + 1;
   const town = this.buildings[d.home].sid, cause = this.topThought(d) || (d.hunger > 80 ? 'hunger' : 'a long run of bad days'), who = d.name;
   const near = this.dots.filter(o => !o.dead && o !== d && o.adult && !o.inside && this.buildings[o.home].sid === town);
@@ -107,4 +108,4 @@ Object.assign(World.prototype, { addThought, thoughtMood, thoughtHook, topThough
 declare module './world' { interface World { addThought: typeof addThought; thoughtMood: typeof thoughtMood; thoughtHook: typeof thoughtHook; topThought: typeof topThought; thoughtDay: typeof thoughtDay; mentalBreak: typeof mentalBreak } }
 // mood now includes thoughts
 const baseMood = World.prototype.mood;
-World.prototype.mood = function (this: World, d) { return Math.max(0, Math.min(100, Math.round(baseMood.call(this, d) + this.thoughtMood(d)))); } as any;
+World.prototype.mood = function (this: World, d: Dot) { return Math.max(0, Math.min(100, Math.round(baseMood.call(this, d) + this.thoughtMood(d)))); } as any;

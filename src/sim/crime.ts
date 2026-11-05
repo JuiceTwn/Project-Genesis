@@ -1,3 +1,4 @@
+import type { Dot, Building } from '../shared/types';
 import { World } from './world';
 import { eff } from './gear';
 import { makeField, b64, tkLess, mk } from '../shared/util';
@@ -35,16 +36,16 @@ function steal(this: World, t, v) {
   else if (noticed) this.say(v, [C.ME, C.ANGRY]);
 }
 
-function fight(this: World, a, b, ctx) {
+function fight(this: World, a: Dot, b: Dot, ctx) {
   if (a.phase === 'chat' || b.phase === 'chat' || a.inside || b.inside || a.dead || b.dead) return;
   for (const d of [a, b]) { d.prev = d.phase; d.phase = 'chat'; d.chatT = 18; d.fight = true; d.chatCd = 250; }
   this.say(a, [C.STOP, C.THIEF]); this.later(4, { t: 'say', d: b.id, k: [ctx ? C.SORRY : C.NO] }); this.later(9, { t: 'say', d: a.id, k: [C.ANGRY] });
   this.later(18, { fn: () => this.resolveFight(a, b, ctx) });
 }
 
-function resolveFight(this: World, a, b, ctx) {
+function resolveFight(this: World, a: Dot, b: Dot, ctx) {
   if (a.dead || b.dead) return;
-  const pw = d => this.skillLevel(d, 'fight') * 1.5 + (this.attr(d, 'str') - 10) * 1.2 + d.energy * 0.3 + (d.fx.temper > 1.5 ? 25 : 0) + d.fx.courage * 15 + this.rnd() * 40 + (d.isThief ? 8 : 0);
+  const pw = (d: Dot) => this.skillLevel(d, 'fight') * 1.5 + (this.attr(d, 'str') - 10) * 1.2 + d.energy * 0.3 + (d.fx.temper > 1.5 ? 25 : 0) + d.fx.courage * 15 + this.rnd() * 40 + (d.isThief ? 8 : 0);
   const aw = pw(a) >= pw(b), w = aw ? a : b, l = aw ? b : a;
   this.trainSkill(w, 'fight', 0.4); this.trainSkill(l, 'fight', 0.15);
   this.hurt(l, 'injury', 0.25 + this.rnd() * 0.5, 'a fight with ' + w.name); if (this.rnd() < 0.5) this.hurt(w, 'injury', 0.1 + this.rnd() * 0.25, 'a fight with ' + l.name);

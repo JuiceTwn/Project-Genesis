@@ -9,7 +9,7 @@
     "start": "npm run build --silent && node dist/server.js",
     "dev": "tsx watch src/server/main.ts",
     "bench": "tsx src/tools/bench.ts",
-    "typecheck": "tsc -p .",
+    "typecheck": "tsc -p . && node scripts/typing-ratchet.mjs",
     "test": "tsx --test tests/*.test.ts",
     "map": "tsx src/tools/map.ts",
     "report": "python3 ml/balance_report.py",
