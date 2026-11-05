@@ -24,7 +24,7 @@ interface KindDef { v: number; acc?: number; tell?: boolean; txt: string }
 export const KIND: Record<string, KindDef> = {
   robbed: { v: -30, tell: true, txt: 'robbed me' }, burgled: { v: -34, tell: true, txt: 'broke into my home' }, beaten: { v: -24, tell: true, txt: 'beat me up' },
   brawl: { v: -8, tell: true, txt: 'fought me' }, jilted: { v: -28, tell: true, txt: 'broke my heart' }, spurned: { v: -8, tell: true, txt: 'turned me down' },
-  rival: { v: -18, tell: true, txt: 'has an eye on my partner' }, witnessed: { v: -15, tell: true, txt: 'I saw what they did' }, stiffed: { v: -32, tell: true, txt: 'never paid me back' },
+  rival: { v: -9, tell: true, txt: 'has an eye on my partner' }, witnessed: { v: -15, tell: true, txt: 'I saw what they did' }, stiffed: { v: -32, tell: true, txt: 'never paid me back' },
   killed: { v: -70, tell: true, txt: 'killed someone I loved' }, feud: { v: -30, tell: true, txt: 'wronged my family' }, envy: { v: -2, acc: -34, txt: 'has what I want' },
   avenged: { v: 26, txt: 'we are even' }, forgave: { v: 18, txt: 'I let it go' }, apology: { v: 16, txt: 'said sorry' },
   kind: { v: 14, tell: true, txt: 'was good to me' }, repaid: { v: 16, tell: true, txt: 'paid me back' },
@@ -223,7 +223,7 @@ function loans(this: World, alive: Dot[]) {
       } else if (days > 120) { this.bondDel(d, L.id, 'owes'); this.bondDel(L, d.id, 'lent'); if (!L.traits.includes('generous') && !L.traits.includes('kind')) this.bondAdd(L, d.id, 'stiffed', { v: -14 }); }
       continue;
     }
-    if (d.coin >= 0.5 * DW || this.rnd() > 0.2 || d.job === 0 && d.coin > 0.2 * DW) continue;
+    if (d.coin >= 1.5 * DW || this.rnd() > 0.25) continue;
     const sid = this.buildings[d.home].sid, amt = Math.round(1.5 * DW);
     const L = this.friends(d).map((f: number[]) => this.dots[f[0]]).find((x: Dot) => x && !x.dead && x.adult && x.coin > 8 * DW && this.buildings[x.home].sid === sid && (x.bonds || []).filter((b: Bond) => b.k === 'lent').length < 2 && this.rnd() < 0.5 * x.fx.generosity * Math.min(1.2, rel(x, d.id) / 60) && this.grudge(x, d.id) < 10);
     if (!L) continue;

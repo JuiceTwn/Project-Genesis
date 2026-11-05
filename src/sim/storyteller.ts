@@ -255,7 +255,7 @@ const disgrace: Kind = {
 
 /* A vendetta is not authored: it is noticed. When one dot's ledger holds a big grudge against someone in town and they are the type to act on it, the
    storyteller starts following them. It never forces a fight; it narrates what the bond system does (fights, forgiveness, a death). */
-const grudgeHolders = (w: World) => w.dots.filter(d => !d.dead && d.adult && d.foes && d.foes.size && !busy(w, [d.id])).map(d => { let o = -1, g = 0; for (const [id, v] of d.foes) { const t = w.dots[id]; if (t && !t.dead && !busy(w, [id]) && v > g && w.buildings[t.home].sid === w.buildings[d.home].sid) { g = v; o = id; } } return { d, o, g }; }).filter(x => x.o >= 0 && x.g >= 40);
+const grudgeHolders = (w: World) => w.dots.filter(d => !d.dead && d.adult && d.foes && d.foes.size && !busy(w, [d.id])).map(d => { let o = -1, g = 0; for (const [id, v] of d.foes) { const t = w.dots[id]; if (t && !t.dead && !busy(w, [id]) && v > g && w.buildings[t.home].sid === w.buildings[d.home].sid) { g = v; o = id; } } return { d, o, g }; }).filter(x => x.o >= 0 && x.g >= 28);
 const vendetta: Kind = {
   kind: 'vendetta', weight: w => (grudgeHolders(w).length ? 1.8 : 0),
   launch(w) {
