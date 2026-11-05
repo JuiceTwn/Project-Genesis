@@ -3,16 +3,18 @@ import { CATALOG, TRAIT } from '../sim/personality';
 import { renderIssue, GAZETTE_CSS } from '../shared/gazette';
 import { rollKey } from '../shared/feed';
 import { DAY_TICKS } from '../shared/reality';
-import type { ServerMsg, ClientMsg, EvMsg } from '../shared/protocol';
+import type { ServerMsg, ClientMsg, EvMsg, InitMsg, BldView, SettView, StatsMsg, DetailMsg, ArcView } from '../shared/protocol';
 declare const Sim: any;   // provided by demo.ts when running without a server
 (() => {
 'use strict';
-const $ = s => document.querySelector(s);
+const $ = (s: string): any => document.querySelector(s);   // any: the page's elements are known by id, not by type
 const LOCAL = !!window.__LOCAL__ || /[?&]local/.test(location.search);
 const JOBCOL = ['#7bd36b', '#f0a74a', '#b98cf0', '#59b6ee'];
-let W, H, tiles, wk, el, setts = [], blds = [], dots = [], lex = [], names = [], fams = [], bnames = [], JOBS = [], BTN = [];
+/** A dot as the client sees it: identity from the init/born messages, motion state filled in by each frame. */
+interface DotView { id: number; name: string; job: number; home: number; traits: string[]; col: string; x: number; y: number; tx: number; ty: number; fx: number; fy: number; t0: number; fl: number; seen: boolean; wasSeen?: boolean; [k: string]: any }
+let W: number, H: number, tiles: string, wk: string, el: Uint8Array, setts: SettView[] = [], blds: BldView[] = [], dots: DotView[] = [], lex: any[] = [], names: string[] = [], fams: string[] = [], bnames: string[] = [], JOBS: string[] = [], BTN: string[] = [];
 let tod = 0.3, day = 1, occ = [], sel = -1, follow = false, translate = true, bubbles = [], statsM = null;
-let stat = null, detail = null, ready = false, lastClock = '';
+let stat: StatsMsg | null = null, detail: DetailMsg | null = null, ready = false, lastClock = '';
 const TRI = Object.fromEntries(CATALOG.map(t => [t.id, t.emoji]));
 const parts = [];
 let castList = [], watched = new Set<number>(JSON.parse(localStorage.getItem('dv-watch') || '[]')), auto = true, userAt = -1e9, dirUntil = 0, dirIds = null, lastShot = -1e9, deadTimer = null, tab = 'feed';
@@ -20,6 +22,10 @@ const colFor = n => { let x = 7; for (let i = 0; i < n.length; i++) x = (x * 31 
 const cam = { x: 0, y: 0, z: 1 }; let camTarget = null;
 const cv = $('#c'), ctx = cv.getContext('2d');
 let cssW = 300, cssH = 200, fit = 5, dpr = 1;
+/** Pixels of the canvas covered by floating UI (HUD on top, drawer on the right, sheet at the bottom). The camera centres on what is left. */
+const inset = { t: 0, r: 0, b: 0 }, insetCur = { t: 0, r: 0, b: 0 };
+const viewCX = () => (cssW - insetCur.r) / 2, viewCY = () => insetCur.t + (cssH - insetCur.t - insetCur.b) / 2;
+const viewW = () => cssW - insetCur.r, viewH = () => cssH - insetCur.t - insetCur.b;
 
 /* ---------- transport ---------- */
 let ws = null, localWorld = null, localSpeed = 1;
@@ -41,7 +47,7 @@ function connect() {
 function startLocal() {
   localWorld = new Sim.World({});
   handle(localWorld.initMsg());
-  $('#bSpd').style.display = ''; $('#live').textContent = 'local sim (just you)';
+  $('#bSpd').style.display = ''; $('#live').textContent = 'DEMO';
   setInterval(() => {
     for (let i = 0; i < localSpeed; i++) { localWorld.step(); if (localWorld.tick % 5 === 0 && i < localSpeed - 1) { const q = localWorld.drain(); if (q.length) handle({ t: 'batch', m: q }); } }
     frame(localWorld.frameFor(curView, localWorld.relatedIds(sel)));
@@ -61,7 +67,7 @@ function handle(m: ServerMsg) {
     case 'say': say(m); break;
     case 'born': dots[m.id] = Object.assign(dots[m.id] || { id: m.id, x: 0, y: 0, tx: 0, ty: 0, fx: 0, fy: 0, t0: 0, fl: 64 }, { name: m.name, job: m.j, home: m.h, traits: m.tr || [], seen: false, col: colFor(m.name) }); names[m.id] = m.name; fams[m.id] = m.f || ''; break;
     case 'bld': bldUpd(m); break;
-    case 'tiles': { const a = tiles.split(''); for (const [i, v] of m.c) a[i] = v; tiles = a.join(''); terrDirty = true; break; }
+    case 'tiles': { const a = tiles.split(''); for (const [i, v] of m.c) a[i] = String(v); tiles = a.join(''); terrDirty = true; break; }
     case 'stats': stat = m; arcs = m.arcs || arcs; hud(); break;
     case 'chron': addChron(m.e, true); break;
     case 'rename': if (dots[m.id]) { dots[m.id].name = m.name; names[m.id] = m.name; } break;
@@ -71,7 +77,7 @@ function handle(m: ServerMsg) {
     case 'detail': detail = m; card(); break;
   }
 }
-function init(m) {
+function init(m: InitMsg) {
   W = m.W; H = m.H; tiles = m.tiles; wk = m.wk; setts = m.setts; blds = m.blds; lex = m.lex; JOBS = m.jobs; BTN = m.bt;
   const bin = atob(m.el); el = new Uint8Array(W * H); for (let i = 0; i < el.length; i++) el[i] = bin.charCodeAt(i);
   dots = m.dots.map((d, i) => ({ id: i, name: d.n, job: d.j, home: d.h, traits: d.tr || [], col: colFor(d.n), x: 0, y: 0, tx: 0, ty: 0, fx: 0, fy: 0, t0: 0, fl: 0, seen: false }));
@@ -81,7 +87,7 @@ function init(m) {
   $('#ticker').innerHTML = ''; (m.hist || []).forEach(e => ticker(e, false));
   chron = []; (m.chron || []).forEach(e => addChron(e, false)); arcs = m.arcs || []; issue = m.issue || null;
 }
-const bname = b => b.n ? b.n + ' ' + BTN[b.ty] : 'House';
+const bname = (b: BldView) => b.n ? b.n + ' ' + BTN[b.ty] : 'House';
 function bldUpd(m) {
   const b = m.b; if (m.op === 'del') b.st = 3;
   blds[b.i] = b; bnames[b.i] = bname(b);
@@ -110,8 +116,9 @@ function frame(buf) {
 let sentView = '', lastViewAt = 0, curView = null;
 function reportView(now) {
   if (now - lastViewAt < 250) return; lastViewAt = now;
-  const s = sc(), vw = cssW / s, vh = cssH / s, mx = vw * 0.15, my = vh * 0.15;
-  const m: ClientMsg & { t: 'view' } = { t: 'view', x0: Math.floor(cam.x - vw / 2 - mx), y0: Math.floor(cam.y - vh / 2 - my), x1: Math.ceil(cam.x + vw / 2 + mx), y1: Math.ceil(cam.y + vh / 2 + my) };
+  const s = sc(), mx = cssW / s * 0.15, my = cssH / s * 0.15;   // everything on screen (even under glass panels) plus a margin
+  const wx = px => (px - viewCX()) / s + cam.x, wy = py => (py - viewCY()) / s + cam.y;
+  const m: ClientMsg & { t: 'view' } = { t: 'view', x0: Math.floor(wx(0) - mx), y0: Math.floor(wy(0) - my), x1: Math.ceil(wx(cssW) + mx), y1: Math.ceil(wy(cssH) + my) };
   const key = m.x0 + ',' + m.y0 + ',' + m.x1 + ',' + m.y1; if (key === sentView) return; sentView = key; curView = m; send(m);
 }
 async function gunzip(buf) { const r = new Response(new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'))); return r.text(); }
@@ -123,6 +130,7 @@ function hud() {
   f.disabled = stat.cd.festival > 0; b.disabled = stat.cd.blight > 0;
   f.textContent = stat.fest ? '🎉 On!' : stat.cd.festival > 0 ? `🎉 ${stat.cd.festival}s` : '🎉 Festival';
   b.textContent = stat.blight ? '🥀 On!' : stat.cd.blight > 0 ? `🥀 ${stat.cd.blight}s` : '🥀 Blight';
+  dramaAndChips();
 }
 /* Feed rollup: events that differ only by names/amounts ("X gave Y $521") merge into one row
    with a count. Matches within the newest ROLL_WINDOW rows; important events (weight >= 4) never merge. */
@@ -163,7 +171,7 @@ function drawLabels(q, s) {
     if (!forced && named >= MAX) break;
     if (d.fl & 32) continue;
     let placedName = false;
-    if (forced || (s > 22 && pri < cssW * 0.3)) {
+    if (forced || (s > 22 && pri < viewW() * 0.3)) {
       ctx.font = '11px system-ui';
       const w = ctx.measureText(d.name).width + 4, x0 = x - w / 2, y0 = y + R + 1, y1 = y0 + 13;
       if (forced || !hit(x0, y0, x0 + w, y1)) { boxes.push([x0, y0, x0 + w, y1]); ctx.fillStyle = 'rgba(255,255,255,.9)'; ctx.fillText(d.name, x, y + R + 11); placedName = true; named++; }
@@ -193,13 +201,14 @@ function card() {
     <div class="do">${dt.doing}${dt.partner ? ` · ${dt.married ? '💍' : '💘'} <a data-i="${dt.pid}" style="text-decoration:underline;cursor:pointer">${dt.partner}</a>` : ''}</div>
     ${bar('hunger', dt.hunger, '#e0775a')}${bar('energy', dt.energy, '#e6c65a')}${bar('social', dt.social, '#7fb0f0')}
     <div class="th">“${dt.thought}”</div>
-    ${dt.mem && dt.mem.length ? `<div class="do">🧠 remembers ${dt.mem.map(esc).join(' · ')}</div>` : ''}${dt.thoughts && dt.thoughts.length ? `<div class="do">💭 ${dt.thoughts.map(t => esc(t[0]) + ' (' + (t[1] > 0 ? '+' : '') + t[1] + ')').join(' · ')}</div>` : ''}${dt.skills ? `<div class="do">🛠️ ${dt.skills.map(s => s[0] + ' ' + s[1]).join(' · ')}${dt.ill && dt.ill.length ? ' · 🤒 ' + dt.ill.join(', ') : ''} · STR ${dt.attrs[0]} DEX ${dt.attrs[1]} INT ${dt.attrs[2]} END ${dt.attrs[3]} CHA ${dt.attrs[4]} WIL ${dt.attrs[5]}</div>` : ''}
+    ${dt.mem && dt.mem.length ? `<div class="do">🧠 remembers ${dt.mem.map(esc).join(' · ')}</div>` : ''}${dt.thoughts && dt.thoughts.length ? `<div class="do">💭 ${dt.thoughts.map(t => esc(t[0]) + ' (' + (t[1] > 0 ? '+' : '') + t[1] + ')').join(' · ')}</div>` : ''}${dt.skills ? `<details class="more"><summary>skills &amp; stats</summary><div class="do">🛠️ ${dt.skills.map(s => s[0] + ' ' + s[1]).join(' · ')}${dt.ill && dt.ill.length ? ' · 🤒 ' + dt.ill.join(', ') : ''} · STR ${dt.attrs[0]} DEX ${dt.attrs[1]} INT ${dt.attrs[2]} END ${dt.attrs[3]} CHA ${dt.attrs[4]} WIL ${dt.attrs[5]}</div></details>` : ''}
     <div class="do">✨ Dream: ${dt.dream}${dt.thieves.length ? ` · 🥷 distrusts ${dt.thieves.map(i => names[i]).join(', ')}` : ''}</div>
     <div class="fr">${dt.friends.length ? dt.friends.map(f => `<a data-i="${f[0]}">${names[f[0]]}</a>`).join('') : '<span class="hint" style="color:#7d8ba1">no close friends yet</span>'}</div>
     <div class="act"><button data-a="gift" ${dis('gift')}>🎁 +$2.5k${cd('gift')}</button><button data-a="cupid" ${dis('cupid')}>💘 Cupid${cd('cupid')}</button><button data-a="zap" ${dis('zap')}>⚡ Zap${cd('zap')}</button></div>`;
   { const fc = $('#cface'); if (fc && dt.face) drawFace(fc, dt.face, 36); const wb = $('#wbtn'); if (wb) wb.onclick = () => toggleWatch(dt.id); }
   c.querySelectorAll('a[data-i]').forEach(a => a.onclick = () => select(+a.dataset.i));
   c.querySelectorAll('button[data-a]').forEach(b => b.onclick = () => send({ t: 'act', n: b.dataset.a, id: sel }));
+  ltUpdate();
   if (dt.dead && !deadTimer) deadTimer = setTimeout(() => { deadTimer = null; if (sel === dt.id) select(-1); }, 4000);
 }
 /* ---------- characters: faces, cast, follow ---------- */
@@ -266,15 +275,84 @@ function director(m) {
   if (now - userAt < 18000) return;
   if (now - lastShot < 7000 && m.w < 4) return;
   lastShot = now; dirUntil = now + 9000; dirIds = m.ids.slice(0, 2);
+  ltWhy = m.x;   // the lower third says why the camera is here
   pick_(m.ids[0], false);
 }
+/** Zoom for a close-up, as pixels per tile: roomy on a big screen, wider on a phone so you still see the street around them. */
+function followZoom(pair: boolean) { const px = Math.min(26, Math.max(13, viewW() / 28)) * (pair ? 0.78 : 1); return px / fit; }
 function pick_(id, user) {
   if (user) { userAt = performance.now(); dirIds = null; }
+  if (user || id < 0) ltWhy = '';
   sel = id; follow = id >= 0; detail = null;
-  if (id >= 0) { send({ t: 'sel', id }); camTarget = (dirIds && dirIds.length > 1 ? 20 : 26) / fit; $('#card').innerHTML = `<h3>${dots[id].name}</h3><div class="do">…</div>`; if (LOCAL) handle(localWorld.detail(id)); }
+  if (id >= 0) { send({ t: 'sel', id }); camTarget = followZoom(dirIds && dirIds.length > 1); $('#card').innerHTML = `<h3>${dots[id].name}</h3><div class="do">…</div>`; if (LOCAL) handle(localWorld.detail(id)); }
   else { send({ t: 'sel', id: -1 }); camTarget = 1; $('#card').innerHTML = '<div class="hint">Tap a dot to follow it.<br>🎥 auto-camera cuts to the drama.</div>'; }
+  ltUpdate();
 }
 function select(id) { pick_(id, true); }
+
+/* ---------- broadcast layer: lower third, story chips, drama meter, panels ---------- */
+let ltWhy = '', ltShownFor = -2, chipKey = '';
+const isMobile = () => window.innerWidth <= 820;
+/** The caption that says who the camera is on and why. */
+function ltUpdate() {
+  const lt = $('#lt'); if (!lt) return;
+  if (sel < 0 || !dots[sel]) { lt.classList.remove('show'); ltShownFor = -2; return; }
+  const dt = detail && detail.id === sel ? detail : null, town = dt && blds[dt.home] && setts[blds[dt.home].s] ? setts[blds[dt.home].s].n : '';
+  $('#ltk').textContent = ltWhy ? '🎥 ON CAMERA' : '● FOLLOWING';
+  $('#ltn').textContent = dt ? (dt.name + (dt.fam ? ' ' + dt.fam : '')) : dots[sel].name;
+  $('#lts').textContent = dt ? [dt.nick ? '“' + dt.nick + '”' : '', dt.mayor ? 'mayor' : dt.job, town, 'age ' + dt.age].filter(Boolean).join(' · ') : '';
+  $('#ltw').textContent = ltWhy || (dt ? dt.doing : '');
+  if (dt && dt.face) drawFace($('#ltface'), dt.face, 56);
+  if (ltShownFor !== sel) { lt.classList.remove('show'); void lt.offsetWidth; ltShownFor = sel; }   // restart the slide-in for a new subject
+  lt.classList.add('show');
+}
+$('#lt').onclick = () => { if (isMobile()) setSheet('full'); else if ($('#app').classList.contains('closed')) toggleDrawer(); };
+/** Storyteller tension -> a word and a bar; active story arcs -> tappable chips on the map. */
+function dramaAndChips() {
+  const t = stat.tension || 0, word = t < 1 ? 'calm' : t < 2.5 ? 'stirring' : t < 4 ? 'tense' : 'crisis';
+  const d = $('#drama'); d.querySelector('b').textContent = word; (d.querySelector('.m i') as HTMLElement).style.width = Math.min(100, t / 5 * 100) + '%';
+  const list = (stat.arcs || []).slice(0, isMobile() ? 1 : 3), key = list.map(a => a.i + ':' + a.s + ':' + a.b).join('|');
+  if (key === chipKey) return; chipKey = key;
+  $('#chips').innerHTML = list.map(a => `<div class="chip" data-id="${a.ids[0]}"><em>UNFOLDING · DAY ${a.d + 1}</em><b>${esc(a.t)}</b>${a.b ? `<small>${esc(a.b)}</small>` : ''}</div>`).join('');
+  $('#chips').querySelectorAll('.chip').forEach(c => (c as HTMLElement).onclick = () => { const id = +(c as HTMLElement).dataset.id; if (id >= 0 && dots[id]) select(id); });
+}
+/** Work out how much of the canvas the floating UI covers, so the camera centres on what is visible. */
+let laidOut = false;
+function layout() {
+  const app = $('#app'), hud = $('#hud'); if (!app || !hud) return;
+  app.style.setProperty('--hud-h', hud.getBoundingClientRect().height + 'px');
+  const side = $('#side'), top = hud.getBoundingClientRect().bottom + 6;
+  inset.t = top;
+  if (isMobile()) { inset.r = 0; inset.b = side.getBoundingClientRect().height; }
+  else { inset.r = app.classList.contains('closed') ? 0 : side.offsetWidth + 20; inset.b = 0; }
+  if (!laidOut) { laidOut = true; Object.assign(insetCur, inset); }
+  if (W) fit = Math.min((cssW - inset.r) / W, (cssH - inset.t - inset.b) / H);
+}
+const SHEETS = ['peek', 'half', 'full'];
+function setSheet(name) { $('#app').dataset.sheet = name; layout(); }
+function toggleDrawer(force?: boolean) {
+  const app = $('#app'), closed = force === undefined ? !app.classList.contains('closed') : force;
+  app.classList.toggle('closed', closed); $('#drawerBtn').textContent = closed ? '‹' : '›'; layout();
+  try { localStorage.setItem('dv-drawer', closed ? '0' : '1'); } catch (e) { }
+}
+$('#drawerBtn').onclick = () => toggleDrawer();
+try { if (localStorage.getItem('dv-drawer') === '0') toggleDrawer(true); } catch (e) { }
+{ /* bottom-sheet drag: tap cycles, drag up/down snaps to the next position */
+  const g = $('#grab'); let y0 = null;
+  g.addEventListener('pointerdown', e => { y0 = e.clientY; g.setPointerCapture(e.pointerId); });
+  g.addEventListener('pointerup', e => {
+    if (y0 === null) return; const dy = e.clientY - y0; y0 = null; const i = SHEETS.indexOf($('#app').dataset.sheet);
+    setSheet(SHEETS[Math.abs(dy) < 8 ? (i + 1) % 3 : dy < 0 ? Math.min(2, i + 1) : Math.max(0, i - 1)]);
+  });
+}
+$('#tabs').addEventListener('click', () => { if (isMobile() && $('#app').dataset.sheet === 'peek') setSheet('half'); });
+{ /* meddle menu */
+  const menu = $('#menu'), btn = $('#bMenu'); const close = () => { menu.classList.remove('open'); btn.setAttribute('aria-expanded', 'false'); };
+  btn.onclick = e => { e.stopPropagation(); const o = menu.classList.toggle('open'); btn.setAttribute('aria-expanded', String(o)); };
+  document.addEventListener('click', e => { if (!menu.contains(e.target as Node)) close(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+}
+
 
 /* ---------- terrain layer (re-rendered when tiles change) + dynamic buildings ---------- */
 let stat0 = null, terrDirty = false, terrAt = 0; const T0 = 12;
@@ -387,17 +465,15 @@ function drawBld(b, s, now) {
 
 /* ---------- camera + render ---------- */
 function resize() {
-  dpr = window.devicePixelRatio || 1; cssW = $('#stage').clientWidth;
-  const maxH = window.innerWidth <= 820 ? Math.min(window.innerHeight * 0.52, cssW * H / W) : $('#stage').clientHeight;
-  cssH = W ? Math.min(Math.round(cssW * H / W), maxH) : 200;
-  if (window.innerWidth > 820) cssH = Math.min(Math.round(cssW * H / W), $('#stage').clientHeight);
-  fit = Math.min(cssW / W, cssH / H);
+  dpr = window.devicePixelRatio || 1; cssW = $('#stage').clientWidth; cssH = $('#stage').clientHeight || 200;
+  layout();
+  fit = W ? Math.min((cssW - inset.r) / W, (cssH - inset.t - inset.b) / H) : 5;
   cv.style.width = cssW + 'px'; cv.style.height = cssH + 'px'; cv.width = cssW * dpr; cv.height = cssH * dpr;
 }
 addEventListener('resize', resize);
 const sc = () => fit * cam.z, zMax = () => 40 / fit;
-const toS = (x, y) => [(x - cam.x) * sc() + cssW / 2, (y - cam.y) * sc() + cssH / 2];
-function clampCam() { const s = sc(), vw = cssW / s, vh = cssH / s; cam.x = vw >= W ? W / 2 : Math.max(vw / 2, Math.min(W - vw / 2, cam.x)); cam.y = vh >= H ? H / 2 : Math.max(vh / 2, Math.min(H - vh / 2, cam.y)); }
+const toS = (x, y) => [(x - cam.x) * sc() + viewCX(), (y - cam.y) * sc() + viewCY()];
+function clampCam() { const s = sc(), vw = viewW() / s, vh = viewH() / s; cam.x = vw >= W ? W / 2 : Math.max(vw / 2, Math.min(W - vw / 2, cam.x)); cam.y = vh >= H ? H / 2 : Math.max(vh / 2, Math.min(H - vh / 2, cam.y)); }
 function dark() { const h = tod * 24; if (h < 5 || h >= 21) return 0.52; if (h < 7.5) return 0.52 * (7.5 - h) / 2.5; if (h >= 18.5) return 0.52 * (h - 18.5) / 2.5; return 0; }
 function rr(x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
 /** dollars, compact: $1.2M, $48k, $812 */
@@ -408,18 +484,19 @@ function draw(now) {
   requestAnimationFrame(draw);
   if (!ready) return;
   reportView(now);
-  // camera easing
+  // camera easing (and glide the map centre when a panel opens or closes)
+  for (const k of ['t', 'r', 'b'] as const) { insetCur[k] += (inset[k] - insetCur[k]) * 0.18; if (Math.abs(inset[k] - insetCur[k]) < 0.5) insetCur[k] = inset[k]; }
   if (camTarget !== null) { cam.z += (camTarget - cam.z) * 0.12; if (Math.abs(camTarget - cam.z) < 0.01) { cam.z = camTarget; camTarget = null; } }
   for (const d of dots) { const a = clamp01((now - d.t0) / 200); d.x = d.fx + (d.tx - d.fx) * a; d.y = d.fy + (d.ty - d.fy) * a; }
   if (dirIds && now > dirUntil) { dirIds = null; if (performance.now() - userAt > 18000) pick_(-1, false); }
-  if (follow && sel >= 0) {
+  if (follow && sel >= 0 && dots[sel] && dots[sel].seen === true) {   // wait until the server has actually sent this dot's position (otherwise the camera flies to the map corner)
     let tx = dots[sel].x, ty = dots[sel].y;
     if (dirIds && dirIds.length > 1) { const o = dots[dirIds[1]]; if (!(o.fl & 65)) { tx = (tx + o.x) / 2; ty = (ty + o.y) / 2; } }
     cam.x += (tx - cam.x) * 0.15; cam.y += (ty - cam.y) * 0.15;
   }
   clampCam();
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  ctx.fillStyle = '#0d1016'; ctx.fillRect(0, 0, cssW, cssH);
+  ctx.fillStyle = '#0a1c2c'; ctx.fillRect(0, 0, cssW, cssH);   // deep sea beyond the coast (the map floats under the UI)
   const s = sc(), [ox, oy] = toS(0, 0);
   if (terrDirty && now - terrAt > 400) { terrAt = now; buildStatic(); }
   ctx.imageSmoothingEnabled = true; ctx.drawImage(stat0, ox, oy, W * s, H * s);
@@ -462,7 +539,7 @@ function draw(now) {
     if (d.fl & 16) { ctx.fillStyle = '#ffe27a'; ctx.fillRect(x - R * .4, y - R * 1.7, R * .8, R * .8); }
     if (act === 7 && !(d.fl & 32)) { ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x + R * 1.1, y - R * 1.1, Math.max(1.3, R * .38), 0, 7); ctx.fill(); }
     if (d.fl & 32) { ctx.strokeStyle = '#ff4d3d'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, y, R + 3 + Math.abs(Math.sin(now / 90)) * 3, 0, 7); ctx.stroke(); if (s > 7) { ctx.font = `${Math.max(11, R * 3)}px "Apple Color Emoji","Noto Color Emoji",system-ui`; ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; ctx.fillText('💥', x, y - R - 6); } }
-    if (d.id === sel || s > 16) lblQ.push({ d, x, y, R, pri: d.id === sel ? -1 : Math.hypot(x - cssW / 2, y - cssH / 2) });
+    if (d.id === sel || s > 16) lblQ.push({ d, x, y, R, pri: d.id === sel ? -1 : Math.hypot(x - viewCX(), y - viewCY()) });
   }
   drawLabels(lblQ, s);
   const R = R0;

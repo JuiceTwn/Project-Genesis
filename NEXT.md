@@ -93,3 +93,14 @@ aggregate shortcuts with individual agents and objects wherever the speed budget
 - `npm run typecheck` = `tsc -p .` plus a ratchet (`scripts/typing-ratchet.mjs`, baseline in `typing-baseline.json`): implicit-any spots per file may only go down. 541 left (370 in `client/main.ts`). After cleaning some, run `node scripts/typing-ratchet.mjs --update` to lock it in.
 - `Dot` and `Building` still have `[k: string]: any` escape hatches (systems attach fields lazily); a wrong label (e.g. a dot marked Building) will not error, so review annotations by hand.
 - Remaining next steps: smaller test world for a faster suite, clean the 541 implicit-any spots, long-run re-measure after the bank fix, then deploy.
+
+## UX: the "Dotville Live" broadcast layout (client/index.html + main.ts)
+- Concept: a live broadcast on a living country, not a game UI. Full-bleed map; everything else floats over it as glass panels. The camera centres on whatever area the panels leave free (`inset`/`insetCur`, `layout()`), and the server is sent the full on-screen rectangle.
+- HUD bar: LIVE badge (DEMO in the no-server build), clock, pop/mood/food, a **drama meter** (storyteller tension: calm / stirring / tense / crisis), viewers, and a Meddle menu (festival, blight, translate, auto-camera, demo speed).
+- **Lower third**: who the camera is on and *why* (the event that triggered the cut). Click opens the dossier.
+- **Story chips**: the storyteller's active arcs, tappable, jump the camera to the people involved.
+- Desktop: right drawer (collapsible, remembered). Phone: bottom sheet with three snaps (peek / half / full), tabs pinned, one scrolling column; touch targets >= 44 px.
+- Tabs: Wire (feed), Country (town), Stories, Gazette, Cast. Dossier tucks raw stats behind "skills & stats".
+- Close-up zoom is per screen size (`followZoom`), and the camera waits for a dot's position to arrive before following it (no more flying to the map corner).
+- Client state (`dots`, `blds`, `setts`, `stat`, `detail`...) is typed from `shared/protocol.ts`: implicit-any spots 541 -> 361.
+- Not done: demo.html is still a cold start (warm-up is server-only); no sound; the map has no minimap; phone landscape is untested.
