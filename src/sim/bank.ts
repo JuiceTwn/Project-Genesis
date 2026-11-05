@@ -26,7 +26,7 @@ function bankEquity(this: World): number { return this.bank ? this.bank.cash + t
 /** Found a bank: the richest adult puts up the capital. */
 function foundBank(this: World, gen = 1) {
   const rich = this.dots.filter(d => !d.dead && d.adult).sort((a, b) => b.coin - a.coin)[0]; if (!rich) return;
-  const cap = Math.min(rich.coin * 0.4, 400 * KB * 5); if (cap < 50 * KB) return;
+  const cap = Math.min(rich.coin * 0.4, 400 * KB * 5); if (cap < 15 * KB) return;
   rich.coin -= cap;
   this.bank = { name: `${this.pick(N1)} ${this.pick(N2)}`, owner: rich.id, born: this.tick, cash: cap, loans: [], fear: 0, nextLoan: 1, paid: 0, lost: 0, interestIn: 0, failedAt: -1, runs: 0, gen };
   this.ev('bank', `🏦 ${rich.name} opened ${this.bank.name} with ${R.usd(cap)} of capital. It takes savings at ${Math.round(SAVE_RATE * 100)}% and lends at ${Math.round(LOAN_RATE * 100)}%.`, [rich.id], 0, 4);
