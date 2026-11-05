@@ -27,6 +27,7 @@ function voteBias(this: World, v, c, g): number {
   if (v.job === 3 && v.work < 0 && this.partyOf(c) === 'Progress') b += 14;
   if ((g.crime || 0) > 2 && this.partyOf(c) === 'Order') b += 18;
   if (v.coin > 150 * R.KB && PLATFORM[this.partyOf(c)].tax < 0) b += 10;
+  b += Math.min(15, (c.fame || 0) * 0.15) - Math.min(25, (c.ire || 0) * 0.5);
   if (c.id === g.mayor && (g.unrest || 0) > 0) b -= 18 * Math.min(3, g.unrest);
   return b;
 }

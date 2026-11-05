@@ -76,7 +76,7 @@ function step(this: World) {
   }
   this.stealTick();
   if (tk % Math.round(50 * TS) === 0) this.couples();
-  if (tk % Math.round(DAY_TICKS / 4) === 0) this.restockMarkets();
+  if (tk % Math.round(DAY_TICKS / 4) === 0) { this.restockMarkets(); this.mediaSpread(); }
   // tavern chatter
   for (const b of this.taverns) if (b.occ > 0 && tk % 25 === b.id % 25) {
     const o = this.pick(b.inside), lines = [[C.ME, C.WANT, C.DRINK], [C.HELLO], [C.ME, C.HAPPY], [C.YOU, C.GOOD], [C.DRINK, C.GOOD], [C.ME, C.LIKE, C.FRIEND]];
@@ -87,7 +87,7 @@ function step(this: World) {
 function dawn(this: World) {
   this.mortality(); this.retirement();
   if (this.day() % K.MONTH_DAYS === 0) { this.monthlyHousing(); this.mortgageMonth(); this.politicsMonth(); this.policeMonth(); }
-  this.budgetDawn(); this.gearDawn(); this.brandDawn(); this.bankDawn(); this.mortgageDawn(); this.crimeDawn();
+  this.budgetDawn(); this.gearDawn(); this.brandDawn(); this.bankDawn(); this.mortgageDawn(); this.crimeDawn(); this.mediaDay();
   this.gazetteDawn();   // the paper goes to press with yesterday's news before today's begins
   const day = this.day();
   const alive = this.dots.filter(d => !d.dead);

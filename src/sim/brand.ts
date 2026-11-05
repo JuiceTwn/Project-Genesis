@@ -41,7 +41,7 @@ function pickStore(this: World, d) {
     if (b.state !== 'ok') continue;
     const dist = this.F(b)[d.y * W + d.x]; if (dist >= K.INF) continue;
     const br = b.brand !== undefined && b.brand >= 0 ? this.brands[b.brand] : null;
-    const appeal = br ? 1.4 * br.quality + 0.9 * br.awareness - 1.3 * (br.price - 1) + (d.fav === br.id ? 0.55 : 0) + 0.3 * br.rep : 0.3;
+    const appeal = br ? 1.4 * br.quality + 0.9 * br.awareness - 1.3 * (br.price - 1) + (d.fav === br.id ? 0.55 : 0) + 0.8 * br.rep : 0.3;
     const v = appeal * 40 - dist + this.rnd() * 8;
     if (v > bv) { bv = v; best = b; }
   }
