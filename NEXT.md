@@ -77,3 +77,12 @@ aggregate shortcuts with individual agents and objects wherever the speed budget
 - Tests that depend on a coin flip should retry (e.g. sponsorship deals). Tests that tamper with money must re-baseline.
 - Big heredoc shell commands were rejected once by the safety check: write files with the file tool instead.
 - Save format is v4; new per-dot fields are optional so old saves still load. Gazette and story archives live under `data/archive/` (gitignored). Determinism: pass `deterministic: true` and a seed to `World`.
+
+## Server hardening (done) and open items
+- Feed rollup (`src/shared/feed.ts`): same-key events merge with a count, on the server (per broadcast batch and in join history) and in the client. Events carry `tk` (sim tick) so the feed shows real times.
+- Join message is built fresh per joiner (5 s cache) and sent gzip-compressed as binary type byte 2 (475 KB -> 104 KB). Frames are type byte 1.
+- New worlds warm up headless (`WARMUP_DAYS`, default 3, ~30 s). Saves are atomic with 6 rotating backups; boot falls back through them (`src/server/store.ts`).
+- Tick errors are caught; 5 in a row exit without saving. `/health` returns 503 on a stalled loop. Per-IP limits: `MAX_PER_IP`, `ACT_GAP_MS`, `TRUST_PROXY`. Deploy files in `deploy/`.
+- `npm run loadtest -- 200 15 ws://localhost:3000`: 200 viewers held 5.00 Hz, ~3.6 MB/s out, ~50% of one core.
+- **Failing tests on main (pre-existing, verified on 6f582a0):** `bank: opens, takes deposits, lends...` ("people saved") and `thoughts: a collapsed mood causes a break...` ("they drank their sorrows away"). 46/48 pass.
+- Next: fix those two tests, smaller test world for faster suite (it takes ~10 min), type the sim interfaces and un-`@ts-nocheck` the client, then deploy for real.
