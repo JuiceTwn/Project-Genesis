@@ -34,7 +34,7 @@ function restockMarkets(this: World) {
 }
 
 function payWage(this: World, b, d, w: number): number {
-  if (b.state !== 'ok' || !this.isBiz(b)) return w;   // odd jobs on a site etc.: the site's escrow pays elsewhere
+  if (b.state !== 'ok' || !this.isBiz(b)) return 0;   // nobody pays wages out of thin air: site crews are paid from escrow (buildStep), a closed workplace pays nothing
   const [o, k] = this.till(b);
   if (o[k] >= w) { o[k] -= w; b.wage += w; d.unpaid = 0; return this.withhold(b, w); }
   const frac = w / (K.WAGE[b.type] || K.DAY_WAGE); d.unpaid = (d.unpaid || 0) + frac; this.biz.unpaid += frac;
@@ -82,6 +82,11 @@ function fail(this: World, b, visits) {
 }
 
 function hire(this: World) {
+  for (const d of this.dots) {   // anyone whose workplace has closed down is out of work (site crews may work at a site that is still being built)
+    if (d.dead || !d.adult || d.work < 0 || d.job > 2) continue;
+    const wb = this.buildings[d.work];
+    if (!wb || (wb.state !== 'ok' && !(wb.state === 'build' && d.job === 1))) { d.job = 3; d.work = -1; }
+  }
   const staff = new Map(); for (const d of this.dots) if (!d.dead && d.adult && d.work >= 0) staff.set(d.work, (staff.get(d.work) || 0) + 1);
   const pools = {}; for (const d of this.dots) if (!d.dead && d.adult && d.job === 3 && d.age < d.life * K.RETIRE_FRAC) (pools[this.buildings[d.home].sid] = pools[this.buildings[d.home].sid] || []).push(d);
   for (const b of this.buildings) b.staff = staff.get(b.id) || 0;
