@@ -35,12 +35,12 @@ export const NATION_TAX = 0.22;                            // national income ta
 export const LOCAL_TAX_DEFAULT = 3;                        // % of wages kept by the town (mayors move it between 1 and 8)
 export const BENEFIT = 0.4 * DAY_WAGE;                     // unemployment benefit per day for the jobless with little cash
 export const LABOUR_SHARE = 0.45;                          // share of a building's cost that is wages (the rest is imported materials)
-/** Wealth: lognormal, median $9k liquid, sigma 1.9 (Gini ~0.82, top 1% ~33%, top 10% ~73%); older adults hold more. */
+/** Wealth: lognormal, median $9k liquid, sigma 1.8 (Gini ~0.80, top 1% ~30%, top 10% ~70%); older adults hold more. */
 export function drawWealth(rf: () => number, age: number): number {
   if (age < ADULT) return 0;
   const u1 = Math.max(1e-9, rf()), u2 = rf(), z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
   const lifeStage = age < 25 ? 0.2 : age < 35 ? 0.6 : age < 55 ? 1.3 : 2.0;
-  return 9000 * lifeStage * Math.exp(1.9 * z);
+  return 9000 * lifeStage * Math.exp(1.8 * z);
 }
 /** Workplace wage per 8-hour shift (= a day's pay) and export revenue per shift, by building type (see BT). Revenue is ~1.45x the wage. */
 export const WAGE_BY_TYPE = [0, 0, 0, 700, 760, 0, 0, 800, 1000, 780, 620];
