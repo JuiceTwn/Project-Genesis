@@ -10,8 +10,8 @@
 
 /** A feed event. `tk` = sim tick it happened; `n` = how many identical-looking events it stands for (see shared/feed.ts). */
 export interface EvMsg { t: 'ev'; k: string; x: string; ids: number[]; w: number; tk?: number; n?: number }
-/** A dot (d) or a building (b) says something: tokens from the lexicon. */
-export interface SayMsg { t: 'say'; d?: number; b?: number; k: number[] }
+/** A dot (d) or a building (b) says something, in English (see sim/speech.ts). `k` is only used inside the sim before the line is rendered. */
+export interface SayMsg { t: 'say'; d?: number; b?: number; s: string; k?: number[] }
 export interface BornMsg { t: 'born'; id: number; name: string; f: string; j: number; h: number; tr: string[] }
 /** Building view. st: 0 ok, 1 under construction, 2 vacant, 3 gone. */
 export interface BldView { i: number; ty: number; x: number; y: number; n: string; d: number[]; w: number; h: number; st: 0 | 1 | 2 | 3; o: number; s: number; f: string; ow: string }
@@ -36,7 +36,7 @@ export interface InitMsg {
   setts: SettView[]; blds: BldView[];
   hist: EvMsg[]; chron: ChronEntry[]; issue: any | null; arcs: ArcView[];
   dots: { n: string; f: string; j: number; h: number; tr: string[] }[];
-  lex: any; jobs: string[]; bt: string[];
+  jobs: string[]; bt: string[];
 }
 export interface StatsMsg {
   t: 'stats'; arcs: ArcView[]; tension: number; day: number; pop: number;

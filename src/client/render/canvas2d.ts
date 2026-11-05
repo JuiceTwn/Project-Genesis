@@ -15,19 +15,26 @@ const clamp01 = (v: number) => v < 0 ? 0 : v > 1 ? 1 : v;
 
 export interface Canvas2DOptions { theme?: Theme; sprites?: SpriteAtlas; terrain?: TerrainPainter }
 
+/** Wrap a speech line to a few short rows so long sentences stay readable. */
+function wrapLine(c: CanvasRenderingContext2D, text: string, maxW: number): string[] {
+  const words = text.split(' '), rows: string[] = []; let row = '';
+  for (const wd of words) { const t = row ? row + ' ' + wd : wd; if (row && c.measureText(t).width > maxW) { rows.push(row); row = wd; } else row = t; }
+  if (row) rows.push(row); return rows.slice(0, 4);
+}
+
 export function createCanvas2DRenderer(cv: HTMLCanvasElement, opts: Canvas2DOptions = {}): Renderer {
   const ctx = cv.getContext('2d')!, theme = opts.theme ?? THEME, atlas = opts.sprites ?? SpriteAtlas.empty;
   let v: RenderView;
   /* The view's fields, rebound at the start of every frame so the drawing code below can use plain names. */
   let cam: Camera, W = 0, H = 0, tiles = '', wk = '', el: Uint8Array = new Uint8Array(0);
   let setts: SettView[] = [], blds: BldView[] = [], dots: DotView[] = [], stat: StatsMsg | null = null, detail: DetailMsg | null = null;
-  let sel = -1, dens: Uint8Array | null = null, denseW = 0, denseH = 0, tod = 0, translate = true, bubbles: Bubble[] = [], occ: number[] = [];
+  let sel = -1, dens: Uint8Array | null = null, denseW = 0, denseH = 0, tod = 0, bubbles: Bubble[] = [], occ: number[] = [];
   let cssW = 0, cssH = 0, dpr = 1;
   const sc = () => cam.sc(), toS = (x: number, y: number) => cam.toS(x, y), viewCX = () => cam.viewCX(), viewCY = () => cam.viewCY(), viewW = () => cam.viewW();
   function bind(view: RenderView) {
     v = view; cam = view.camera; W = view.W; H = view.H; tiles = view.tiles; wk = view.wk; el = view.el;
     setts = view.setts; blds = view.blds; dots = view.dots; stat = view.stat; detail = view.detail; sel = view.sel;
-    dens = view.dens; denseW = view.denseW; denseH = view.denseH; tod = view.tod; translate = view.translate; bubbles = view.bubbles; occ = view.occ;
+    dens = view.dens; denseW = view.denseW; denseH = view.denseH; tod = view.tod; bubbles = view.bubbles; occ = view.occ;
     cssW = cam.cssW; cssH = cam.cssH; dpr = cam.dpr;
   }
   let stat0: HTMLCanvasElement | null = null, terrDirty = false, terrAt = 0, shoreD: Uint8Array | null = null;
@@ -235,15 +242,14 @@ export function createCanvas2DRenderer(cv: HTMLCanvasElement, opts: Canvas2DOpti
   for (const b of list) {
     let wx, wy;
     if (b.d !== undefined) { const d = dots[b.d]; if (d.fl & 65) continue; wx = d.x; wy = d.y; } else { const B = blds[b.b]; wx = B.x + 1.5; wy = B.y + 0.5; }
-    const [x, y0] = toS(wx, wy), age = now - b.t0, a = age < 250 ? age / 250 : age > 3000 && !(b.d === sel) ? Math.max(0, 1 - (age - 3000) / 400) : 1;
+    const [x, y0] = toS(wx, wy), age = now - b.t0, life = (b.d === sel && sel >= 0 ? 5200 : 3200) + b.text.length * 40;
+    const a = age < 250 ? age / 250 : age > life - 400 && !(b.d === sel) ? Math.max(0, (life - age) / 400) : 1;
     const fs = Math.max(10, Math.min(13, s * 0.8)), y = y0 - R - 6 - Math.min(10, age / 60);
-    ctx.globalAlpha = a; ctx.font = `700 ${fs}px system-ui`; const w1 = ctx.measureText(b.inv).width;
-    let w2 = 0; if (translate) { ctx.font = `${fs - 2}px system-ui`; w2 = ctx.measureText(b.en).width; }
-    const w = Math.max(w1, w2) + 12, h = translate ? fs * 2 + 6 : fs + 8;
+    ctx.globalAlpha = a; ctx.font = `600 ${fs}px system-ui`;
+    const rows = wrapLine(ctx, b.text, 150), w = Math.max(...rows.map(r => ctx.measureText(r).width)) + 12, lh = fs + 2, h = rows.length * lh + 6;
     ctx.fillStyle = 'rgba(250,250,252,.95)'; rr(x - w / 2, y - h, w, h, 6); ctx.fill();
     ctx.beginPath(); ctx.moveTo(x - 4, y); ctx.lineTo(x + 4, y); ctx.lineTo(x, y + 5); ctx.fill();
-    ctx.fillStyle = '#1b2230'; ctx.font = `700 ${fs}px system-ui`; ctx.fillText(b.inv, x, y - h + (translate ? fs * 0.95 + 1 : h / 2));
-    if (translate) { ctx.fillStyle = '#5b6a82'; ctx.font = `${fs - 2}px system-ui`; ctx.fillText(b.en, x, y - 6 - (fs - 2) * 0.1); }
+    ctx.fillStyle = '#1b2230'; rows.forEach((r, i) => ctx.fillText(r, x, y - h + 3 + lh * (i + 0.5)));
     ctx.globalAlpha = 1;
   }
   }

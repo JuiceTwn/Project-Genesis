@@ -3,8 +3,7 @@
 **A tiny country of dots that builds itself. You just watch.**
 
 Dots farm, trade, fall in love, rob each other, start businesses, go bankrupt, elect mayors and die, all on a
-generated island with a capital, towns, villages and countryside. They talk in their own invented language
-(with translations for viewers). No LLM, no GPU: about 0.6 ms per 200 ms tick on one CPU core.
+generated island with a capital, towns, villages and countryside. They talk in plain English, generated from what is actually true about them. No LLM, no GPU: about 0.6 ms per 200 ms tick on one CPU core.
 
 ## The dream
 
@@ -25,8 +24,7 @@ is happening now. It's a window, not a game: slow, ambient and calming, closer t
 5. **Brains trained from scratch, small enough to run anywhere.** Decisions move from hand-written utility AI to
    a custom-trained policy (imitation, then RL), exported as an int8 ONNX under ~100 MB of RAM, running on a
    cheap VPS.
-6. **A language that grows.** Dots start with a grounded lexicon of about 40 concepts and invented words. Later
-   they coin and spread their own, so towns develop dialects and viewers learn to read them.
+6. **Speech that means something.** Dots talk in English built from real state (their thoughts, memories, job, family, grudges, the weather), in a voice shaped by their traits, with a verbal tic you learn to recognise. Later: lines that change what listeners believe, and slang that spreads between towns.
 7. **History you can read.** Years, eras, a chronicle of the country, and an archive of every settlement that
    rose and fell.
 
@@ -49,8 +47,7 @@ is happening now. It's a window, not a game: slow, ambient and calming, closer t
   property is inherited.
 - **People:** traits (thief, hothead, gossip, kind, romantic, jealous, coward, ambitious, lazy), dreams, friendships,
   marriage, births, aging and death. Seasons, weather, floating market prices.
-- **Language:** about 40 concept tokens mapped to invented words. Dots say true, useful things ("that market is
-  empty") and listeners act on them.
+- **Language:** English, no LLM (`src/sim/speech/`, with its own README). Systems say what they mean as an act; the engine picks a phrasing by what is true right now (time, weather, mood, age, traits, relationship, illness, fame), then adds a settlement **dialect**, the speaker's **persona** (a verbal tic, an oath, a sign-off, sometimes a quirk like speaking in the third person) and conditional **flourishes** (a hothead SHOUTS, a cough when ill, a yawn for a new parent, "As mayor,"). Chats are about something true: a fresh thought, a shared memory, work, family, a mutual acquaintance, the real news from the feed, banter between friends, a row between rivals. Listeners answer in character, and friends take turns. `npm run speech` lints the content and prints real conversations.
 - **Viewer layer:** feed, auto-camera, followable dots, Town tab with per-settlement mayors and budgets.
 
 ## Roadmap
@@ -83,6 +80,6 @@ TypeScript for the sim, worldgen, server and client; Python for offline tuning a
     ml/            Python: balance_report.py now; imitation/PPO training and ONNX export later
     tests/         node:test regression tests (determinism, invariants, save/load)
 
-Commands: `npm run build` (client + demo.html + server bundle), `npm start`, `npm run dev`, `npm test`,
+Commands: `npm run speech` (lint + sample conversations), `npm run build` (client + demo.html + server bundle), `npm start`, `npm run dev`, `npm test`,
 `npm run typecheck`, `npm run bench -- 40 --seed 7 --json ml/out/run.jsonl`, `npm run report ml/out/run.jsonl`,
 `npm run map -- 1337 map.png`.

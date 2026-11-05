@@ -31,7 +31,7 @@ function steal(this: World, t, v) {
   this.stats.thefts++;
   if (this.scar(v, 'robbed', 3)) this.shiftTrait(v, v.fx.temper > 1.2 ? 'vengeful' : 'cautious', 'robbed once too often');
   this.ev('theft', `🚨 ${t.name} robbed ${v.name}${noticed ? '' : ' unnoticed'}!${wit[0] ? ` ${wit[0].name} saw it.` : ''}`, [t.id, v.id], 0, 3);
-  for (const k of knowers) { if (k.fx.courage < -0.3) this.say(k, [C.AFRAID]); else if (k !== v) this.say(k, [1000 + t.id, C.THIEF]); }
+  for (const k of knowers) { if (k.fx.courage < -0.3) this.say(k, [C.AFRAID]); else if (k !== v) this.say(k, [K.TOK_PERSON + t.id, C.THIEF]); }
   if (noticed && v.fx.courage > -0.3 && this.rnd() < Math.min(0.97, 0.45 + 0.2 * v.fx.temper)) this.fight(v, t, { amt });
   else if (noticed) this.say(v, [C.ME, C.ANGRY]);
 }

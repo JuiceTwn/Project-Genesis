@@ -19,8 +19,8 @@ const LOCAL = !!window.__LOCAL__ || /[?&]local/.test(location.search);
 const JOBCOL = ['#7bd36b', '#f0a74a', '#b98cf0', '#59b6ee'];
 /** A dot as the client sees it: identity from the init/born messages, motion state filled in by each frame. */
 interface DotView { id: number; name: string; job: number; home: number; traits: string[]; col: string; x: number; y: number; tx: number; ty: number; fx: number; fy: number; t0: number; fl: number; seen: boolean; wasSeen?: boolean; [k: string]: any }
-let W: number, H: number, tiles: string, wk: string, el: Uint8Array, setts: SettView[] = [], blds: BldView[] = [], dots: DotView[] = [], lex: any[] = [], names: string[] = [], fams: string[] = [], bnames: string[] = [], JOBS: string[] = [], BTN: string[] = [];
-let tod = 0.3, day = 1, occ = [], sel = -1, follow = false, translate = true, bubbles = [], statsM = null;
+let W: number, H: number, tiles: string, wk: string, el: Uint8Array, setts: SettView[] = [], blds: BldView[] = [], dots: DotView[] = [], names: string[] = [], fams: string[] = [], bnames: string[] = [], JOBS: string[] = [], BTN: string[] = [];
+let tod = 0.3, day = 1, occ = [], sel = -1, follow = false, bubbles = [], statsM = null;
 let stat: StatsMsg | null = null, detail: DetailMsg | null = null, ready = false, lastClock = '';
 const TRI = Object.fromEntries(CATALOG.map(t => [t.id, t.emoji]));
 const parts = [];
@@ -86,7 +86,7 @@ function handle(m: ServerMsg) {
   }
 }
 function init(m: InitMsg) {
-  W = m.W; H = m.H; tiles = m.tiles; wk = m.wk; setts = m.setts; blds = m.blds; lex = m.lex; JOBS = m.jobs; BTN = m.bt;
+  W = m.W; H = m.H; tiles = m.tiles; wk = m.wk; setts = m.setts; blds = m.blds; JOBS = m.jobs; BTN = m.bt;
   const bin = atob(m.el); el = new Uint8Array(W * H); for (let i = 0; i < el.length; i++) el[i] = bin.charCodeAt(i);
   dots = m.dots.map((d, i) => ({ id: i, name: d.n, job: d.j, home: d.h, traits: d.tr || [], col: colFor(d.n), x: 0, y: 0, tx: 0, ty: 0, fx: 0, fy: 0, t0: 0, fl: 0, seen: false }));
   names = dots.map(d => d.name); fams = m.dots.map(d => d.f || '');
@@ -167,13 +167,13 @@ function ticker(m: EvMsg, live?: boolean) {
   if (m.ids && m.ids.length) el.onclick = () => select(m.ids[0]);
   t.prepend(el); while (t.children.length > 60) t.lastChild.remove();
 }
-function tokWord(k) { return k >= 3000 ? (setts[k - 3000] ? setts[k - 3000].n : '?') : k >= 2000 ? ((blds[k - 2000] || {}).n || 'home') : k >= 1000 ? names[k - 1000] : lex[k][0]; }
-function tokGloss(k) { return k >= 3000 ? (setts[k - 3000] ? setts[k - 3000].n : '?') : k >= 2000 ? (bnames[k - 2000] || 'home') : k >= 1000 ? names[k - 1000] : lex[k][1]; }
+/** How long a bubble stays up: longer lines stay longer; the selected dot's lines linger. */
+function bubbleLife(b: { d?: number; text: string }) { return (b.d === sel && sel >= 0 ? 5200 : 3200) + b.text.length * 40; }
 function say(m) {
-  const k = m.k, inv = k.map(tokWord).join(' '), en0 = k.map(tokGloss).join(' ');
-  const en = en0[0].toUpperCase() + en0.slice(1) + (lex[36] && k[0] === 36 ? '!' : '.');
+  const text = String(m.s || '');
+  if (!text) return;
   if (m.d !== undefined) { bubbles = bubbles.filter(b => b.d !== m.d); }
-  bubbles.push({ d: m.d, b: m.b, inv, en, t0: performance.now() });
+  bubbles.push({ d: m.d, b: m.b, text, t0: performance.now() });
   if (bubbles.length > 60) bubbles.shift();
 }
 function card() {
@@ -351,7 +351,7 @@ const view: RenderView = {
   get setts() { return setts; }, get blds() { return blds; }, get dots() { return dots; },
   get stat() { return stat; }, get detail() { return detail; }, get sel() { return sel; },
   get dens() { return dens; }, get denseW() { return denseW; }, get denseH() { return denseH; },
-  get tod() { return tod; }, get translate() { return translate; }, get bubbles() { return bubbles; }, get occ() { return occ; },
+  get tod() { return tod; }, get bubbles() { return bubbles; }, get occ() { return occ; },
 };
 
 let frozen = !!(window as any).__DV_TEST__;   // test pages render only on demand (shot)
@@ -373,7 +373,7 @@ function render(now) {
     cam.x += (tx - cam.x) * 0.15; cam.y += (ty - cam.y) * 0.15;
   }
   clampCam();
-  bubbles = bubbles.filter(b => now - b.t0 < (b.d === sel && sel >= 0 ? 5200 : 3400));
+  bubbles = bubbles.filter(b => now - b.t0 < bubbleLife(b));
   renderer.frame(view, now);
   const ct = `${stat ? ['🌱', '☀️', '🍂', '❄️'][stat.season] + ' Y' + stat.year + ' · ' : ''}Day <i>${day}</i> · <i>${clk()}</i>${stat && stat.weather ? (stat.weather === 2 ? ' ❄' : ' 🌧') : ''}`; if (ct !== lastClock) { lastClock = ct; $('#clock').innerHTML = ct; }
 }
@@ -400,7 +400,6 @@ $('#bBlight').onclick = () => send({ t: 'act', n: 'blight' });
 $('#bCam').onclick = e => { auto = !auto; e.currentTarget.classList.toggle('on', auto); if (!auto && dirIds) { dirIds = null; pick_(-1, false); } };
 document.querySelectorAll<HTMLElement>('#tabs button').forEach(b => b.onclick = () => { tab = b.dataset.t; document.querySelectorAll('#tabs button').forEach(x => x.classList.toggle('on', x === b)); $('#ticker').style.display = tab === 'feed' ? '' : 'none'; $('#town').style.display = tab === 'town' ? 'block' : 'none'; $('#story').style.display = tab === 'story' ? 'block' : 'none'; $('#gazette').style.display = tab === 'gazette' ? 'block' : 'none'; $('#cast').style.display = tab === 'cast' ? 'block' : 'none'; if (tab === 'cast') { castTab(); send({ t: 'cast' }); } if (tab === 'town') town(); if (tab === 'story') storyTab(); if (tab === 'gazette') gazetteTab(); });
 cv.addEventListener('pointerdown', () => { userAt = performance.now(); });
-$('#bTr').onclick = e => { translate = !translate; e.currentTarget.classList.toggle('on', translate); };
 $('#bSpd').onclick = e => { localSpeed = localSpeed === 1 ? 4 : localSpeed === 4 ? 12 : 1; e.currentTarget.textContent = '⏩ ×' + localSpeed; };
 
 requestAnimationFrame(draw);

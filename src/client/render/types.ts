@@ -6,7 +6,7 @@ import type { Camera } from './camera';
 /** A dot as the client sees it (identity from init/born, motion from each frame). */
 export interface DotView { id: number; name: string; job: number; home: number; traits: string[]; col: string; x: number; y: number; tx: number; ty: number; fx: number; fy: number; t0: number; fl: number; seen: boolean; wasSeen?: boolean; [k: string]: any }
 /** A speech bubble: `inv` is the invented word, `en` its translation. d = dot id or b = building id. */
-export interface Bubble { t0: number; inv: string; en: string; d?: number; b?: number }
+export interface Bubble { t0: number; text: string; d?: number; b?: number }
 
 export interface RenderView {
   camera: Camera;
@@ -18,8 +18,8 @@ export interface RenderView {
   sel: number;
   /** Zoomed-out overview: dots per 8x8-tile cell (null when individual dots are sent). */
   dens: Uint8Array | null; denseW: number; denseH: number;
-  /** Time of day 0..1, and whether speech bubbles show translations. */
-  tod: number; translate: boolean;
+  /** Time of day 0..1. */
+  tod: number;
   bubbles: Bubble[];
   /** People inside each building, by building id (for lit windows at night). */
   occ: number[];

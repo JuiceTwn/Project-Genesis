@@ -19,9 +19,9 @@ function day(this: World) { return Math.floor(this.tick / DAY_TICKS) + 1; }
 
 function isNight(this: World, d: Dot) { const t = this.tod(); return t < 0.22 + d.off || t > 0.88 + d.off; }
 
-function say(this: World, d: Dot, k) { this.out.push({ t: 'say', d: d.id, k }); }
+function say(this: World, d: Dot, k, to?: Dot) { this.out.push({ t: 'say', d: d.id, s: this.speak(k, d, to) }); }
 
-function sayB(this: World, b: Building, k) { this.out.push({ t: 'say', b: b.id, k }); }
+function sayB(this: World, b: Building, k) { this.out.push({ t: 'say', b: b.id, s: this.speak(k, undefined, undefined, b) }); }
 
 function ev(this: World, kind, text, ids, gap = 0, w = 1) {
   if (gap && this.tick - (this.lastEv[kind] || -1e9) < gap) return;

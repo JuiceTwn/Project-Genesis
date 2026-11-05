@@ -13,7 +13,7 @@ function addAff(this: World, a: Dot, b: Dot, v) {
   if (a.aff.size > 14) { let mk = -1, mv = 1e9; for (const [k, x] of a.aff) if (Math.abs(x) < mv && k !== b.id) { mv = Math.abs(x); mk = k; } a.aff.delete(mk); }
   if (prev < 25 && nv >= 25) {
     const o = this.dots[b.id].aff.get(a.id) || 0;
-    if (o >= 25) { const key = Math.min(a.id, b.id) * 1000 + Math.max(a.id, b.id); if (!this.pairs.has(key)) { this.pairs.add(key); this.stats.friends++; this.ev('friend', `🤝 ${a.name} and ${b.name} became friends.`, [a.id, b.id], 8); } }
+    if (o >= 25) { const key = Math.min(a.id, b.id) * K.TOK_PERSON + Math.max(a.id, b.id); if (!this.pairs.has(key)) { this.pairs.add(key); this.stats.friends++; this.ev('friend', `🤝 ${a.name} and ${b.name} became friends.`, [a.id, b.id], 8); } }
   }
 }
 
@@ -74,57 +74,55 @@ function couples(this: World) {
 }
 
 function dialogue(this: World, a: Dot, b: Dot) {
-  const tk = this.tick, nm = x => 1000 + x.id;
-  const L = [];
-  L.push([a, [C.HELLO].concat(this.rnd() < 0.4 ? [nm(b)] : [])]);
-  L.push([b, [C.HELLO].concat(this.rnd() < 0.4 ? [nm(a)] : [])]);
-  const fx = [];
-  const moodTok = s => s.hunger > 70 ? C.HUNGRY : s.energy < 30 ? C.TIRED : s.social < 30 ? C.LONELY : this.mood(s) > 65 ? C.HAPPY : C.SAD;
-  const topic = (s, l) => {
+  const tk = this.tick, nm = (x: Dot) => K.TOK_PERSON + x.id;
+  const L: [Dot, string][] = [];
+  const say = (who: Dot, act: any, to: Dot) => L.push([who, this.speak(act, who, to)]);
+  say(a, [C.HELLO].concat(this.rnd() < 0.4 ? [nm(b)] : []), b);
+  say(b, [C.HELLO].concat(this.rnd() < 0.4 ? [nm(a)] : []), a);
+  const fx: (() => void)[] = [];
+  const moodTok = (s: Dot) => s.hunger > 70 ? C.HUNGRY : s.energy < 30 ? C.TIRED : s.social < 30 ? C.LONELY : this.mood(s) > 65 ? C.HAPPY : C.SAD;
+  const topic = (s: Dot, l: Dot) => {
     if (s.hunger > 65) {
-      L.push([s, [C.ME, C.HUNGRY]]);
+      say(s, [C.ME, C.HUNGRY], l);
       const m = this.pickMarket(l);
-      if (m >= 0 && l.belief[this.buildings[m].mi] < 0) { L.push([l, [C.YOU, C.GO, 2000 + m]]); fx.push(() => { s.belief[this.buildings[m].mi] = -1; }); }
-      else L.push([l, [C.ME, C.SAD]]);
+      if (m >= 0 && l.belief[this.buildings[m].mi] < 0) { say(l, [C.YOU, C.GO, K.TOK_PLACE + m], s); fx.push(() => { s.belief[this.buildings[m].mi] = -1; }); }
+      else say(l, [C.ME, C.SAD], s);
       return true;
     }
-    for (const m of this.markets) { const bs = s.belief[m.mi]; if (bs >= 0 && tk - bs < 250 && !(l.belief[m.mi] >= 0 && tk - l.belief[m.mi] < 250)) { L.push([s, [2000 + m.id, C.NO, C.FOOD]]); L.push([l, [C.THANKS]]); fx.push(() => { l.belief[m.mi] = bs; }); return true; } }
-    if (s.coin < 12 * KB) { L.push([s, [C.ME, C.BROKE]]); L.push([l, [C.YOU, C.GO, C.WORK]]); return true; }
+    for (const m of this.markets) { const bs = s.belief[m.mi]; if (bs >= 0 && tk - bs < 250 && !(l.belief[m.mi] >= 0 && tk - l.belief[m.mi] < 250)) { say(s, [K.TOK_PLACE + m.id, C.NO, C.FOOD], l); say(l, [C.THANKS], s); fx.push(() => { l.belief[m.mi] = bs; }); return true; } }
+    if (s.coin < 12 * KB) { say(s, [C.ME, C.BROKE], l); say(l, [C.YOU, C.GO, C.WORK], s); return true; }
     if (s.adult && l.adult && s.partner < 0 && l.partner < 0 && s.home !== l.home && s.fam !== l.fam && s.rejectCd <= 0 && (s.aff.get(l.id) || 0) >= 22 && this.rnd() < Math.min(0.8, 0.2 * s.fx.romance)) {
-      L.push([s, [C.ME, C.LOVE, C.YOU]]);
-      if (this.rnd() < 0.3 + (l.aff.get(s.id) || 0) / 100 + Math.min(0.2, 0.075 * (l.fx.romance - 1))) { L.push([l, [C.ME, C.LOVE, C.YOU]]); fx.push(() => this.couple(s, l)); }
-      else { L.push([l, [C.NO, C.SORRY]]); fx.push(() => this.reject(s, l)); }
+      say(s, [C.ME, C.LOVE, C.YOU], l);
+      if (this.rnd() < 0.3 + (l.aff.get(s.id) || 0) / 100 + Math.min(0.2, 0.075 * (l.fx.romance - 1))) { say(l, [C.ME, C.LOVE, C.YOU], s); fx.push(() => this.couple(s, l)); }
+      else { say(l, [C.NO, C.SORRY], s); fx.push(() => this.reject(s, l)); }
       return true;
     }
     if (s.thieves.size) {
       const tid = [...s.thieves].find(x => x !== l.id && !this.dots[x].dead && !l.thieves.has(x));
-      if (tid !== undefined && this.rnd() < Math.min(0.95, 0.5 + 0.2 * (s.fx.gossip - 1))) { L.push([s, [1000 + tid, C.THIEF]]); L.push([l, [C.ANGRY]]); fx.push(() => { l.thieves.add(tid); this.addAff(l, this.dots[tid], -12); }); return true; }
+      if (tid !== undefined && this.rnd() < Math.min(0.95, 0.5 + 0.2 * (s.fx.gossip - 1))) { say(s, [K.TOK_PERSON + tid, C.THIEF], l); say(l, [C.ANGRY], s); fx.push(() => { l.thieves.add(tid); this.addAff(l, this.dots[tid], -12); }); return true; }
     }
     if (s.social < 70 && this.rnd() < 0.55 && l.coin >= K.DRINK_PRICE * 2 && s.coin >= K.DRINK_PRICE * 2) {
       const tav = this.rnd() < 0.4, place = tav ? this.nearest(this.taverns, s, 0) : this.nearest(this.parks, s, 10);
-      L.push([s, [C.YOU, C.AND, C.ME, C.GO, 2000 + place.id]]);
+      say(s, [C.YOU, C.AND, C.ME, C.GO, K.TOK_PLACE + place.id], l);
       const yes = (l.aff.get(s.id) || 0) + this.rnd() * 40 > 15;
-      if (yes) { L.push([l, [C.YES]]); fx.push(() => { const inv = { k: tav ? 'drink' : 'social', b: place.id, until: tk + 400 }; s.invite = inv; l.invite = Object.assign({}, inv); }); }
-      else L.push([l, [C.NO]]);
+      if (yes) { say(l, [C.YES], s); fx.push(() => { const inv = { k: tav ? 'drink' : 'social', b: place.id, until: tk + 400 }; s.invite = inv; l.invite = Object.assign({}, inv); }); }
+      else say(l, [C.NO], s);
       return true;
     }
-    const fr = [...s.aff.keys()].filter(k => k !== l.id && !this.dots[k].dead);
-    if (fr.length && this.rnd() < Math.min(0.9, 0.4 * Math.pow(s.fx.gossip, 0.8))) {
-      const c = this.dots[this.pick(fr)], good = (s.aff.get(c.id) || 0) >= 10;
-      L.push([s, [nm(c), good ? C.GOOD : C.BAD]]); L.push([l, [C.YES]]);
-      fx.push(() => this.addAff(l, c, good ? 3 : -3)); return true;
-    }
-    L.push([s, [C.ME, moodTok(s)]]); L.push([l, [C.ME, moodTok(l)]]); return true;
+    /* otherwise they actually talk: a thought, a memory, work, family, someone they both know, the town, the weather */
+    const talk = this.conversation(s, l);
+    if (talk) { for (const x of talk.lines) L.push(x); for (const f of talk.fx) fx.push(f); return true; }
+    say(s, [C.ME, moodTok(s)], l); say(l, [C.ME, moodTok(l)], s); return true;
   };
   const sp = (a.hunger > 65 || (b.hunger <= 65 && this.rnd() < 0.5)) ? a : b;
   topic(sp, sp === a ? b : a);
-  L.push([this.rnd() < 0.5 ? a : b, [C.BYE]]);
+  const last = this.rnd() < 0.5 ? a : b; say(last, [C.BYE], last === a ? b : a);
   return { L, fx };
 }
 
 function startChat(this: World, a: Dot, b: Dot) {
   const { L, fx } = this.dialogue(a, b);
-  L.forEach(([s, k], i) => this.later(1 + i * 4, { t: 'say', d: s.id, k }));
+  L.forEach(([s, text], i) => this.later(1 + i * 4, { t: 'say', d: s.id, s: text }));
   const dur = 4 + L.length * 4 + 2;
   for (const d of [a, b]) { d.prev = d.phase; d.phase = 'chat'; d.chatT = dur; d.chatCd = 120 + ((this.rnd() * 80) | 0); }
   this.later(dur, { fn: () => {
