@@ -113,12 +113,54 @@ function hud() {
   f.textContent = stat.fest ? '🎉 On!' : stat.cd.festival > 0 ? `🎉 ${stat.cd.festival}s` : '🎉 Festival';
   b.textContent = stat.blight ? '🥀 On!' : stat.cd.blight > 0 ? `🥀 ${stat.cd.blight}s` : '🥀 Blight';
 }
+/* Feed rollup: events that differ only by names/amounts ("X gave Y $521") merge into one row
+   with a count. Matches within the newest ROLL_WINDOW rows; important events (weight >= 4) never merge. */
+const ROLL_WINDOW = 14;
+function rollKey(x) { return x.replace(/ promising .*$/, '').replace(/\([^)]*\)/g, '').replace(/\$[\d.,]+[kKmM]?/g, '$').replace(/\b[A-Z][\w'-]*\b/g, '_').replace(/\d+/g, '#'); }
 function ticker(m, live) {
-  const el = document.createElement('div'); el.className = (m.w || 1) >= 4 ? 'big' : (m.w || 1) >= 3 ? 'hot' : '';
   if (live !== false) director(m);
-  el.innerHTML = m.x.replace(/</g, '&lt;') + `<small>${clk()} · day ${day}</small>`;
+  const w = m.w || 1, t = $('#ticker'), key = w >= 4 ? null : rollKey(m.x);
+  const body = m.x.replace(/</g, '&lt;'), stamp = `${clk()} · day ${day}`;
+  if (key) {
+    const kids = t.children;
+    for (let i = 0; i < kids.length && i < ROLL_WINDOW; i++) {
+      const el = kids[i]; if (el._key !== key) continue;
+      el._n = (el._n || 1) + 1;
+      el.innerHTML = body + (el._n > 1 ? ` <b class="x">×${el._n}</b>` : '') + `<small>${stamp}</small>`;
+      el.onclick = m.ids && m.ids.length ? () => select(m.ids[0]) : null;
+      if ((w >= 3) && !el.classList.contains('hot')) el.classList.add('hot');
+      if (i) { t.prepend(el); el.style.animation = 'none'; }
+      return;
+    }
+  }
+  const el = document.createElement('div'); el.className = w >= 4 ? 'big' : w >= 3 ? 'hot' : '';
+  el._key = key; el._n = 1;
+  el.innerHTML = body + `<small>${stamp}</small>`;
   if (m.ids && m.ids.length) el.onclick = () => select(m.ids[0]);
-  const t = $('#ticker'); t.prepend(el); while (t.children.length > 60) t.lastChild.remove();
+  t.prepend(el); while (t.children.length > 60) t.lastChild.remove();
+}
+/* Dot labels with collision avoidance: nearest-to-centre first, skip any that would overlap one already placed. */
+function drawLabels(q, s) {
+  if (!q.length) return;
+  q.sort((a, b) => a.pri - b.pri);
+  const boxes = [], hit = (x0, y0, x1, y1) => { for (const b of boxes) if (x0 < b[2] && x1 > b[0] && y0 < b[3] && y1 > b[1]) return true; return false; };
+  const MAX = 28; let named = 0;
+  ctx.textAlign = 'center';
+  for (const { d, x, y, R, pri } of q) {
+    const forced = pri < 0;
+    if (!forced && named >= MAX) break;
+    if (d.fl & 32) continue;
+    let placedName = false;
+    if (forced || (s > 22 && pri < cssW * 0.3)) {
+      ctx.font = '11px system-ui';
+      const w = ctx.measureText(d.name).width + 4, x0 = x - w / 2, y0 = y + R + 1, y1 = y0 + 13;
+      if (forced || !hit(x0, y0, x0 + w, y1)) { boxes.push([x0, y0, x0 + w, y1]); ctx.fillStyle = 'rgba(255,255,255,.9)'; ctx.fillText(d.name, x, y + R + 11); placedName = true; named++; }
+    }
+    if (d.traits.length && (forced || placedName || s > 16)) {
+      const fs = Math.min(14, s * 0.7), x0 = x - fs / 2, y0 = y - R - 3 - fs, x1 = x + fs / 2, y1 = y - R - 1;
+      if (forced || !hit(x0, y0, x1, y1)) { boxes.push([x0, y0, x1, y1]); ctx.font = `${fs}px "Apple Color Emoji","Noto Color Emoji",system-ui`; ctx.fillStyle = '#fff'; ctx.fillText(TRI[d.traits[0]], x, y - R - 3); }
+    }
+  }
 }
 function tokWord(k) { return k >= 3000 ? (setts[k - 3000] ? setts[k - 3000].n : '?') : k >= 2000 ? ((blds[k - 2000] || {}).n || 'home') : k >= 1000 ? names[k - 1000] : lex[k][0]; }
 function tokGloss(k) { return k >= 3000 ? (setts[k - 3000] ? setts[k - 3000].n : '?') : k >= 2000 ? (bnames[k - 2000] || 'home') : k >= 1000 ? names[k - 1000] : lex[k][1]; }
@@ -398,7 +440,7 @@ function draw(now) {
     }
   }
   // dots
-  const R0 = Math.max(1.9, s * 0.34);
+  const R0 = Math.max(1.9, s * 0.34), lblQ = [];
   for (const d of dots) {
     if (d.fl & 65) continue;
     const [x, y] = toS(d.x, d.y); if (x < -10 || y < -10 || x > cssW + 10 || y > cssH + 10) continue;
@@ -408,9 +450,9 @@ function draw(now) {
     if (d.fl & 16) { ctx.fillStyle = '#ffe27a'; ctx.fillRect(x - R * .4, y - R * 1.7, R * .8, R * .8); }
     if (act === 7 && !(d.fl & 32)) { ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x + R * 1.1, y - R * 1.1, Math.max(1.3, R * .38), 0, 7); ctx.fill(); }
     if (d.fl & 32) { ctx.strokeStyle = '#ff4d3d'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, y, R + 3 + Math.abs(Math.sin(now / 90)) * 3, 0, 7); ctx.stroke(); if (s > 7) { ctx.font = `${Math.max(11, R * 3)}px "Apple Color Emoji","Noto Color Emoji",system-ui`; ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; ctx.fillText('💥', x, y - R - 6); } }
-    if ((s > 16 || d.id === sel) && d.traits.length && !(d.fl & 32)) { ctx.font = `${Math.min(14, s * 0.7)}px "Apple Color Emoji","Noto Color Emoji",system-ui`; ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; ctx.fillText(TRI[d.traits[0]], x, y - R - 3); }
-    if (d.id === sel || (s > 22 && Math.hypot(x - cssW / 2, y - cssH / 2) < cssW * 0.3)) { ctx.font = '11px system-ui'; ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(255,255,255,.9)'; ctx.fillText(d.name, x, y + R + 11); }
+    if (d.id === sel || s > 16) lblQ.push({ d, x, y, R, pri: d.id === sel ? -1 : Math.hypot(x - cssW / 2, y - cssH / 2) });
   }
+  drawLabels(lblQ, s);
   const R = R0;
   if (sel >= 0) { const d = dots[sel], [x, y] = toS(d.x, d.y); ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, y, R + 4 + Math.sin(now / 200) * 1.2, 0, 7); ctx.stroke(); }
   // weather
