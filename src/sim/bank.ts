@@ -49,11 +49,13 @@ function bankDawn(this: World) {
   const bk: Bank = this.bank, dayRate = SAVE_RATE / K.YEAR_DAYS;
   bk.fear *= 0.9;
   // savers: interest accrues on claims; the careful put surplus cash in; those short of cash take it out
+  const eq0 = Math.max(0, this.bankEquity());
+  let room = 8 * eq0 - this.deposits();   // leverage limit: the bank only takes in what its capital can stand behind
   for (const d of this.dots) {
     if (d.dead || !d.adult) continue;
     if (d.dep) d.dep *= 1 + dayRate;
     const buffer = 12 * R.DAY_WAGE;
-    if (d.coin > 3 * buffer && bk.fear < 0.3) { const amt = (d.coin - 1.5 * buffer) * (d.traits.includes('frugal') ? 0.7 : 0.3); d.coin -= amt; bk.cash += amt; d.dep = (d.dep || 0) + amt; }
+    if (d.coin > 3 * buffer && bk.fear < 0.3 && room > 0) { const amt = Math.min(room, (d.coin - 1.5 * buffer) * (d.traits.includes('frugal') ? 0.7 : 0.3)); room -= amt; d.coin -= amt; bk.cash += amt; d.dep = (d.dep || 0) + amt; }
     else if (d.dep && (d.coin < 2 * R.DAY_WAGE || (bk.fear > 0.3 && this.rnd() < bk.fear * 0.5))) {
       const want = bk.fear > 0.3 ? d.dep : Math.min(d.dep, 8 * R.DAY_WAGE), pay = Math.min(want, bk.cash);
       d.coin += pay; bk.cash -= pay; d.dep -= want; if (d.dep < 0.01) d.dep = 0;
