@@ -28,7 +28,7 @@ const viewCX = () => (cssW - insetCur.r) / 2, viewCY = () => insetCur.t + (cssH 
 const viewW = () => cssW - insetCur.r, viewH = () => cssH - insetCur.t - insetCur.b;
 
 /* ---------- transport ---------- */
-let ws = null, localWorld = null, localSpeed = 1;
+let ws = null, localWorld = null, localSpeed = 1, localIv = null;
 function send(m: ClientMsg) { if (LOCAL) localSend(m); else if (ws && ws.readyState === 1) ws.send(JSON.stringify(m)); }
 function connect() {
   ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host);
@@ -48,13 +48,16 @@ function startLocal() {
   localWorld = new Sim.World({});
   handle(localWorld.initMsg());
   $('#bSpd').style.display = ''; $('#live').textContent = 'DEMO';
-  setInterval(() => {
+  localIv = setInterval(localTick, 200);
+}
+function localTick() {
+  {
     for (let i = 0; i < localSpeed; i++) { localWorld.step(); if (localWorld.tick % 5 === 0 && i < localSpeed - 1) { const q = localWorld.drain(); if (q.length) handle({ t: 'batch', m: q }); } }
     frame(localWorld.frameFor(curView, localWorld.relatedIds(sel)));
     let ms = localWorld.drain(); if (ms.length > 400) ms = ms.slice(-400);
     if (ms.length) handle({ t: 'batch', m: ms });
     if (localWorld.tick % 5 === 0) { const s = localWorld.statsMsg(); s.viewers = 1; handle(s); if (sel >= 0) handle(localWorld.detail(sel)); }
-  }, 200);
+  }
 }
 function localSend(m) { if (m.t === 'act') localWorld.act(m.n, m.id); else if (m.t === 'view') curView = m; else if (m.t === 'cast') handle({ t: 'cast', list: localWorld.cast(14) }); }
 
@@ -480,8 +483,12 @@ function rr(x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x 
 const money = n => { n = Math.round(n || 0); const a = Math.abs(n), sg = n < 0 ? '−' : ''; return sg + '$' + (a >= 1e9 ? (a / 1e9).toFixed(1) + 'B' : a >= 1e6 ? (a / 1e6).toFixed(1) + 'M' : a >= 1e4 ? Math.round(a / 1e3) + 'k' : a >= 1e3 ? (a / 1e3).toFixed(1) + 'k' : a); };
 const clamp01 = v => v < 0 ? 0 : v > 1 ? 1 : v;
 
+let frozen = false;
 function draw(now) {
   requestAnimationFrame(draw);
+  if (!frozen) render(now);
+}
+function render(now) {
   if (!ready) return;
   reportView(now);
   // camera easing (and glide the map centre when a panel opens or closes)
@@ -602,4 +609,21 @@ $('#bSpd').onclick = e => { localSpeed = localSpeed === 1 ? 4 : localSpeed === 4
 requestAnimationFrame(draw);
 if (LOCAL) startLocal(); else connect();
 window.__dv = { handle, select, get cam() { return cam; } };
+/* Deterministic rendering hook for visual regression tests (only exists if the page sets __DV_TEST__ before loading).
+   freeze() stops the sim interval and the draw loop; step(n) advances the sim; shot() renders exactly one frame from an explicit camera. */
+if ((window as any).__DV_TEST__) (window as any).__dvTest = {
+  freeze() { frozen = true; if (localIv) clearInterval(localIv); localIv = null; },
+  step(n: number) { for (let i = 0; i < n; i++) localTick(); },
+  info() { return { W, H, setts: setts.map(t => [t.x, t.y, t.t]), ndots: dots.length, cssW, cssH, fit }; },
+  shot(o: { x: number; y: number; px: number; selNear?: boolean; weather?: number; season?: number; tod?: number; now?: number }) {
+    const now = o.now ?? 100600;   // performance.now() is stubbed to 100000 by the test page, so speech bubbles are 600 ms old (fully faded in)
+    follow = false; dirIds = null; camTarget = null; Object.assign(insetCur, inset);
+    cam.x = o.x; cam.y = o.y; cam.z = o.px / fit;
+    lastViewAt = -1e9; sentView = ''; reportView(now); localTick();   // ask for exactly this viewport, then let the sim send the dots in it
+    if (o.selNear) { let best = -1, bd = 1e9; for (const d of dots) if (!(d.fl & 65) && d.seen) { const q = Math.hypot(d.x - cam.x, d.y - cam.y); if (q < bd) { bd = q; best = d.id; } } if (best >= 0) pick_(best, true); }
+    tod = o.tod ?? tod; if (stat) { stat.weather = o.weather ?? 0; if (o.season !== undefined) stat.season = o.season; }
+    for (const d of dots) d.t0 = -1e9;                   // finished interpolation: dots are exactly where the last frame put them
+    render(now);
+  },
+};
 })();

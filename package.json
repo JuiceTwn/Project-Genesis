@@ -17,7 +17,9 @@
     "reality": "tsx src/tools/reality.ts",
     "longrun": "tsx src/tools/longrun.ts",
     "loadtest": "tsx src/tools/loadtest.ts",
-    "longreport": "python3 ml/long_report.py"
+    "longreport": "python3 ml/long_report.py",
+    "visual:baseline": "node scripts/build.mjs && node tests/visual/capture.cjs data/visual/golden",
+    "visual:check": "node scripts/build.mjs && node tests/visual/capture.cjs data/visual/new && node tests/visual/diff.cjs data/visual/golden data/visual/new"
   },
   "dependencies": {
     "@resvg/resvg-js": "^2.6.2",
