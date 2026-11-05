@@ -23,6 +23,7 @@ function assignLandlords(this: World) {
 function monthlyHousing(this: World) {
   const byHome = new Map<number, Dot[]>();
   for (const d of this.dots) if (!d.dead) (byHome.get(d.home) || byHome.set(d.home, []).get(d.home)!).push(d);
+  for (const d of this.dots) if (!d.dead && d.adult) this.toAbroad(d, 'coin', R.BILLS_SHARE * (d.inc || 0) * R.MONTH_DAYS, 'bills');
   const tax = R.HOUSE_VALUE * R.PROPERTY_TAX / 12, upkeep = R.HOUSE_VALUE * R.MAINTENANCE / 12;
   for (const b of this.buildings) {
     if (b.type !== 0 || b.state !== 'ok') continue;

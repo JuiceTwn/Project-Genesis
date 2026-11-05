@@ -15,18 +15,19 @@ function decide(this: World, d) {
     if (wb && wb.state === 'ok' && tod > 0.28 && tod < 0.62 && d.energy > 25 && d.hunger < 80) { this.setGoal(d, 'work', mk, null); return; } }
   if (mk >= 0 && d.coin >= this.price(d) && !(d.shortAt && this.tick - d.shortAt < 150 * TS && d.coin < 8 * MEAL_UNIT)) c.push(['eat', d.hunger * 1.3 - (night && d.energy < 40 ? 30 : 0) + (d.hunger > 45 && tod > 0.7 && tod < 0.95 ? 45 : 0)]);
   const broke = d.coin < FOOD_PRICE * 2;
-  if (d.adult && (hours || (broke && d.hunger > 50 && !night) || (d.job === 0 && this.believedEmpty(d) && !night)) && d.energy > 20) {
+  const retired = d.age >= d.life * K.RETIRE_FRAC;
+  if (d.adult && !retired && (hours || (broke && d.hunger > 50 && !night) || (d.job === 0 && this.believedEmpty(d) && !night)) && d.energy > 20) {
     let s = d.dil * 32 + (d.coin < 30 * KB ? 35 : 0) + (d.coin < 10 * KB ? 30 : 0) - (d.coin > 140 * KB ? 45 : 0);
     if (d.job === 0) { const nm = this.nearest(this.markets, d, 0), low = nm ? nm.stock : 999; s += (low < 90 ? 30 : 0) + (low < 30 ? 35 : 0) + (low > (this.season() === 2 ? 600 : 250) ? -50 : 0) + (this.believedEmpty(d) ? 30 : 0) + (low < 40 && d.coin > 60 ? 45 : 0) + (this.season() === 2 ? 20 : 0); }
     if (d.hunger > 85 && d.coin >= FOOD_PRICE && mk >= 0) s -= 60;
     c.push(['work', s]);
   }
-  if (d.adult && (d.job === 1 || d.job === 3) && this.sites.length && hours && d.energy > 22) {
+  if (d.adult && !retired && (d.job === 1 || d.job === 3) && this.sites.length && hours && d.energy > 22) {
     const st = this.siteFor(d); if (st) c.push(['build', 38 + d.dil * 18 + (d.coin < 30 * KB ? 28 : 0) + (d.job === 3 ? 12 : 0)]);
   }
   const fest = tk < this.festival || tk < ((this.gov(this.S[this.buildings[d.home].sid])).festival || 0), inv = d.invite && tk < d.invite.until ? d.invite : null;
   c.push(['social', (100 - d.social) * d.soc * 0.95 + (fest ? 90 : 0) + (inv && inv.k === 'social' ? 60 : 0) - (night ? 45 : 0) - (this.weather ? 30 : 0)]);
-  if (d.adult && this.stores.length && (d.budget || 0) >= 0.2 * K.DAY_WAGE && tod > 0.36 && tod < 0.84) c.push(['shop', 30 + Math.min(60, (d.budget || 0) / K.DAY_WAGE * 18) + this.rnd() * 10]);
+  if (d.adult && this.stores.length && (d.budget || 0) >= 0.2 * K.DAY_WAGE && tod > 0.36 && tod < 0.84) c.push(['shop', 55 + Math.min(70, (d.budget || 0) / K.DAY_WAGE * 22) + this.rnd() * 10]);
   if (d.adult && d.coin >= K.NIGHT_OUT * 2) c.push(['drink', d.fx.spend * (100 - d.social) * d.soc * 0.55 + (tod > 0.62 && tod < 0.92 ? 22 : -35) + (inv && inv.k === 'drink' ? 60 : 0) + (fest ? 30 : 0) + (this.weather ? 15 : 0)]);
   c.push(['wander', 18 + this.rnd() * 10]);
   let bk = 'wander', bs = -1e9;

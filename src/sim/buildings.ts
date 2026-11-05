@@ -67,20 +67,20 @@ function buildMap(this: World) {
     const urban = mine.filter(p => !p.rural).sort((a, b) => a.dc - b.dc), rural = mine.filter(p => p.rural).sort((a, b) => (b.fert - a.fert) + (a.dc - b.dc) * 0.045);
     const take = (list, pred?) => { for (const p of list) if (!p.used && (!pred || pred(p))) return p; return null; };
     const put = (type, p) => (p ? this.placeOn(p, type) : null);
-    const nMarket = tier === 0 ? 2 : tier <= 2 ? 1 : 0, nTavern = tier === 0 ? Math.max(2, Math.round(P / 55)) : tier === 1 ? 1 : (tier === 2 && P >= 16 ? 1 : 0);
-    const nShop = tier === 0 ? Math.max(2, Math.round(P * 0.26 / 18)) : tier === 1 ? 1 : (tier === 2 && P >= 22 ? 1 : 0), nDock = s.quayAt !== undefined && tier <= 1 ? (tier === 0 ? 2 : 1) : 0;
+    const nMarket = tier === 0 ? 2 : tier <= 2 ? 1 : 0, nTavern = tier === 0 ? Math.max(2, Math.round(P / 55)) : tier === 1 ? 1 : (tier === 2 && P >= 12 ? 1 : 0);
+    const nShop = tier === 0 ? Math.max(2, Math.round(P * 0.26 / 18)) : tier === 1 ? 1 : (tier === 2 && P >= 14) || (tier === 3 && P >= 10) ? 1 : 0, nDock = s.quayAt !== undefined && tier <= 1 ? (tier === 0 ? 2 : 1) : 0;
     for (let i = 0; i < nMarket; i++) put(BT.MARKET, take(urban, p => p.sq) || take(urban));
     if (tier <= 1) put(BT.HALL, take(urban, p => p.sq) || take(urban));
     for (let i = 0; i < nTavern; i++) put(BT.TAVERN, take(urban, p => p.sq) || take(urban));
     for (let i = 0; i < nDock; i++) put(BT.DOCK, take(urban, p => p.quay));
     for (let i = 0; i < nShop; i++) { const free = urban.filter(p => !p.used && !p.sq); put(BT.WORKSHOP, free.length ? free[Math.floor(free.length * (0.45 + 0.1 * i))] || free[free.length - 1] : take(urban)); }
     // modern employers, sized to the town so there are jobs for most adults
-    const nOffice = tier === 0 ? Math.round(P / 55) : tier === 1 ? Math.max(1, Math.round(P / 60)) : 0, nFactory = tier <= 1 ? Math.max(1, Math.round(P / 65)) : 0, nStore = tier <= 2 && P >= 22 ? Math.max(1, Math.round(P / 50)) : 0;
+    const nOffice = tier === 0 ? Math.round(P / 55) : tier === 1 ? Math.max(1, Math.round(P / 60)) : 0, nFactory = tier <= 1 ? Math.max(1, Math.round(P / 65)) : 0, nStore = tier <= 3 && P >= 8 ? Math.max(1, Math.round(P / 50)) : 0;
     for (const [type, n] of [[BT.OFFICE, nOffice], [BT.FACTORY, nFactory], [BT.STORE, nStore]]) for (let i = 0; i < n; i++) { const free = urban.filter(p => !p.used && !p.sq); put(type, free.length ? free[Math.floor(free.length * (0.2 + 0.6 * this.R()))] : take(urban)); }
     if (tier === 0) { const free = urban.filter(p => !p.used && !p.sq); put(BT.PARK, free[Math.floor(free.length * 0.3)]); }
     const nHouse = Math.ceil(P / 4);
     for (let i = 0; i < nHouse; i++) put(BT.HOUSE, take(urban, p => !p.sq) || take(urban) || take(rural));
-    const nFarm = tier >= 2 ? (P >= 15 ? 1 : 0) : Math.max(1, Math.round(P * K.FARMERS_SHARE / 4));
+    const nFarm = tier >= 2 ? (P >= 8 ? 1 : 0) : Math.max(1, Math.round(P * K.FARMERS_SHARE / 4));
     for (let i = 0; i < nFarm; i++) put(BT.FARM, take(rural) || take(urban.slice().reverse()));
   }
   this.pop = this.S.reduce((a, s) => a + s.pop0, 0); this.maxPop = Math.max(this.maxPop, Math.round(this.pop * 1.7));

@@ -37,7 +37,7 @@ const rows: [string, number, [number, number], string][] = [
   ['meals a day\'s wage buys', wage / meal, [15, 35], ''],
   ['house price / yearly pay', BUILD_COST[0] / (wage * YEAR_DAYS), [4, 8], ''],
   ['tax share of pay %', 100 * taxRate, [22, 35], ''],
-  ['unemployment %', 100 * adults.filter(d => d.job === 3 && d.work < 0).length / adults.length, [3, 7], ''],
+  ['unemployment %', 100 * adults.filter(d => d.job === 3 && d.work < 0 && d.age < d.life * 0.8).length / adults.filter(d => d.age < d.life * 0.8).length, [3, 7], ''],
   ['firm failures per 100 per year', (w.biz.closed - closed0) / yrs / Math.max(1, firms0) * 100, [7, 12], ''],
   ['firms per 100 people', 100 * firms / alive.length, [6, 12], ''],
   ['wealth Gini', gini, [0.75, 0.88], ''],

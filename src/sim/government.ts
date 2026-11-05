@@ -42,7 +42,7 @@ function electAll(this: World, first?: boolean) { this.computeRep(); for (const 
 /** Unemployment benefit at dawn (taxes themselves are withheld from wages, see payWage). */
 function collectTaxes(this: World) {
   for (const d of this.dots) {
-    if (d.dead || !d.adult || d.job !== 3 || d.work >= 0 || d.coin >= 40 * RL.KB) continue;
+    if (d.dead || !d.adult || d.job !== 3 || d.work >= 0 || d.age >= d.life * RL.RETIRE_FRAC || d.coin >= 40 * RL.KB) continue;
     const g = this.gov(this.S[this.buildings[d.home].sid]);
     if (g.treasury >= RL.BENEFIT) { d.coin += RL.BENEFIT; g.treasury -= RL.BENEFIT; this.biz.benefits++; }
   }

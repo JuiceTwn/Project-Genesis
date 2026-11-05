@@ -157,6 +157,15 @@ function inherit(this: World, d) {
   }
 }
 
+/** Retirement at 80% of lifespan: stop working, draw a national pension. */
+function retirement(this: World) {
+  for (const d of this.dots) {
+    if (d.dead || !d.adult || d.age < d.life * K.RETIRE_FRAC) continue;
+    if (d.work >= 0 || d.job !== 3) { d.work = -1; d.job = 3; }
+    const p = Math.min(K.PENSION, this.nation.treasury); this.nation.treasury -= p; d.coin += p; d.earn = (d.earn || 0) + p;
+  }
+}
+
 /** Daily health: illness (worse in winter, for the old, the hungry and the very young) and workplace accidents. */
 function mortality(this: World) {
   const winter = this.season() === 3 ? 2 : 1;
@@ -169,8 +178,9 @@ function mortality(this: World) {
   }
 }
 
-Object.assign(World.prototype, { mortality, makeDot, pickDream, workFor, makeDots, ownedBy, die, spawn, newName, grow, dreamCheck, addDot, residents, unemployed, unstaff, inherit });
+Object.assign(World.prototype, { retirement, mortality, makeDot, pickDream, workFor, makeDots, ownedBy, die, spawn, newName, grow, dreamCheck, addDot, residents, unemployed, unstaff, inherit });
 declare module './world' { interface World {
+  retirement: (...args: any[]) => any;
   mortality: (...args: any[]) => any;
   makeDot: (...args: any[]) => any;
   pickDream: (...args: any[]) => any;

@@ -31,6 +31,8 @@ export const MEAL_UNIT = DAY_WAGE * 0.033 / 3;
 export const FOOD_PRICE = 3 * MEAL_UNIT, DRINK_PRICE = 1.5 * MEAL_UNIT;
 export const RICH = 250_000;                               // a fortune worth a "getting rich" headline
 export const POOR_LINE = 3 * DAY_WAGE;                     // under three days' pay in the bank
+export const RETIRE_FRAC = 0.8;                            // people stop working at 80% of their lifespan (~64)
+export const PENSION = 0.35 * DAY_WAGE;                    // per sim day, paid by the national treasury out of payroll tax
 export const NATION_TAX = 0.22;                            // national income tax withheld from wages
 export const LOCAL_TAX_DEFAULT = 3;                        // % of wages kept by the town (mayors move it between 1 and 8)
 export const BENEFIT = 0.4 * DAY_WAGE;                     // unemployment benefit per day for the jobless with little cash
@@ -47,7 +49,7 @@ export const WAGE_BY_TYPE = [0, 0, 0, 700, 760, 0, 0, 800, 1000, 780, 620];
 export const REV_BY_TYPE = WAGE_BY_TYPE.map(w => Math.round(w * 1.45));
 REV_BY_TYPE[10] = 0;                                       // stores live on customers, not exports
 REV_BY_TYPE[3] = Math.round(WAGE_BY_TYPE[3] * 0.6);        // taverns: some trade from outside, the rest from customers
-export const STAFF_BY_TYPE = [0, 6, 0, 5, 6, 0, 0, 8, 14, 18, 5];
+export const STAFF_BY_TYPE = [0, 6, 0, 5, 8, 0, 0, 8, 16, 20, 5];
 /** Upkeep (utilities, supplies, insurance) per day: a quarter of the payroll the building carries when fully staffed. */
 export const UPKEEP_BY_TYPE = WAGE_BY_TYPE.map((w, i) => Math.round(w * STAFF_BY_TYPE[i] * 0.25));
 UPKEEP_BY_TYPE[1] = 450; UPKEEP_BY_TYPE[2] = 300;
@@ -69,6 +71,7 @@ export const PROPERTY_TAX = 0.01, MAINTENANCE = 0.01;             // of value, p
 export const LANDLORD_SHARE = 0.30;                               // share of houses owned by someone who does not live in them
 /* ---- consumer spending ---- */
 export const CONSUME_SHARE = 0.30;                                // of net income spent on goods and services (on top of rent and food)
-export const WEALTH_SPEND = 0.0008;                               // of liquid wealth per day (about 5% a year)
+export const WEALTH_SPEND = 0.0016;                               // of liquid wealth per day (about 10% a year)
+export const BILLS_SHARE = 0.10;                                  // of net income per month on utilities, transport, health and insurance (paid to outside suppliers)
 export const NIGHT_OUT = 0.15 * DAY_WAGE;                         // a visit to the tavern
 export const COGS = 0.55;                                         // share of a shop sale paid abroad for the goods
