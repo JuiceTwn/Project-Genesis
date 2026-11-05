@@ -14,7 +14,9 @@
     "map": "tsx src/tools/map.ts",
     "report": "python3 ml/balance_report.py",
     "gazette": "tsx src/tools/gazette.ts",
-    "reality": "tsx src/tools/reality.ts"
+    "reality": "tsx src/tools/reality.ts",
+    "longrun": "tsx src/tools/longrun.ts",
+    "longreport": "python3 ml/long_report.py"
   },
   "dependencies": {
     "@resvg/resvg-js": "^2.6.2",
