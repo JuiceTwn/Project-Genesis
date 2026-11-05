@@ -120,7 +120,7 @@ function doingText(this: World, d) {
 
 function thought(this: World, d) {
   const e = this.believedEmpty(d), tod = this.tod();
-  { const tt = this.topThought(d); if (tt && this.rnd() < 0.7) return tt; }
+  { const tt = this.topThought(d); if (tt && this.rnd() < 0.7) return tt; const cb = this.callback(d); if (cb) return cb; }
   if (this.tick < d.grief) return 'Missing someone.';
   if (d.thieves.size && this.rnd() < 0.5) return 'Watching out for thieves.';
   if (d.hunger > 85) return e >= this.markets.length ? 'Starving, and I heard every market is empty.' : 'So hungry I can barely think.';
@@ -142,7 +142,10 @@ function detail(this: World, id) {
     mood: this.mood(d), doing: d.dead ? 'passed away' : this.doingText(d), thought: this.thought(d), home: d.home,
     dream: DREAM_TXT[d.dream], partner: p ? p.name : null, pid: p ? p.id : -1, married: d.married, rep: Math.round(this.rep ? this.rep[id] : 0), kids: d.kids,
     thieves: [...d.thieves].filter(x => !this.dots[x].dead).slice(0, 3),
-    friends: this.friends(d).slice(0, 6).map(([k, v]) => [k, Math.round(v)]) };
+    friends: this.friends(d).slice(0, 6).map(([k, v]) => [k, Math.round(v)]),
+    nick: d.nick || null, face: this.faceOf(d), fame: Math.round(d.fame || 0), mem: (d.mem || []).slice().sort((a: any, b: any) => b.w - a.w).slice(0, 3).map((m: any) => m.x),
+    attrs: ['str', 'dex', 'int', 'end', 'cha', 'wil'].map(k => Math.round(this.attr(d, k as any))), skills: Object.entries(this.skills(d)).sort((a: any, b: any) => b[1] - a[1]).slice(0, 3).map(([k, v]: any) => [k, Math.round(v * 10) / 10]),
+    ill: (d.hp || []).map((x: any) => x.k), thoughts: (d.th || []).filter((t: any) => t.until > this.tick).sort((a: any, b: any) => Math.abs(b.v) - Math.abs(a.v)).slice(0, 3).map((t: any) => [t.txt, Math.round(t.v)]) };
 }
 
 Object.assign(World.prototype, { dotFlags, indexDots, relatedIds, frameFor, initMsg, actCode, frame, drain, computeRep, statsMsg, doingText, thought, detail });

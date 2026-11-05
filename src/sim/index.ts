@@ -9,3 +9,4 @@ export * from '../shared/constants';
 import './thoughts';
 import './skills';
 import './health';
+import './legend';

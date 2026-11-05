@@ -187,7 +187,72 @@ const investor: Kind = {
   },
 };
 
-const KINDS: Kind[] = [rivalry, triangle, feud, protege, drought, investor];
+/* ---- arcs fed by the newer systems: a comeback, a run on the bank, a gang's rise and fall, a public disgrace ---- */
+const LOW_NICKS = ['Bust', 'Evicted', 'Jailbird', 'Disgraced', 'Smashed'];
+const comeback: Kind = {
+  kind: 'comeback', weight: w => (w.dots.some(d => !d.dead && d.adult && LOW_NICKS.includes(d.nick || '') && !busy(w, [d.id])) ? 1.1 : 0),
+  launch(w) {
+    const c = w.dots.filter(d => !d.dead && d.adult && LOW_NICKS.includes(d.nick || '') && !busy(w, [d.id]) && d.age < d.life * 0.75); if (!c.length) return null;
+    const d = w.pick(c), s = w.S[w.buildings[d.home].sid], arc = mkArc(w, 'comeback', `${d.name}'s comeback`, s.id, [d.id], { c0: d.coin, nick: d.nick });
+    beat(w, arc, `🌅 ${d.name} refuses to stay down in ${s.name}${d.mem && d.mem.length ? ', still haunted by ' + d.mem.slice().sort((x: any, y: any) => y.w - x.w)[0].x : ''}. Everyone is watching to see if they can turn it around.`, true); return arc;
+  },
+  step(w, a, d) {
+    if (!live(w, ...a.ids)) return close(w, a, 'death'); const p = w.dots[a.ids[0]];
+    const owns = w.ownedBy(p.id).some(b => b.state === 'ok'), up = p.coin - a.data.c0;
+    if (a.stage === 0 && d >= 6 && (p.job !== 3 || owns)) { a.stage = 1; beat(w, a, `🔨 ${p.name} found work${owns ? ' in their own business' : ''}. A first foothold.`); }
+    if (a.stage === 1 && d >= 14 && (up > 60 * KB * 10 || owns)) { beat(w, a, `🏆 ${p.name} is back on top: from “${a.data.nick}” to someone the town respects again.`, true); w.giveNick(p, 'Comeback Kid', 65); p.fame = (p.fame || 0) + 10; w.addThought(p, 'comeback', 15, 40, 'Proved them all wrong.'); return close(w, a, 'success'); }
+    if (w.mood(p) < 20 && a.stage < 2 && d >= 4) { a.stage = Math.max(a.stage, 1); a.data.low = (a.data.low || 0) + 1; if (a.data.low === 1) beat(w, a, `😔 ${p.name} came close to giving up for good.`); }
+    if (d >= 45) { beat(w, a, `${p.name} never quite got back on their feet.`); close(w, a, 'failed'); }
+  },
+};
+const panic: Kind = {
+  kind: 'panic', weight: w => (w.bank && w.bank.fear > 0.6 ? 2 : 0),
+  launch(w) {
+    const bk = w.bank; if (!bk || bk.fear <= 0.6 || busy(w, [bk.owner])) return null; const o = w.dots[bk.owner]; if (!o || o.dead) return null;
+    const arc = mkArc(w, 'panic', `The run on ${bk.name}`, w.buildings[o.home].sid, [o.id], { top: bk.fear, gen: bk.gen });
+    beat(w, arc, `🏦 Whispers are spreading: customers are queuing outside ${bk.name} to pull out their savings.`, true); return arc;
+  },
+  step(w, a, d) {
+    const bk = w.bank, o = w.dots[a.ids[0]];
+    if (!bk || bk.gen !== a.data.gen) { beat(w, a, `💥 ${a.data.gen ? 'The bank is gone.' : ''} Depositors lost savings in the collapse of the bank.`, true); return close(w, a, 'collapsed'); }
+    a.data.top = Math.max(a.data.top, bk.fear);
+    if (a.stage === 0 && bk.fear > 1.2) { a.stage = 1; beat(w, a, `🚪 Tellers are turning people away at the door. ${o ? o.name : 'The owner'} insists the money is safe.`); }
+    if (bk.fear < 0.2 && d >= 3) { beat(w, a, `😮‍💨 Confidence returns. ${bk.name} survived the run${a.stage ? ' by the skin of its teeth' : ''}.`, true); if (o) { o.fame = (o.fame || 0) + 5; } return close(w, a, 'calmed'); }
+    if (d >= 30) close(w, a, 'faded');
+  },
+};
+const gangster: Kind = {
+  kind: 'gangster', weight: w => (w.gangs.some((g: any) => g.active && !busy(w, [g.boss])) ? 1.6 : 0),
+  launch(w) {
+    const g = w.gangs.find((x: any) => x.active && !busy(w, [x.boss])); if (!g) return null; const boss = w.dots[g.boss]; if (!boss || boss.dead) return null;
+    const arc = mkArc(w, 'gangster', `${g.name} of ${w.S[g.sid].name}`, g.sid, [g.boss, ...g.members.slice(0, 1)], { gid: g.id, loot: g.loot });
+    beat(w, arc, `🐺 ${g.name} have the shopkeepers of ${w.S[g.sid].name} looking over their shoulders. ${boss.name} runs the street.`, true); return arc;
+  },
+  step(w, a, d) {
+    const g = w.gangs[a.data.gid]; if (!g) return close(w, a, 'gone');
+    if (!g.active) { const boss = w.dots[g.boss]; beat(w, a, `🚔 ${g.name} are finished: ${boss && (boss.jailUntil || 0) > w.tick ? boss.name + ' is behind bars' : 'the gang has scattered'}. ${w.S[g.sid].name} breathes again.`, true); return close(w, a, 'busted'); }
+    if (a.stage === 0 && g.loot > 3000) { a.stage = 1; beat(w, a, `💰 ${g.name} have taken ${usd(g.loot)} in protection money so far.`); }
+    if (a.stage === 1 && g.loot > 15000) { a.stage = 2; beat(w, a, `😨 ${w.S[g.sid].name} lives in fear: ${usd(g.loot)} extorted and the police still have no case.`, true); }
+    if (d >= 40) close(w, a, 'endured');
+  },
+};
+const disgrace: Kind = {
+  kind: 'disgrace', weight: w => (w.dots.some(d => !d.dead && d.adult && (d.ire || 0) > 25 && !busy(w, [d.id])) ? 1.4 : 0),
+  launch(w) {
+    const c = w.dots.filter(d => !d.dead && d.adult && (d.ire || 0) > 25 && !busy(w, [d.id])).sort((x, y) => (y.ire || 0) - (x.ire || 0)); if (!c.length) return null;
+    const d = c[0], s = w.S[w.buildings[d.home].sid], arc = mkArc(w, 'disgrace', `The fall of ${d.name}`, s.id, [d.id], { job0: d.job, work0: d.work });
+    beat(w, arc, `🔥 ${d.name} of ${s.name} is the most hated person in the country right now. The question is whether there is a way back.`, true); return arc;
+  },
+  step(w, a, d) {
+    if (!live(w, ...a.ids)) return close(w, a, 'death'); const p = w.dots[a.ids[0]];
+    if (a.stage === 0 && d >= 4 && p.work < 0 && a.data.work0 >= 0) { a.stage = 1; beat(w, a, `📦 ${p.name} cleared out their desk. Nobody will hire them.`); }
+    if ((p.ire || 0) < 8 && d >= 8) { beat(w, a, `🕊️ The storm has passed. People have mostly forgotten what ${p.name} did, and ${p.name} is trying to start over.`, true); w.addThought(p, 'forgiven', 8, 30, 'The worst is behind me.'); return close(w, a, 'forgotten'); }
+    if (a.stage === 1 && p.coin < 8 * KB && d >= 12) { beat(w, a, `🥀 ${p.name} is broke and alone. The pile-on cost them everything.`, true); return close(w, a, 'ruined'); }
+    if (d >= 35) close(w, a, 'faded');
+  },
+};
+
+export const KINDS: Kind[] = [rivalry, triangle, feud, protege, drought, investor, comeback, panic, gangster, disgrace];
 
 /* ---------------- the director ---------------- */
 /** Called once per dawn. */

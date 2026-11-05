@@ -12,7 +12,7 @@ let tod = 0.3, day = 1, occ = [], sel = -1, follow = false, translate = true, bu
 let stat = null, detail = null, ready = false, lastClock = '';
 const TRI = Object.fromEntries(CATALOG.map(t => [t.id, t.emoji]));
 const parts = [];
-let auto = true, userAt = -1e9, dirUntil = 0, dirIds = null, lastShot = -1e9, deadTimer = null, tab = 'feed';
+let castList = [], watched = new Set(JSON.parse(localStorage.getItem('dv-watch') || '[]')), auto = true, userAt = -1e9, dirUntil = 0, dirIds = null, lastShot = -1e9, deadTimer = null, tab = 'feed';
 const colFor = n => { let x = 7; for (let i = 0; i < n.length; i++) x = (x * 31 + n.charCodeAt(i)) % 3600; return `hsl(${x / 10},68%,62%)`; };
 const cam = { x: 0, y: 0, z: 1 }; let camTarget = null;
 const cv = $('#c'), ctx = cv.getContext('2d');
@@ -26,7 +26,7 @@ function connect() {
   ws.binaryType = 'arraybuffer';
   ws.onmessage = e => { if (typeof e.data === 'string') handle(JSON.parse(e.data)); else frame(e.data); };
   ws.onclose = () => { $('#live').textContent = 'reconnecting…'; setTimeout(connect, 1500); };
-  ws.onopen = () => { if (sel >= 0) send({ t: 'sel', id: sel }); };
+  ws.onopen = () => { if (sel >= 0) send({ t: 'sel', id: sel }); for (const id of watched) send({ t: 'watch', id, on: true }); };
 }
 function startLocal() {
   localWorld = new Sim.World({});
@@ -40,20 +40,23 @@ function startLocal() {
     if (localWorld.tick % 5 === 0) { const s = localWorld.statsMsg(); s.viewers = 1; handle(s); if (sel >= 0) handle(localWorld.detail(sel)); }
   }, 200);
 }
-function localSend(m) { if (m.t === 'act') localWorld.act(m.n, m.id); else if (m.t === 'view') curView = m; }
+function localSend(m) { if (m.t === 'act') localWorld.act(m.n, m.id); else if (m.t === 'view') curView = m; else if (m.t === 'cast') handle({ t: 'cast', list: localWorld.cast(14) }); }
 
 /* ---------- messages ---------- */
 function handle(m) {
   switch (m.t) {
     case 'init': init(m); break;
     case 'batch': for (const x of m.m) handle(x); break;
-    case 'ev': ticker(m); break;
+    case 'ev': ticker(m); if (LOCAL && m.w >= 2 && m.ids) { const id = m.ids.find(i => watched.has(i)); if (id !== undefined) toast(id, m.x); } break;
     case 'say': say(m); break;
     case 'born': dots[m.id] = Object.assign(dots[m.id] || { id: m.id, x: 0, y: 0, tx: 0, ty: 0, fx: 0, fy: 0, t0: 0, fl: 64 }, { name: m.name, job: m.j, home: m.h, traits: m.tr || [], seen: false, col: colFor(m.name) }); names[m.id] = m.name; fams[m.id] = m.f || ''; break;
     case 'bld': bldUpd(m); break;
     case 'tiles': { const a = tiles.split(''); for (const [i, v] of m.c) a[i] = v; tiles = a.join(''); terrDirty = true; break; }
     case 'stats': stat = m; arcs = m.arcs || arcs; hud(); break;
     case 'chron': addChron(m.e, true); break;
+    case 'rename': if (dots[m.id]) { dots[m.id].name = m.name; names[m.id] = m.name; } break;
+    case 'cast': castList = m.list; castTab(); break;
+    case 'note': for (const n of m.notes) toast(n.id, n.text); break;
     case 'issue': issue = m.issue; if (tab === 'gazette') gazetteTab(); break;
     case 'detail': detail = m; card(); break;
   }
@@ -131,18 +134,42 @@ function card() {
   const dt = detail, bar = (n, v, col) => `<div class="bar"><span>${n}</span><div><i style="width:${v}%;background:${col}"></i></div></div>`;
   const cd = a => (stat && stat.cd[a] > 0) ? ` ${stat.cd[a]}s` : '';
   const dis = a => (stat && stat.cd[a] > 0) || dt.dead ? 'disabled' : '';
-  c.innerHTML = `<h3>${dt.name} ${dt.fam || ''} <small>${dt.job} · age ${dt.age} · ${money(dt.coin)} · mood ${dt.mood}</small></h3>
+  c.innerHTML = `<h3><canvas class="face" id="cface" width="36" height="36"></canvas> ${dt.name} ${dt.fam || ''} <button class="wbtn ${watched.has(dt.id) ? 'on' : ''}" id="wbtn">${watched.has(dt.id) ? '🔔 following' : '🔔 follow'}</button> <small>${dt.job} · age ${dt.age} · ${money(dt.coin)} · mood ${dt.mood}</small></h3>
     <div class="trs">${dt.mayor ? '<span class="tr" style="background:#6b5a1f">🏛️ mayor</span>' : ''}${dt.traits.map(t => `<span class="tr" title="${TRAIT[t] ? TRAIT[t].blurb : ''}">${TRI[t] || ''} ${t}</span>`).join('')}</div>
     <div class="do">${dt.doing}${dt.partner ? ` · ${dt.married ? '💍' : '💘'} <a data-i="${dt.pid}" style="text-decoration:underline;cursor:pointer">${dt.partner}</a>` : ''}</div>
     ${bar('hunger', dt.hunger, '#e0775a')}${bar('energy', dt.energy, '#e6c65a')}${bar('social', dt.social, '#7fb0f0')}
     <div class="th">“${dt.thought}”</div>
+    ${dt.mem && dt.mem.length ? `<div class="do">🧠 remembers ${dt.mem.map(esc).join(' · ')}</div>` : ''}${dt.thoughts && dt.thoughts.length ? `<div class="do">💭 ${dt.thoughts.map(t => esc(t[0]) + ' (' + (t[1] > 0 ? '+' : '') + t[1] + ')').join(' · ')}</div>` : ''}${dt.skills ? `<div class="do">🛠️ ${dt.skills.map(s => s[0] + ' ' + s[1]).join(' · ')}${dt.ill && dt.ill.length ? ' · 🤒 ' + dt.ill.join(', ') : ''} · STR ${dt.attrs[0]} DEX ${dt.attrs[1]} INT ${dt.attrs[2]} END ${dt.attrs[3]} CHA ${dt.attrs[4]} WIL ${dt.attrs[5]}</div>` : ''}
     <div class="do">✨ Dream: ${dt.dream}${dt.thieves.length ? ` · 🥷 distrusts ${dt.thieves.map(i => names[i]).join(', ')}` : ''}</div>
     <div class="fr">${dt.friends.length ? dt.friends.map(f => `<a data-i="${f[0]}">${names[f[0]]}</a>`).join('') : '<span class="hint" style="color:#7d8ba1">no close friends yet</span>'}</div>
     <div class="act"><button data-a="gift" ${dis('gift')}>🎁 +$2.5k${cd('gift')}</button><button data-a="cupid" ${dis('cupid')}>💘 Cupid${cd('cupid')}</button><button data-a="zap" ${dis('zap')}>⚡ Zap${cd('zap')}</button></div>`;
+  { const fc = $('#cface'); if (fc && dt.face) drawFace(fc, dt.face, 36); const wb = $('#wbtn'); if (wb) wb.onclick = () => toggleWatch(dt.id); }
   c.querySelectorAll('a[data-i]').forEach(a => a.onclick = () => select(+a.dataset.i));
   c.querySelectorAll('button[data-a]').forEach(b => b.onclick = () => send({ t: 'act', n: b.dataset.a, id: sel }));
   if (dt.dead && !deadTimer) deadTimer = setTimeout(() => { deadTimer = null; if (sel === dt.id) select(-1); }, 4000);
 }
+/* ---------- characters: faces, cast, follow ---------- */
+function esc(t) { return String(t).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])); }
+const SKIN = ['#f1c9a5', '#e0ac85', '#c68863', '#9c6a46', '#7a4e32', '#5a3822'], HAIR = ['#2b1d12', '#5a3a1e', '#a0642a', '#d9b45a', '#c0c0c0', '#8a2f1c', '#222', '#6b4a8c'], EYE = ['#3a2a1a', '#2f5d8c', '#3d7a4a', '#6b6b6b', '#8c5a2f'];
+function drawFace(cv, f, size) {
+  const c = cv.getContext('2d'), s = size; cv.width = cv.height = s; c.clearRect(0, 0, s, s);
+  c.fillStyle = HAIR[f[1]]; c.beginPath(); c.arc(s / 2, s * 0.44, s * 0.36, Math.PI, 0); c.fill();                         /* hair */
+  c.fillStyle = SKIN[f[0]]; c.beginPath(); c.ellipse(s / 2, s * 0.55, s * 0.28, s * 0.33, 0, 0, 7); c.fill();               /* head */
+  c.fillStyle = HAIR[f[1]]; c.fillRect(s * 0.2, s * 0.3, s * 0.6, s * 0.1);                                                  /* fringe */
+  c.fillStyle = EYE[f[2]]; c.beginPath(); c.arc(s * 0.4, s * 0.55, s * 0.045, 0, 7); c.arc(s * 0.6, s * 0.55, s * 0.045, 0, 7); c.fill();
+  c.strokeStyle = '#3a2418'; c.lineWidth = Math.max(1, s * 0.03); c.beginPath();
+  c.moveTo(s * 0.35, s * (0.5 - f[4] * 0.012)); c.lineTo(s * 0.45, s * 0.49); c.moveTo(s * 0.55, s * 0.49); c.lineTo(s * 0.65, s * (0.5 - f[4] * 0.012)); c.stroke();   /* brows */
+  c.beginPath(); const m = f[3]; if (m === 0) { c.moveTo(s * 0.42, s * 0.7); c.lineTo(s * 0.58, s * 0.7); } else if (m === 1) c.arc(s / 2, s * 0.66, s * 0.1, 0.2, Math.PI - 0.2); else if (m === 2) c.arc(s / 2, s * 0.76, s * 0.08, Math.PI + 0.3, -0.3); else if (m === 3) { c.moveTo(s * 0.42, s * 0.71); c.quadraticCurveTo(s * 0.5, s * 0.77, s * 0.58, s * 0.69); } else { c.arc(s / 2, s * 0.7, s * 0.05, 0, 7); } c.stroke();
+  const a = f[5]; if (a === 1) { c.strokeStyle = '#222'; c.strokeRect(s * 0.32, s * 0.48, s * 0.15, s * 0.14); c.strokeRect(s * 0.53, s * 0.48, s * 0.15, s * 0.14); c.beginPath(); c.moveTo(s * 0.47, s * 0.54); c.lineTo(s * 0.53, s * 0.54); c.stroke(); } else if (a === 2) { c.fillStyle = HAIR[(f[1] + 2) % 8]; c.beginPath(); c.moveTo(s * 0.34, s * 0.72); c.quadraticCurveTo(s * 0.5, s * 0.86, s * 0.66, s * 0.72); c.fill(); } else if (a === 3) { c.fillStyle = '#c0392b'; c.fillRect(s * 0.2, s * 0.22, s * 0.6, s * 0.08); }
+}
+function castTab() {
+  const el = $('#cast'); if (!castList.length) { el.innerHTML = '<div class="hint">Loading the cast…</div>'; return; }
+  el.innerHTML = '<h4 style="margin:2px 0 6px">Characters worth following</h4>' + castList.map((p, i) => `<div class="cc" data-i="${p.id}"><canvas data-f="${i}" width="44" height="44"></canvas><div><b>${esc(p.name)}</b>${watched.has(p.id) ? ' 🔔' : ''}<small>${esc(p.job)} · ${esc(p.town)} · age ${p.age} · fame ${p.fame} · mood ${p.mood}</small>${p.line ? `<small>remembers ${esc(p.line)}</small>` : ''}</div></div>`).join('');
+  el.querySelectorAll('canvas[data-f]').forEach(cv => drawFace(cv, castList[+cv.dataset.f].face, 44));
+  el.querySelectorAll('.cc').forEach(r => r.onclick = () => select(+r.dataset.i));
+}
+function toast(id, text) { const n = $('#note'); if (!n) return; const d = document.createElement('div'); d.textContent = `🔔 ${text}`; d.onclick = () => select(id); n.appendChild(d); setTimeout(() => d.remove(), 9000); while (n.children.length > 4) n.firstChild.remove(); }
+function toggleWatch(id) { if (watched.has(id)) { watched.delete(id); send({ t: 'watch', id, on: false }); } else if (watched.size < 8) { watched.add(id); send({ t: 'watch', id, on: true }); } try { localStorage.setItem('dv-watch', JSON.stringify([...watched])); } catch (e) { } card(); }
 function town() {
   if (!stat || !stat.lead) return; const L = stat.lead;
   const row = (t, arr, f) => `<h4>${t}</h4>` + arr.map(([id, v], i) => `<div class="row" data-i="${id}"><span>${i + 1}. ${names[id]}</span><i>${f(v)}</i></div>`).join('');
@@ -170,7 +197,7 @@ function gazetteTab() {
   g.innerHTML = h + links;
   g.querySelectorAll('[data-share]').forEach(b => b.onclick = () => { const u = location.origin + b.dataset.share; (navigator.share ? navigator.share({ title: document.title, url: u }) : navigator.clipboard.writeText(u).then(() => { b.textContent = 'Link copied!'; })); });
 }
-const ARC_ICON = { rivalry: '⚔️', triangle: '💞', feud: '🏚️', protege: '🌱', drought: '☀️', investor: '💼' };
+const ARC_ICON = { rivalry: '⚔️', triangle: '💞', feud: '🏚️', protege: '🌱', drought: '☀️', investor: '💼', comeback: '🌅', panic: '🏦', gangster: '🐺', disgrace: '🔥' };
 function addChron(e, live) { chron.push(e); if (chron.length > 300) chron.shift(); if (live && tab === 'story') storyTab(); }
 function storyTab() {
   const esc = t => String(t).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
@@ -436,7 +463,7 @@ $('#zo').onclick = () => { camTarget = Math.max(1, cam.z / 1.6); };
 $('#bFest').onclick = () => send({ t: 'act', n: 'festival' });
 $('#bBlight').onclick = () => send({ t: 'act', n: 'blight' });
 $('#bCam').onclick = e => { auto = !auto; e.currentTarget.classList.toggle('on', auto); if (!auto && dirIds) { dirIds = null; pick_(-1, false); } };
-document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => { tab = b.dataset.t; document.querySelectorAll('#tabs button').forEach(x => x.classList.toggle('on', x === b)); $('#ticker').style.display = tab === 'feed' ? '' : 'none'; $('#town').style.display = tab === 'town' ? 'block' : 'none'; $('#story').style.display = tab === 'story' ? 'block' : 'none'; $('#gazette').style.display = tab === 'gazette' ? 'block' : 'none'; if (tab === 'town') town(); if (tab === 'story') storyTab(); if (tab === 'gazette') gazetteTab(); });
+document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => { tab = b.dataset.t; document.querySelectorAll('#tabs button').forEach(x => x.classList.toggle('on', x === b)); $('#ticker').style.display = tab === 'feed' ? '' : 'none'; $('#town').style.display = tab === 'town' ? 'block' : 'none'; $('#story').style.display = tab === 'story' ? 'block' : 'none'; $('#gazette').style.display = tab === 'gazette' ? 'block' : 'none'; $('#cast').style.display = tab === 'cast' ? 'block' : 'none'; if (tab === 'cast') { castTab(); send({ t: 'cast' }); } if (tab === 'town') town(); if (tab === 'story') storyTab(); if (tab === 'gazette') gazetteTab(); });
 cv.addEventListener('pointerdown', () => { userAt = performance.now(); });
 $('#bTr').onclick = e => { translate = !translate; e.currentTarget.classList.toggle('on', translate); };
 $('#bSpd').onclick = e => { localSpeed = localSpeed === 1 ? 4 : localSpeed === 4 ? 12 : 1; e.currentTarget.textContent = '⏩ ×' + localSpeed; };
