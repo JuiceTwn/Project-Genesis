@@ -104,3 +104,10 @@ aggregate shortcuts with individual agents and objects wherever the speed budget
 - Close-up zoom is per screen size (`followZoom`), and the camera waits for a dot's position to arrive before following it (no more flying to the map corner).
 - Client state (`dots`, `blds`, `setts`, `stat`, `detail`...) is typed from `shared/protocol.ts`: implicit-any spots 541 -> 361.
 - Not done: demo.html is still a cold start (warm-up is server-only); no sound; the map has no minimap; phone landscape is untested.
+
+## Rendering is now behind an interface (client/render/)
+- `camera.ts` (pure maths), `theme.ts` (design tokens + sprite names), `sprites.ts` (atlas with procedural fallback), `types.ts` (RenderView / Renderer), `canvas2d.ts` (the existing look, moved byte-for-byte), `face.ts`. See `client/render/README.md` for how to restyle.
+- The refactor was verified pixel-identical: 16 deterministic scenes (desktop + phone: overview, region, town labels, street, selected dot, night, rain, snow). `npm run visual:baseline | visual:check | visual:seams` (needs a `data/visual/golden` baseline; capture one before any visual change).
+- The test hook (`__dvTest`, only if the page sets `__DV_TEST__`) never starts the sim timer or draw loop, so frames are deterministic. Lesson learned: a real-time timer firing before the freeze made two builds start from different sim ticks.
+- Implicit-any spots: 541 -> 291.
+- Open decisions for the art pass: Canvas 2D vs WebGL, art style, dot sprites/animation, quality setting.

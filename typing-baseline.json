@@ -1,5 +1,5 @@
 {
-  "src/client/main.ts": 174,
+  "src/client/main.ts": 120,
   "src/server/main.ts": 2,
   "src/sim/activity.ts": 2,
   "src/sim/bank.ts": 2,
